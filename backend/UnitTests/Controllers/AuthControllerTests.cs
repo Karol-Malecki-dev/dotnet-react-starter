@@ -5,6 +5,7 @@ using Application.Interfaces;
 using Domain.Entities;
 using Domain.Entities.JWT;
 using Domain.Enums;
+using Domain.Enums.Auth;
 using Domain.Interfaces;
 using Domain.ValueObjects;
 using Microsoft.AspNetCore.Http;
@@ -327,7 +328,6 @@ public class AuthControllerTests
         Assert.Equal(200, okResult.StatusCode);
         Assert.Equal("Email confirmed successfully", response.Message);
     }
-
     [Fact]
     public async Task VerifyTwoFactor_Returns_ok_when_code_is_valid()
     {
@@ -430,5 +430,137 @@ public class AuthControllerTests
 
         Assert.Equal(200, okResult.StatusCode);
         Assert.Equal("Current user info", response.Message);
+    }
+    [Fact]
+    public async Task ForgotPassword_Returns_ok_with_generic_message_when_user_does_not_exist()
+    {
+        var request = new ForgotPasswordRequestDto
+        {
+            Email = "nonexistent@example.com",
+            ResetType = ResetType.Link
+        };
+
+        _authServiceMock.Setup(x => x.SendPasswordResetEmailAsync(request.Email))
+            .ReturnsAsync(false);
+
+        var actionResult = await _controller.ForgotPassword(request);
+
+        var okResult = Assert.IsType<OkObjectResult>(actionResult);
+        var response = Assert.IsType<ApiResponse<object>>(okResult.Value);
+
+        Assert.Equal(200, okResult.StatusCode);
+        Assert.Equal("If the account exists, a password reset message has been sent.", response.Message);
+        _authServiceMock.Verify(x => x.SendPasswordResetEmailAsync(request.Email), Times.Once);
+    }
+
+    [Fact]
+    public async Task ForgotPassword_Returns_ok_when_reset_request_is_started()
+    {
+        var request = new ForgotPasswordRequestDto
+        {
+            Email = "known@example.com",
+            ResetType = ResetType.Link
+        };
+
+        _authServiceMock.Setup(x => x.SendPasswordResetEmailAsync(request.Email))
+            .ReturnsAsync(true);
+
+        var actionResult = await _controller.ForgotPassword(request);
+
+        var okResult = Assert.IsType<OkObjectResult>(actionResult);
+        var response = Assert.IsType<ApiResponse<object>>(okResult.Value);
+
+        Assert.Equal(200, okResult.StatusCode);
+        Assert.Equal("Password reset email sent", response.Message);
+        _authServiceMock.Verify(x => x.SendPasswordResetEmailAsync(request.Email), Times.Once);
+    }
+
+    [Fact]
+    public async Task ForgotPassword_Returns_bad_request_when_reset_type_is_not_link()
+    {
+        var request = new ForgotPasswordRequestDto
+        {
+            Email = "known@example.com",
+            ResetType = ResetType.Code
+        };
+
+        var actionResult = await _controller.ForgotPassword(request);
+
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(actionResult);
+        var response = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
+
+        Assert.Equal(400, badRequestResult.StatusCode);
+        Assert.Equal("Only link-based password reset is currently supported", response.Message);
+        _authServiceMock.Verify(x => x.SendPasswordResetEmailAsync(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ResetPassword_Returns_bad_request_when_token_is_missing()
+    {
+        var request = new ResetPasswordRequestDto
+        {
+            Email = "known@example.com",
+            ResetType = ResetType.Link,
+            Token = string.Empty,
+            NewPassword = "NewPassword123!"
+        };
+
+        var actionResult = await _controller.ResetPassword(request);
+
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(actionResult);
+        var response = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
+
+        Assert.Equal(400, badRequestResult.StatusCode);
+        Assert.Equal("Reset token is required", response.Message);
+        _authServiceMock.Verify(x => x.ResetPasswordAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ResetPassword_Returns_ok_when_reset_succeeds()
+    {
+        var request = new ResetPasswordRequestDto
+        {
+            Email = "known@example.com",
+            ResetType = ResetType.Link,
+            Token = "reset-token-123",
+            NewPassword = "NewPassword123!"
+        };
+
+        _authServiceMock
+            .Setup(x => x.ResetPasswordAsync(request.Email, request.Token!, request.NewPassword))
+            .ReturnsAsync(true);
+
+        var actionResult = await _controller.ResetPassword(request);
+
+        var okResult = Assert.IsType<OkObjectResult>(actionResult);
+        var response = Assert.IsType<ApiResponse<object>>(okResult.Value);
+
+        Assert.Equal(200, okResult.StatusCode);
+        Assert.Equal("Password reset successful", response.Message);
+        _authServiceMock.Verify(x => x.ResetPasswordAsync(request.Email, request.Token!, request.NewPassword), Times.Once);
+    }
+
+    [Fact]
+    public async Task ResetPassword_Returns_bad_request_when_reset_fails()
+    {
+        var request = new ResetPasswordRequestDto
+        {
+            Email = "known@example.com",
+            ResetType = ResetType.Link,
+            Token = "invalid-token",
+            NewPassword = "NewPassword123!"
+        };
+
+        _authServiceMock
+            .Setup(x => x.ResetPasswordAsync(request.Email, request.Token!, request.NewPassword))
+            .ReturnsAsync(false);
+
+        var actionResult = await _controller.ResetPassword(request);
+
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(actionResult);
+        var response = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
+
+        Assert.Equal(400, badRequestResult.StatusCode);
+        Assert.Equal("Invalid token or email", response.Message);
     }
 }
