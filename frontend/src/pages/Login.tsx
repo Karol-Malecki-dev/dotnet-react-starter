@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth';
 import type { LoginFormValues } from '../utils/authSchemas';
 import { loginSchema } from '../utils/authSchemas';
 import { getApiErrorMessage } from '../utils/helpers';
+import { clearPendingTwoFactor, savePendingTwoFactor } from '../utils/pendingTwoFactor';
 
 export default function Login() {
   const { login, loading, error, clearError } = useAuth();
@@ -14,6 +15,7 @@ export default function Login() {
   const location = useLocation();
   const from = (location.state as { from?: Location } | null)?.from?.pathname ?? '/dashboard';
   const reason = (location.state as { reason?: string } | null)?.reason;
+  const registrationPendingEmail = (location.state as { registrationPendingEmail?: string } | null)?.registrationPendingEmail;
   const {
     register,
     handleSubmit,
@@ -31,7 +33,25 @@ export default function Login() {
     setSubmitError(null);
 
     try {
-      await login(values.email, values.password);
+      const result = await login(values.email, values.password);
+
+      if (result.kind === 'two-factor-required') {
+        const pendingChallenge = {
+          ...result.challenge,
+          fromPath: from,
+        };
+
+        savePendingTwoFactor(pendingChallenge);
+        navigate('/verify-2fa', {
+          replace: true,
+          state: {
+            challenge: pendingChallenge,
+          },
+        });
+        return;
+      }
+
+      clearPendingTwoFactor();
       navigate(from, { replace: true });
     } catch (caughtError) {
       setSubmitError(
@@ -49,12 +69,13 @@ export default function Login() {
         <p className="eyebrow">JWT access</p>
         <h1>Sign in to the control panel.</h1>
         <p>
-          Access the authenticated area, bootstrap the current session from JWT and continue where you left off.
+          Access the authenticated area, bootstrap the current session from JWT and complete email-based 2FA when the account requires it.
         </p>
         <ul className="auth-callout__list">
           <li>Automatic redirect back to the protected route you requested.</li>
           <li>Refresh-token based session recovery after page reload.</li>
-          <li>Consistent error handling for invalid credentials and expired sessions.</li>
+          <li>Email confirmation is required before the first successful sign-in.</li>
+          <li>Consistent error handling for invalid credentials, expired sessions, and 2FA challenges.</li>
         </ul>
       </article>
 
@@ -62,10 +83,18 @@ export default function Login() {
         <div className="auth-panel__header">
           <p className="eyebrow">Welcome back</p>
           <h2>Log in</h2>
-          <p>Use the account created through the backend JWT flow.</p>
+          <p>Use the confirmed account credentials, then enter the email verification code if prompted.</p>
         </div>
 
         {reason === 'session-expired' ? <p className="form__warning">Your session expired. Please sign in again.</p> : null}
+        {reason === 'password-reset' ? (
+          <p className="form__success">Your password has been reset. Please sign in with your new password.</p>
+        ) : null}
+        {registrationPendingEmail ? (
+          <p className="form__warning">
+            Account created for {registrationPendingEmail}. Confirm the email first, then sign in to receive the 2FA code.
+          </p>
+        ) : null}
 
         <form className="form" noValidate onSubmit={handleSubmit(onSubmit)}>
           <label className="field">
@@ -90,6 +119,9 @@ export default function Login() {
             />
             {errors.password ? <span className="field__error">{errors.password.message}</span> : null}
           </label>
+          <p className="auth-panel__footer">
+            <Link to="/forgot-password">Forgot your password?</Link>
+          </p>
           {submitError ?? error ? <p className="form__error">{submitError ?? error}</p> : null}
           <button className="button button--block" type="submit" disabled={loading}>
             {loading ? 'Signing in...' : 'Sign in'}

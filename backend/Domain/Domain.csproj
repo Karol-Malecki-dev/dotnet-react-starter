@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <Folder Include="Constants\" />
+    <Folder Include="Models\Auths\" />
     <Folder Include="ValueObjects\" />
   </ItemGroup>
 

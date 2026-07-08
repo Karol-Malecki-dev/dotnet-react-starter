@@ -98,6 +98,34 @@ export interface UpdateUserRoleResponse {
   timestamp: string;
 }
 
+/** Account security snapshot - maps to Application.DTOs.User.UserSecurityDto. */
+export interface UserSecurity {
+  email: string;
+  isEmailConfirmed: boolean;
+  isTwoFactorEnabled: boolean;
+}
+
+/** Maps to Application.DTOs.User.UpdateTwoFactorPreferenceDto. */
+export interface UpdateTwoFactorPreferenceRequest {
+  enable: boolean;
+}
+
+export interface GetUserSecurityResponse {
+  statusCode: number;
+  message: string;
+  data: UserSecurity;
+  errors: ErrorDetail[] | null;
+  timestamp: string;
+}
+
+export interface UpdateTwoFactorPreferenceResponse {
+  statusCode: number;
+  message: string;
+  data: UserSecurity;
+  errors: ErrorDetail[] | null;
+  timestamp: string;
+}
+
 export interface DeleteUserResponse {
   statusCode: number;
   message: string;
@@ -133,3 +161,29 @@ export interface UserFormState {
   success: boolean;
   successMessage: string | null;
 }
+
+export interface UserSecurity {
+  email: string;
+  isEmailConfirmed: boolean;
+  hasTwoFactorEnabled: boolean;
+}
+
+export interface UpdateTwoFactorPreferenceRequest {
+  enable: boolean;
+}
+
+export interface GetUserSecurityResponse {
+  statusCode: number;
+  message: string;
+  data: UserSecurity;
+  errors: ErrorDetail[] | null;
+  timestamp: string;
+}
+
+export interface UpdateTwoFactorPreferenceResponse {
+  statusCode: number;
+  message: string;
+  data: UserSecurity;
+  errors: ErrorDetail[] | null;
+  timestamp: string;
+} 

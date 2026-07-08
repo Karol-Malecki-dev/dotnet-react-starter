@@ -3,14 +3,18 @@ using Application.Interfaces;
 using Domain.Entities;
 using Domain.Entities.JWT;
 using Domain.Interfaces;
+using Domain.ValueObjects;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
 using Shared.Responses;
 using Shared.Settings;
 using System.ComponentModel.DataAnnotations;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace API.Controllers
 {
@@ -20,22 +24,31 @@ namespace API.Controllers
     {
         private readonly IJwtTokenService _jwtTokenService;
         private readonly IAuthService _authService;
+        private readonly IAccountEmailSender _accountEmailSender;
         private readonly IUserService _userService;
+        private readonly EmailConfirmationSettings _emailConfirmationSettings;
+        private readonly EmailTwoFactorSettings _emailTwoFactorSettings;
         private readonly ILogger<AuthController> _logger;
         private readonly JwtSettings _jwtSettings;
 
         public AuthController(
             IJwtTokenService jwtTokenService,
             IAuthService authService,
+            IAccountEmailSender accountEmailSender,
             IUserService userService,
             ILogger<AuthController> logger,
-            IOptions<JwtSettings> jwtOptions)
+            IOptions<JwtSettings> jwtOptions,
+            IOptions<EmailConfirmationSettings> emailConfirmationOptions,
+            IOptions<EmailTwoFactorSettings> emailTwoFactorOptions)
         {
             _jwtTokenService = jwtTokenService;
             _authService = authService;
+            _accountEmailSender = accountEmailSender;
             _userService = userService;
             _logger = logger;
             _jwtSettings = jwtOptions.Value;
+            _emailConfirmationSettings = emailConfirmationOptions.Value;
+            _emailTwoFactorSettings = emailTwoFactorOptions.Value;
         }
 
         /// <summary>
@@ -60,6 +73,35 @@ namespace API.Controllers
                 {
                     _logger.LogWarning("⚠️ Login failed for email: {Email}", dto.Email);
                     return Unauthorized(ApiResponse<object>.Error(401, "Invalid email or password", null));
+                }
+
+                if (!user.IsEmailConfirmed)
+                {
+                    _logger.LogWarning("⚠️ Login blocked for unconfirmed email: {Email}", dto.Email);
+                    return StatusCode(403, ApiResponse<object>.Error(403, "Email address is not confirmed", null));
+                }
+
+                if (_emailTwoFactorSettings.Enabled && user.IsTwoFactorEnabled)
+                {
+                    var challenge = await _authService.CreateEmailTwoFactorChallengeAsync(user.Id);
+                    if (challenge is null)
+                    {
+                        _logger.LogError("❌ Two-factor challenge generation failed for user: {UserId}", user.Id);
+                        return StatusCode(500, ApiResponse<object>.Error(500, "Two-factor verification could not be started", null));
+                    }
+
+                    await _accountEmailSender.SendTwoFactorCodeAsync(
+                        challenge.Email,
+                        challenge.DisplayName,
+                        challenge.Code,
+                        challenge.ExpiresAt);
+
+                    _logger.LogInformation("📨 Two-factor challenge created for user: {UserId}", user.Id);
+
+                    return Accepted(ApiResponse<TwoFactorChallengeResponseDto>.Success(
+                        CreateTwoFactorChallengeResponse(challenge),
+                        "Two-factor verification required. Check your email for the code.",
+                        202));
                 }
 
                 // Generate JWT tokens
@@ -110,17 +152,164 @@ namespace API.Controllers
                     return StatusCode(500, ApiResponse<object>.Error(500, "User registration failed", null));
                 }
 
-                // Generate JWT tokens
-                var tokens = await _jwtTokenService.GenerateTokensAsync(user);
-                SetRefreshTokenCookie(tokens.RefreshToken);
+                var confirmationToken = await _authService.GenerateEmailConfirmationTokenAsync(user.Id);
+                if (string.IsNullOrWhiteSpace(confirmationToken))
+                {
+                    _logger.LogError("❌ Confirmation token generation failed for user: {UserId}", user.Id);
+                    return StatusCode(500, ApiResponse<object>.Error(500, "User registered but confirmation email could not be prepared", null));
+                }
+
+                await _accountEmailSender.SendEmailConfirmationAsync(
+                    user.Email,
+                    user.DisplayName,
+                    BuildConfirmationLink(user.Id, confirmationToken));
 
                 _logger.LogInformation("✓ Registration successful for user: {UserId} ({Email})", user.Id, user.Email);
 
-                return Created($"api/auth/user/{user.Id}", ApiResponse<AuthTokenResponse>.Success(CreateTokenResponse(tokens), "Registration successful", 201));
+                return Created(
+                    $"api/auth/user/{user.Id}",
+                    ApiResponse<RegisterUserResultDto>.Success(
+                        new RegisterUserResultDto
+                        {
+                            Email = user.Email,
+                            RequiresEmailConfirmation = true
+                        },
+                        "Registration successful. Check your email to confirm the account.",
+                        201));
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "❌ Registration error");
+                return StatusCode(500, ApiResponse<object>.Error(500, "Internal server error", null));
+            }
+        }
+
+        [HttpPost("confirm-email")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ConfirmEmail([FromBody] ConfirmEmailRequestDto request)
+        {
+            if (!ModelState.IsValid || request.UserId == Guid.Empty || string.IsNullOrWhiteSpace(request.Token))
+                return BadRequest(ApiResponse<object>.Error(400, "Invalid confirmation request", null));
+
+            try
+            {
+                var confirmed = await _authService.ConfirmEmailAsync(request.UserId, request.Token);
+                if (!confirmed)
+                {
+                    return BadRequest(ApiResponse<object>.Error(400, "Invalid or expired confirmation link", null));
+                }
+
+                return Ok(ApiResponse<object>.Success(null, "Email confirmed successfully", 200));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Confirm email error for user {UserId}", request.UserId);
+                return StatusCode(500, ApiResponse<object>.Error(500, "Internal server error", null));
+            }
+        }
+
+        [HttpPost("resend-confirmation")]
+        [AllowAnonymous]
+        [EnableRateLimiting("AuthPolicy")]
+        public async Task<IActionResult> ResendConfirmation([FromBody] ResendConfirmationEmailRequestDto request)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ApiResponse<object>.Error(400, "Invalid request data", null));
+
+            try
+            {
+                var userResult = await _userService.GetUserByEmailAsync(request.Email);
+                var userId = userResult.Data?.Id;
+
+                if (userId is Guid existingUserId && existingUserId != Guid.Empty)
+                {
+                    var isConfirmed = await _authService.IsEmailConfirmedAsync(existingUserId);
+                    if (!isConfirmed)
+                    {
+                        var confirmationToken = await _authService.GenerateEmailConfirmationTokenAsync(existingUserId);
+                        if (!string.IsNullOrWhiteSpace(confirmationToken) && userResult.Data is not null)
+                        {
+                            await _accountEmailSender.SendEmailConfirmationAsync(
+                                userResult.Data.Email,
+                                userResult.Data.DisplayName,
+                                BuildConfirmationLink(existingUserId, confirmationToken));
+                        }
+                    }
+                }
+
+                return Ok(ApiResponse<object>.Success(
+                    null,
+                    "If the account exists and is not yet confirmed, a confirmation email has been sent.",
+                    200));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Resend confirmation error for {Email}", request.Email);
+                return StatusCode(500, ApiResponse<object>.Error(500, "Internal server error", null));
+            }
+        }
+
+        [HttpPost("verify-2fa")]
+        [AllowAnonymous]
+        [EnableRateLimiting("AuthPolicy")]
+        public async Task<IActionResult> VerifyTwoFactor([FromBody] VerifyTwoFactorRequestDto request)
+        {
+            if (!ModelState.IsValid || request.ChallengeId == Guid.Empty || string.IsNullOrWhiteSpace(request.Code))
+                return BadRequest(ApiResponse<object>.Error(400, "Invalid two-factor verification request", null));
+
+            try
+            {
+                var user = await _authService.VerifyEmailTwoFactorChallengeAsync(request.ChallengeId, request.Code);
+                if (user is null)
+                {
+                    return Unauthorized(ApiResponse<object>.Error(401, "Invalid or expired two-factor code", null));
+                }
+
+                var tokens = await _jwtTokenService.GenerateTokensAsync(user);
+                SetRefreshTokenCookie(tokens.RefreshToken);
+
+                return Ok(ApiResponse<AuthTokenResponse>.Success(
+                    CreateTokenResponse(tokens),
+                    "Two-factor verification successful",
+                    200));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Verify 2FA error for challenge {ChallengeId}", request.ChallengeId);
+                return StatusCode(500, ApiResponse<object>.Error(500, "Internal server error", null));
+            }
+        }
+
+        [HttpPost("resend-2fa")]
+        [AllowAnonymous]
+        [EnableRateLimiting("AuthPolicy")]
+        public async Task<IActionResult> ResendTwoFactor([FromBody] ResendTwoFactorRequestDto request)
+        {
+            if (!ModelState.IsValid || request.ChallengeId == Guid.Empty)
+                return BadRequest(ApiResponse<object>.Error(400, "Invalid two-factor resend request", null));
+
+            try
+            {
+                var challenge = await _authService.ResendEmailTwoFactorChallengeAsync(request.ChallengeId);
+                if (challenge is null)
+                {
+                    return BadRequest(ApiResponse<object>.Error(400, "Invalid or expired two-factor challenge", null));
+                }
+
+                await _accountEmailSender.SendTwoFactorCodeAsync(
+                    challenge.Email,
+                    challenge.DisplayName,
+                    challenge.Code,
+                    challenge.ExpiresAt);
+
+                return Ok(ApiResponse<TwoFactorChallengeResponseDto>.Success(
+                    CreateTwoFactorChallengeResponse(challenge),
+                    "A new verification code has been sent.",
+                    200));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Resend 2FA error for challenge {ChallengeId}", request.ChallengeId);
                 return StatusCode(500, ApiResponse<object>.Error(500, "Internal server error", null));
             }
         }
@@ -313,6 +502,16 @@ namespace API.Controllers
             };
         }
 
+        private TwoFactorChallengeResponseDto CreateTwoFactorChallengeResponse(EmailTwoFactorChallengeDelivery challenge)
+        {
+            return new TwoFactorChallengeResponseDto
+            {
+                ChallengeId = challenge.ChallengeId,
+                DestinationHint = MaskEmail(challenge.Email),
+                ExpiresAt = challenge.ExpiresAt
+            };
+        }
+
         private void SetRefreshTokenCookie(string refreshToken)
         {
             Response.Cookies.Append(_jwtSettings.RefreshTokenCookieName, refreshToken, CreateRefreshTokenCookieOptions());
@@ -321,6 +520,37 @@ namespace API.Controllers
         private void ClearRefreshTokenCookie()
         {
             Response.Cookies.Delete(_jwtSettings.RefreshTokenCookieName, CreateRefreshTokenCookieOptions(DateTimeOffset.UnixEpoch));
+        }
+
+        private string BuildConfirmationLink(Guid userId, string token)
+        {
+            var origin = _emailConfirmationSettings.PublicOrigin.TrimEnd('/');
+            var path = _emailConfirmationSettings.ConfirmationPath.StartsWith('/')
+                ? _emailConfirmationSettings.ConfirmationPath
+                : "/" + _emailConfirmationSettings.ConfirmationPath;
+
+            return QueryHelpers.AddQueryString(origin + path, new Dictionary<string, string?>
+            {
+                ["userId"] = userId.ToString(),
+                ["token"] = token
+            });
+        }
+
+        private static string MaskEmail(string email)
+        {
+            var parts = email.Split('@', 2, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length != 2)
+            {
+                return email;
+            }
+
+            var localPart = parts[0];
+            if (localPart.Length <= 2)
+            {
+                return $"{localPart[0]}***@{parts[1]}";
+            }
+
+            return $"{localPart[0]}***{localPart[^1]}@{parts[1]}";
         }
 
         private CookieOptions CreateRefreshTokenCookieOptions(DateTimeOffset? expires = null)
@@ -374,14 +604,20 @@ namespace API.Controllers
         {
             if (!ModelState.IsValid)
                 return BadRequest(ApiResponse<object>.Error(400, "Invalid request data", null));
+
+            if (dto.ResetType != Domain.Enums.Auth.ResetType.Link)
+                return BadRequest(ApiResponse<object>.Error(400, "Only link-based password reset is currently supported", null));
+
             try
             {
                 _logger.LogInformation("🔑 Forgot password request for email: {Email}", dto.Email);
                 var result = await _authService.SendPasswordResetEmailAsync(dto.Email);
                 if (!result)
                 {
-                    _logger.LogWarning("⚠️ Forgot password failed for email: {Email}", dto.Email);
-                    return NotFound(ApiResponse<object>.Error(404, "User not found", null));
+                    return Ok(ApiResponse<object>.Success(
+                        null,
+                        "If the account exists, a password reset message has been sent.",
+                        200));
                 }
                 _logger.LogInformation("✓ Password reset email sent to: {Email}", dto.Email);
                 return Ok(ApiResponse<object>.Success(null, "Password reset email sent", 200));
@@ -400,6 +636,13 @@ namespace API.Controllers
         {
             if (!ModelState.IsValid)
                 return BadRequest(ApiResponse<object>.Error(400, "Invalid request data", null));
+
+            if (request.ResetType != Domain.Enums.Auth.ResetType.Link)
+                return BadRequest(ApiResponse<object>.Error(400, "Only link-based password reset is currently supported", null));
+
+            if (string.IsNullOrWhiteSpace(request.Token))
+                return BadRequest(ApiResponse<object>.Error(400, "Reset token is required", null));
+
             try
             {
                 var success = await _authService.ResetPasswordAsync(

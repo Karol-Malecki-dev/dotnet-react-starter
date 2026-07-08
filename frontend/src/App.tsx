@@ -4,13 +4,17 @@ import { AppNoticeCenter } from './components/UI/AppNoticeCenter';
 import { Navbar } from './components/UI/Navbar';
 import { ProtectedRoute } from './components/UI/ProtectedRoute';
 import AdminPanel from './pages/AdminPanel';
+import ConfirmEmail from './pages/ConfirmEmail';
 import Dashboard from './pages/Dashboard';
 import Forbidden from './pages/Forbidden';
+import ForgotPassword from './pages/ForgotPassword';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import NotFound from './pages/NotFound';
 import Profile from './pages/Profile';
 import Register from './pages/Register';
+import ResetPassword from './pages/ResetPassword';
+import VerifyTwoFactor from './pages/VerifyTwoFactor';
 import UserList from './pages/users/UserList';
 
 export default function App() {
@@ -25,6 +29,10 @@ export default function App() {
               <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/confirm-email" element={<ConfirmEmail />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/verify-2fa" element={<VerifyTwoFactor />} />
 
               <Route element={<ProtectedRoute />}>
                 <Route path="/dashboard" element={<Dashboard />} />

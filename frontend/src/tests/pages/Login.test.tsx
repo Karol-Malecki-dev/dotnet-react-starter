@@ -13,7 +13,7 @@ describe('Login page', () => {
   });
 
   it('submits the login form and calls login with entered credentials', async () => {
-    const login = jest.fn().mockResolvedValue(undefined);
+    const login = jest.fn().mockResolvedValue({ kind: 'authenticated' });
     const clearError = jest.fn();
 
     mockedUseAuth.mockReturnValue({

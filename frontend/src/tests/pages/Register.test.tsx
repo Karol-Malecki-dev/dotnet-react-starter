@@ -13,7 +13,10 @@ describe('Register page', () => {
   });
 
   it('submits all fields required by the backend register contract', async () => {
-    const register = jest.fn().mockResolvedValue(undefined);
+    const register = jest.fn().mockResolvedValue({
+      email: 'karol@example.com',
+      requiresEmailConfirmation: true,
+    });
 
     mockedUseAuth.mockReturnValue({
       register,
@@ -30,7 +33,7 @@ describe('Register page', () => {
 
     fireEvent.change(screen.getByLabelText(/first name/i), { target: { value: 'Karol' } });
     fireEvent.change(screen.getByLabelText(/last name/i), { target: { value: 'Kowalski' } });
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'karol@example.com' } });
+    fireEvent.change(screen.getByLabelText(/^email$/i), { target: { value: 'karol@example.com' } });
     fireEvent.change(screen.getByLabelText(/phone/i), { target: { value: '+48 123 456 789' } });
     fireEvent.change(screen.getByLabelText(/address/i), { target: { value: 'Warsaw' } });
     fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'password123' } });
@@ -66,7 +69,7 @@ describe('Register page', () => {
 
     fireEvent.change(screen.getByLabelText(/first name/i), { target: { value: 'Karol' } });
     fireEvent.change(screen.getByLabelText(/last name/i), { target: { value: 'Kowalski' } });
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'karol@example.com' } });
+    fireEvent.change(screen.getByLabelText(/^email$/i), { target: { value: 'karol@example.com' } });
     fireEvent.change(screen.getByLabelText(/phone/i), { target: { value: '+48 123 456 789' } });
     fireEvent.change(screen.getByLabelText(/address/i), { target: { value: 'Warsaw' } });
     fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'password123' } });
@@ -89,7 +92,7 @@ describe('Register page', () => {
       </MemoryRouter>
     );
 
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'wrong-format' } });
+    fireEvent.change(screen.getByLabelText(/^email$/i), { target: { value: 'wrong-format' } });
     fireEvent.change(screen.getByLabelText(/phone/i), { target: { value: '123' } });
     fireEvent.change(screen.getByLabelText(/address/i), { target: { value: 'ab' } });
     fireEvent.change(screen.getByLabelText(/password/i), { target: { value: '123' } });

@@ -18,6 +18,15 @@ services:
       timeout: 5s
       retries: 10
 
+  mailpit:
+    image: axllent/mailpit:v1.27
+    container_name: dotnet-react-mailpit
+    ports:
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
+      - "${MAILPIT_HTTP_PORT:-8025}:8025"
+    networks:
+      - dotnet-react-network
+
   # Backend API (.NET)
   backend:
     build:
@@ -45,9 +54,27 @@ services:
       - Cors__AllowedOrigins__0=${CORS_ALLOWED_ORIGIN_0:-http://localhost:3000}
       - Cors__AllowedOrigins__1=${CORS_ALLOWED_ORIGIN_1:-http://localhost:5173}
       - Cors__AllowedOrigins__2=${CORS_ALLOWED_ORIGIN_2:-https://localhost:5173}
+      - EmailConfirmation__PublicOrigin=${EMAIL_CONFIRMATION_PUBLIC_ORIGIN:-http://localhost:3000}
+      - EmailConfirmation__ConfirmationPath=${EMAIL_CONFIRMATION_CONFIRMATION_PATH:-/confirm-email}
+      - EmailConfirmation__TokenExpiresInHours=${EMAIL_CONFIRMATION_TOKEN_EXPIRES_IN_HOURS:-24}
+      - EmailTwoFactor__Enabled=${EMAIL_TWO_FACTOR_ENABLED:-true}
+      - EmailTwoFactor__EnableForNewUsers=${EMAIL_TWO_FACTOR_ENABLE_FOR_NEW_USERS:-true}
+      - EmailTwoFactor__CodeExpiresInMinutes=${EMAIL_TWO_FACTOR_CODE_EXPIRES_IN_MINUTES:-10}
+      - EmailTwoFactor__CodeLength=${EMAIL_TWO_FACTOR_CODE_LENGTH:-6}
+      - EmailTwoFactor__MaxFailedAttempts=${EMAIL_TWO_FACTOR_MAX_FAILED_ATTEMPTS:-5}
+      - EmailDelivery__Enabled=${EMAIL_DELIVERY_ENABLED:-true}
+      - EmailDelivery__Host=${EMAIL_DELIVERY_HOST:-mailpit}
+      - EmailDelivery__Port=${EMAIL_DELIVERY_PORT:-1025}
+      - EmailDelivery__FromAddress=${EMAIL_DELIVERY_FROM_ADDRESS:-noreply@dotnet-react-starter.local}
+      - EmailDelivery__FromName=${EMAIL_DELIVERY_FROM_NAME:-Dotnet React Starter}
+      - EmailDelivery__Username=${EMAIL_DELIVERY_USERNAME:-}
+      - EmailDelivery__Password=${EMAIL_DELIVERY_PASSWORD:-}
+      - EmailDelivery__UseStartTls=${EMAIL_DELIVERY_USE_START_TLS:-false}
     depends_on:
       db:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     networks:
       - dotnet-react-network
     healthcheck:

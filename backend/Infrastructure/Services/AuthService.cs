@@ -1,7 +1,13 @@
+using Application.Interfaces;
 using Domain.Entities;
+using Domain.Entities.Auth;
 using Domain.Enums;
+using Domain.Enums.Auth;
 using Domain.Interfaces;
+using Domain.ValueObjects;
 using Infrastructure.Data;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
@@ -12,14 +18,18 @@ public class AuthService : IAuthService
 {
     private readonly ApplicationDbContext _dbContext;
     private readonly ILogger<AuthService> _logger;
+    private readonly IUserService _userService;
+
+    private readonly PasswordHasher<User> _passwordHasher = new();
 
     private static readonly ConcurrentDictionary<string, (Guid UserId, DateTime ExpiresAt)> PasswordResetTokens = new();
     private static readonly ConcurrentDictionary<string, (Guid UserId, DateTime ExpiresAt)> EmailConfirmationTokens = new();
 
-    public AuthService(ApplicationDbContext dbContext, ILogger<AuthService> logger)
+    public AuthService(ApplicationDbContext dbContext, ILogger<AuthService> logger, IUserService userService)
     {
         _dbContext = dbContext;
         _logger = logger;
+        _userService = userService;
     }
 
     public async Task<User?> AuthenticateAsync(string email, string password)
@@ -35,8 +45,19 @@ public class AuthService : IAuthService
             return null;
         }
 
-        var passwordValid = BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
-        return passwordValid ? user : null;
+        var verificationResult = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
+        if (verificationResult == PasswordVerificationResult.Failed)
+        {
+            return null;
+        }
+
+        if (verificationResult == PasswordVerificationResult.SuccessRehashNeeded)
+        {
+            user.PasswordHash = _passwordHasher.HashPassword(user, password);
+            await _dbContext.SaveChangesAsync();
+        }
+
+        return user;
     }
 
     public async Task<User?> RegisterAsync(string email, string password, string displayName)
@@ -53,13 +74,15 @@ public class AuthService : IAuthService
         {
             Id = Guid.NewGuid(),
             Email = normalizedEmail,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
+            PasswordHash = string.Empty,
             DisplayName = displayName.Trim(),
             Role = UserRole.User,
             IsActive = true,
             IsEmailConfirmed = false,
             CreatedAt = DateTime.UtcNow
         };
+
+        user.PasswordHash = _passwordHasher.HashPassword(user, password);
 
         _dbContext.Users.Add(user);
         await _dbContext.SaveChangesAsync();
@@ -96,12 +119,13 @@ public class AuthService : IAuthService
             return false;
         }
 
-        if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.PasswordHash))
+        var verificationResult = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, currentPassword);
+        if (verificationResult == PasswordVerificationResult.Failed)
         {
             return false;
         }
 
-        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+        user.PasswordHash = _passwordHasher.HashPassword(user, newPassword);
         await _dbContext.SaveChangesAsync();
 
         return true;
@@ -120,6 +144,12 @@ public class AuthService : IAuthService
         PasswordResetTokens[token] = (user.Id, DateTime.UtcNow.AddHours(1));
 
         return token;
+    }
+
+    public async Task<bool> SendPasswordResetEmailAsync(string email)
+    {
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        return await _dbContext.Users.AnyAsync(u => u.Email == normalizedEmail);
     }
 
     public async Task<bool> ResetPasswordAsync(string email, string resetToken, string newPassword)
@@ -142,7 +172,7 @@ public class AuthService : IAuthService
             return false;
         }
 
-        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+        user.PasswordHash = _passwordHasher.HashPassword(user, newPassword);
         await _dbContext.SaveChangesAsync();
         PasswordResetTokens.TryRemove(resetToken, out _);
 
@@ -188,5 +218,36 @@ public class AuthService : IAuthService
 
         _logger.LogInformation("Email confirmed for user {UserId}", userId);
         return true;
+    }
+
+    public async Task<bool> ConfirmEmailConfirmedAsync(string email)
+    {
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        return await _dbContext.Users.AnyAsync(u => u.Email == normalizedEmail && u.IsEmailConfirmed);
+    }
+
+    public Task<EmailTwoFactorChallengeDelivery?> CreateEmailTwoFactorChallengeAsync(Guid userId)
+    {
+        return Task.FromResult<EmailTwoFactorChallengeDelivery?>(null);
+    }
+
+    public Task<User?> VerifyEmailTwoFactorChallengeAsync(Guid challengeId, string code)
+    {
+        return Task.FromResult<User?>(null);
+    }
+
+    public Task<EmailTwoFactorChallengeDelivery?> ResendEmailTwoFactorChallengeAsync(Guid challengeId)
+    {
+        return Task.FromResult<EmailTwoFactorChallengeDelivery?>(null);
+    }
+
+    public Task<bool> StartResetPasswordBySendingTokenToEmailAsync(string email, ResetType resetType)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task<bool> EndResetPasswordByVerificationTokenAsync(string email, ResetType resetType, string token, string code, string hashedPassword)
+    {
+        throw new NotImplementedException();
     }
 }

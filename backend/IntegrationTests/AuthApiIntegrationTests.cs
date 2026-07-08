@@ -172,6 +172,8 @@ public class AuthApiIntegrationTests
     [Fact]
     public async Task Register_Creates_user_that_can_login_later()
     {
+        _factory.EmailSender.Clear();
+
         var registerResponse = await _client.PostAsJsonAsync("/api/auth/register", new
         {
             FirstName = "New",
@@ -185,9 +187,12 @@ public class AuthApiIntegrationTests
 
         Assert.Equal(System.Net.HttpStatusCode.Created, registerResponse.StatusCode);
 
-        var registerApiResponse = await registerResponse.Content.ReadFromJsonAsync<ApiResponse<AuthTokenResponse>>();
+        var registerApiResponse = await registerResponse.Content.ReadFromJsonAsync<ApiResponse<RegisterUserResultDto>>();
         Assert.NotNull(registerApiResponse?.Data);
-        Assert.False(string.IsNullOrWhiteSpace(registerApiResponse.Data.AccessToken));
+        Assert.Equal("new.user@example.com", registerApiResponse.Data.Email);
+        Assert.True(registerApiResponse.Data.RequiresEmailConfirmation);
+        Assert.Equal("Registration successful. Check your email to confirm the account.", registerApiResponse.Message);
+        Assert.NotNull(_factory.EmailSender.LatestConfirmationLink);
 
         _client.DefaultRequestHeaders.Authorization = null;
 
@@ -197,7 +202,138 @@ public class AuthApiIntegrationTests
             Password = "password123"
         });
 
-        loginResponse.EnsureSuccessStatusCode();
+        Assert.Equal(System.Net.HttpStatusCode.Forbidden, loginResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task ConfirmEmail_Enables_login_for_a_new_registration()
+    {
+        _factory.EmailSender.Clear();
+
+        var registerResponse = await _client.PostAsJsonAsync("/api/auth/register", new
+        {
+            FirstName = "Email",
+            LastName = "Pending",
+            Email = "confirm.me@example.com",
+            Password = "password123",
+            PhoneNumber = "123456789",
+            Address = "Main Street",
+            CreatedAt = DateTime.UtcNow
+        });
+
+        Assert.Equal(System.Net.HttpStatusCode.Created, registerResponse.StatusCode);
+
+        var confirmationPayload = GetLatestConfirmationPayload();
+        var confirmResponse = await _client.PostAsJsonAsync("/api/auth/confirm-email", new
+        {
+            confirmationPayload.UserId,
+            confirmationPayload.Token
+        });
+
+        confirmResponse.EnsureSuccessStatusCode();
+
+        var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new
+        {
+            Email = "confirm.me@example.com",
+            Password = "password123"
+        });
+
+        Assert.Equal(System.Net.HttpStatusCode.Accepted, loginResponse.StatusCode);
+
+        var challengeResponse = await loginResponse.Content.ReadFromJsonAsync<ApiResponse<TwoFactorChallengeResponseDto>>();
+        Assert.NotNull(challengeResponse?.Data);
+
+        var verifyTwoFactorResponse = await _client.PostAsJsonAsync("/api/auth/verify-2fa", new
+        {
+            ChallengeId = challengeResponse.Data.ChallengeId,
+            Code = GetLatestTwoFactorCode()
+        });
+
+        verifyTwoFactorResponse.EnsureSuccessStatusCode();
+    }
+
+    [Fact]
+    public async Task ResendConfirmation_Returns_generic_success_and_reissues_link()
+    {
+        _factory.EmailSender.Clear();
+
+        var registerResponse = await _client.PostAsJsonAsync("/api/auth/register", new
+        {
+            FirstName = "Resend",
+            LastName = "Case",
+            Email = "resend.confirm@example.com",
+            Password = "password123",
+            PhoneNumber = "123456789",
+            Address = "Main Street",
+            CreatedAt = DateTime.UtcNow
+        });
+
+        Assert.Equal(System.Net.HttpStatusCode.Created, registerResponse.StatusCode);
+        var firstPayload = GetLatestConfirmationPayload();
+
+        var resendResponse = await _client.PostAsJsonAsync("/api/auth/resend-confirmation", new
+        {
+            Email = "resend.confirm@example.com"
+        });
+
+        resendResponse.EnsureSuccessStatusCode();
+
+        var resendApiResponse = await resendResponse.Content.ReadFromJsonAsync<ApiResponse<object>>();
+        Assert.NotNull(resendApiResponse);
+        Assert.Equal("If the account exists and is not yet confirmed, a confirmation email has been sent.", resendApiResponse.Message);
+
+        var secondPayload = GetLatestConfirmationPayload();
+        Assert.NotEqual(firstPayload.Token, secondPayload.Token);
+    }
+
+    [Fact]
+    public async Task Login_Returns_two_factor_challenge_when_email_2fa_is_enabled()
+    {
+        _factory.EmailSender.Clear();
+        await SeedUserAsync("2fa.user@example.com", "password123", "Two Factor User", UserRole.User, isTwoFactorEnabled: true);
+
+        var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new
+        {
+            Email = "2fa.user@example.com",
+            Password = "password123"
+        });
+
+        Assert.Equal(System.Net.HttpStatusCode.Accepted, loginResponse.StatusCode);
+
+        var apiResponse = await loginResponse.Content.ReadFromJsonAsync<ApiResponse<TwoFactorChallengeResponseDto>>();
+        Assert.NotNull(apiResponse?.Data);
+        Assert.True(apiResponse.Data.RequiresTwoFactor);
+        Assert.False(string.IsNullOrWhiteSpace(_factory.EmailSender.LatestTwoFactorCode));
+    }
+
+    [Fact]
+    public async Task ResendTwoFactor_Rotates_code_for_active_challenge()
+    {
+        _factory.EmailSender.Clear();
+        await SeedUserAsync("2fa.resend@example.com", "password123", "Two Factor Resend", UserRole.User, isTwoFactorEnabled: true);
+
+        var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new
+        {
+            Email = "2fa.resend@example.com",
+            Password = "password123"
+        });
+
+        Assert.Equal(System.Net.HttpStatusCode.Accepted, loginResponse.StatusCode);
+
+        var challengeResponse = await loginResponse.Content.ReadFromJsonAsync<ApiResponse<TwoFactorChallengeResponseDto>>();
+        Assert.NotNull(challengeResponse?.Data);
+
+        var firstCode = GetLatestTwoFactorCode();
+
+        var resendResponse = await _client.PostAsJsonAsync("/api/auth/resend-2fa", new
+        {
+            ChallengeId = challengeResponse.Data.ChallengeId
+        });
+
+        resendResponse.EnsureSuccessStatusCode();
+
+        var secondCode = GetLatestTwoFactorCode();
+        Assert.NotEqual(firstCode, secondCode);
     }
 
     [Fact]
@@ -322,7 +458,7 @@ public class AuthApiIntegrationTests
         return refreshTokenCookie!;
     }
 
-    private async Task SeedUserAsync(string email, string password, string displayName, UserRole role)
+    private async Task SeedUserAsync(string email, string password, string displayName, UserRole role, bool isTwoFactorEnabled = false)
     {
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -335,6 +471,7 @@ public class AuthApiIntegrationTests
             Role = role,
             IsActive = true,
             IsEmailConfirmed = true,
+            IsTwoFactorEnabled = isTwoFactorEnabled,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -342,5 +479,36 @@ public class AuthApiIntegrationTests
         dbContext.Users.Add(user);
         await dbContext.SaveChangesAsync();
     }
+
+    private ConfirmationPayload GetLatestConfirmationPayload()
+    {
+        var confirmationLink = _factory.EmailSender.LatestConfirmationLink;
+        Assert.False(string.IsNullOrWhiteSpace(confirmationLink));
+
+        var query = new Uri(confirmationLink!).Query.TrimStart('?');
+        var parameters = query
+            .Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Select(part => part.Split('=', 2))
+            .ToDictionary(
+                parts => parts[0],
+                parts => parts.Length > 1 ? Uri.UnescapeDataString(parts[1]) : string.Empty,
+                StringComparer.OrdinalIgnoreCase);
+
+        Assert.True(parameters.TryGetValue("userId", out var userIdText));
+        Assert.True(Guid.TryParse(userIdText, out var userId));
+        Assert.True(parameters.TryGetValue("token", out var token));
+        Assert.False(string.IsNullOrWhiteSpace(token));
+
+        return new ConfirmationPayload(userId, token!);
+    }
+
+    private string GetLatestTwoFactorCode()
+    {
+        var code = _factory.EmailSender.LatestTwoFactorCode;
+        Assert.False(string.IsNullOrWhiteSpace(code));
+        return code!;
+    }
+
+    private sealed record ConfirmationPayload(Guid UserId, string Token);
 
 }

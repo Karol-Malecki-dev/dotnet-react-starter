@@ -1,7 +1,11 @@
-﻿using Application.DTOs.User;
+﻿using Application.DTOs.Auth;
+using Application.DTOs.User;
 using Application.Interfaces;
+using Domain.Entities;
+using Domain.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Org.BouncyCastle.Asn1.Cmp;
 using Shared.Responses;
 using System.Security.Claims;
 
@@ -13,7 +17,9 @@ namespace API.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly IUserService _userService;
+    private readonly IAuthService _authService;
     private readonly ILogger<UsersController> _logger;
+
 
     public UsersController(IUserService userService, ILogger<UsersController> logger)
     {
@@ -82,6 +88,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpPut("me")]
+    [Authorize]
     public async Task<ActionResult<ApiResponse<UserDto>>> UpdateMe([FromBody] UpdateUserDto dto)
     {
         if (!TryGetCurrentUserId(out var userId))
@@ -92,11 +99,50 @@ public class UsersController : ControllerBase
         var result = await _userService.UpdateUserAsync(userId, dto);
         return Ok(result);
     }
-
     private bool TryGetCurrentUserId(out Guid userId)
     {
         var userIdValue = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         return Guid.TryParse(userIdValue, out userId);
+    }
+
+    [HttpGet("me/security")]
+    [Authorize]
+    public async Task<ActionResult<ApiResponse<UserSecurityDto>>> GetUserSecurity()
+    {
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return Unauthorized(ApiResponse<UserSecurityDto>.Error(401, "User not authenticated",null));
+        }
+        try
+        {
+            var result = await _userService.GetUserSecurityAsync(userId);
+            return StatusCode(result.StatusCode, result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Two-factor authentication update error for user {UserId}", userId);
+            return StatusCode(500, ApiResponse<UserSecurityDto>.Error(500, "Internal server error", null));
+        }
+    }
+
+    [HttpPatch("me/security/two-factor")]
+    [Authorize]
+    public async Task<IActionResult> UpdateEmailTwoFactor([FromBody] UpdateTwoFactorPreferenceDto enable)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return Unauthorized(ApiResponse<UserSecurityDto>.Error(401, "User not authenticated", null));
+        }
+        try
+        {
+            var result = await _userService.UpdateTwoFactorAsync(userId,enable);
+            return StatusCode(result.StatusCode, result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Two-factor authentication update error for user {UserId}", userId);
+            return StatusCode(500, ApiResponse<UserSecurityDto>.Error(500, "Internal server error", null));
+        }
     }
 
 }

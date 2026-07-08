@@ -1,9 +1,6 @@
 ﻿using Domain.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Domain.Enums.Auth;
+using Domain.ValueObjects;
 
 namespace Domain.Interfaces
 {
@@ -79,23 +76,16 @@ namespace Domain.Interfaces
         Task<bool> SendPasswordResetEmailAsync(string email);
 
         /// <summary>
-        /// Reset user password (forgot password flow).
-        /// Generates reset token.
+        /// Reset the user password by using a previously issued reset token.
         /// </summary>
-        /// <param name="email">The user email</param>
-        /// <returns>Reset token string or null if user not found</returns>
-        Task<string?> GeneratePasswordResetTokenAsync(string email);
-
-        /// <summary>
-        /// Confirm password reset with token.
-        /// </summary>
-        /// <param name="email">The user email</param>
-        /// <param name="resetToken">The reset token</param>
-        /// <param name="newPassword">The new password</param>
-        /// <returns>True if password reset successfully, false otherwise</returns>
+        /// <param name="email">The user email.</param>
+        /// <param name="resetToken">The raw reset token received by the user.</param>
+        /// <param name="newPassword">The new plain text password to hash on the server.</param>
+        /// <returns>True when the password was reset successfully; otherwise false.</returns>
         Task<bool> ResetPasswordAsync(string email, string resetToken, string newPassword);
 
         // ========== EMAIL VERIFICATION ==========
+
 
         /// <summary>
         /// Generate email confirmation token.
@@ -113,5 +103,27 @@ namespace Domain.Interfaces
         Task<bool> ConfirmEmailAsync(Guid userId, string confirmationToken);
 
         Task<bool> ConfirmEmailConfirmedAsync(string email);
+
+        /// <summary>
+        /// Create a new email 2FA challenge for a user.
+        /// </summary>
+        /// <param name="userId">The user ID.</param>
+        /// <returns>Delivery payload with raw code when challenge was created; otherwise null.</returns>
+        Task<EmailTwoFactorChallengeDelivery?> CreateEmailTwoFactorChallengeAsync(Guid userId);
+
+        /// <summary>
+        /// Verify a previously issued email 2FA challenge.
+        /// </summary>
+        /// <param name="challengeId">The challenge identifier.</param>
+        /// <param name="code">The raw user-provided code.</param>
+        /// <returns>The authenticated user when the code is valid; otherwise null.</returns>
+        Task<User?> VerifyEmailTwoFactorChallengeAsync(Guid challengeId, string code);
+
+        /// <summary>
+        /// Rotate and resend the code for an active email 2FA challenge.
+        /// </summary>
+        /// <param name="challengeId">The active challenge identifier.</param>
+        /// <returns>Delivery payload with the new raw code when the challenge is active; otherwise null.</returns>
+        Task<EmailTwoFactorChallengeDelivery?> ResendEmailTwoFactorChallengeAsync(Guid challengeId);
     }
 }

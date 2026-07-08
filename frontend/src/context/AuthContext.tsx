@@ -1,5 +1,16 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import type { AuthContextType, AuthState, AuthUser, JwtTokens, RegisterRequest, UpdateUserRequest, UserDto } from '../types';
+import type {
+  AuthContextType,
+  AuthState,
+  AuthUser,
+  JwtTokens,
+  LoginFlowResult,
+  RegisterRequest,
+  RegisterResultData,
+  TwoFactorChallenge,
+  UpdateUserRequest,
+  UserDto,
+} from '../types';
 import { authApi } from '../services/api';
 import { userApi } from '../services/api';
 import { tokenManager } from '../services/api/TokenManager';
@@ -28,6 +39,15 @@ function mapUserDtoToAuthUser(user: UserDto, fallbackRole: AuthUser['role']): Au
     avatarUrl: user.avatarUrl ?? null,
     role: user.role ?? fallbackRole,
   };
+}
+
+function isTwoFactorChallenge(value: unknown): value is TwoFactorChallenge {
+  return Boolean(
+    value
+      && typeof value === 'object'
+      && 'requiresTwoFactor' in value
+      && (value as { requiresTwoFactor?: unknown }).requiresTwoFactor === true,
+  );
 }
 
 const initialState: AuthState = {
@@ -135,18 +155,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return response.data;
   };
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<LoginFlowResult> => {
     setState((current) => ({ ...current, loading: true, error: null }));
 
     try {
       const response = await authApi.login({ email, password });
       if (!response.data) {
-        throw new Error('Login response missing tokens');
+        throw new Error('Login response missing payload');
+      }
+
+      if (isTwoFactorChallenge(response.data)) {
+        clearSession();
+        setState((current) => ({
+          ...current,
+          isAuthenticated: false,
+          user: null,
+          tokens: null,
+          loading: false,
+          error: null,
+        }));
+
+        return {
+          kind: 'two-factor-required',
+          challenge: response.data,
+        };
       }
 
       tokenManager.setSession(response.data);
       const currentUser = await loadCurrentUser();
       persistSession(response.data, currentUser);
+
+      return { kind: 'authenticated' };
     } catch (error) {
       clearSession();
       setState((current) => ({
@@ -158,13 +197,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const register = async (request: RegisterRequest) => {
+  const register = async (request: RegisterRequest): Promise<RegisterResultData> => {
     setState((current) => ({ ...current, loading: true, error: null }));
 
     try {
       const response = await authApi.register(request);
       if (!response.data) {
-        throw new Error('Register response missing tokens');
+        throw new Error('Register response missing payload');
+      }
+
+      setState((current) => ({
+        ...current,
+        loading: false,
+        error: null,
+      }));
+
+      return response.data;
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        loading: false,
+        error: error instanceof Error ? error.message : 'Registration failed',
+      }));
+      throw error;
+    }
+  };
+
+  const verifyTwoFactor = async (challengeId: string, code: string) => {
+    setState((current) => ({ ...current, loading: true, error: null }));
+
+    try {
+      const response = await authApi.verifyTwoFactor({ challengeId, code });
+      if (!response.data) {
+        throw new Error('Two-factor verification response missing tokens');
       }
 
       tokenManager.setSession(response.data);
@@ -175,7 +240,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setState((current) => ({
         ...current,
         loading: false,
-        error: error instanceof Error ? error.message : 'Registration failed',
+        error: error instanceof Error ? error.message : 'Two-factor verification failed',
+      }));
+      throw error;
+    }
+  };
+
+  const resendTwoFactor = async (challengeId: string): Promise<TwoFactorChallenge> => {
+    setState((current) => ({ ...current, loading: true, error: null }));
+
+    try {
+      const response = await authApi.resendTwoFactor({ challengeId });
+      if (!response.data) {
+        throw new Error('Two-factor challenge payload missing');
+      }
+
+      setState((current) => ({
+        ...current,
+        loading: false,
+        error: null,
+      }));
+
+      return response.data;
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        loading: false,
+        error: error instanceof Error ? error.message : 'Unable to resend the verification code',
       }));
       throw error;
     }
@@ -263,6 +354,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     ...state,
     login,
     register,
+    verifyTwoFactor,
+    resendTwoFactor,
     logout,
     refreshToken,
     updateDisplayName,

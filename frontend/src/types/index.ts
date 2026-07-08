@@ -10,7 +10,18 @@ export type {
   LoginRequest,
   RegisterRequest,
   VerifyTokenRequest,
+  ConfirmEmailRequest,
+  ResendConfirmationRequest,
+  VerifyTwoFactorRequest,
+  ResendTwoFactorRequest,
   JwtTokens,
+  RegisterResultData,
+  TwoFactorChallenge,
+  LoginResponseData,
+  LoginFlowResult,
+  LoginAuthenticatedResult,
+  LoginTwoFactorRequiredResult,
+  PendingTwoFactorChallenge,
   AuthUser,
   ChangePasswordRequest,
   LoginResponse,
@@ -22,7 +33,13 @@ export type {
   ApiErrorResponse,
   AuthState,
   AuthContextType,
+  ForgotPasswordRequest,
+  ResetPasswordRequest,
 } from './auth';
+
+// ResetType is a real runtime enum (not just a type), so it must be exported separately
+// from the `export type { ... }` block above (isolatedModules forbids mixing them).
+export { ResetType } from './auth';
 
 // User types
 export type {
@@ -41,6 +58,10 @@ export type {
   PaginatedResponse,
   UserListState,
   UserFormState,
+  UserSecurity,
+  UpdateTwoFactorPreferenceRequest,
+  GetUserSecurityResponse,
+  UpdateTwoFactorPreferenceResponse,
 } from './user/index';
 
 // API types
@@ -56,3 +77,4 @@ export type {
 } from './api';
 
 export { HttpStatusCode } from './api';
+

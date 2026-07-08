@@ -2,10 +2,19 @@ import type {
   ApiResponse,
   AuthUser,
   ChangePasswordRequest,
+  ConfirmEmailRequest,
+  ForgotPasswordRequest,
   JwtTokens,
+  LoginResponseData,
   LoginRequest,
   MeResponse,
   RegisterRequest,
+  RegisterResultData,
+  ResendConfirmationRequest,
+  ResendTwoFactorRequest,
+  ResetPasswordRequest,
+  TwoFactorChallenge,
+  VerifyTwoFactorRequest,
   VerifyTokenRequest,
   VerifyTokenResponse,
 } from '../../types';
@@ -14,14 +23,38 @@ import { httpClient, type HttpClient } from './HttpClient';
 export class AuthApi {
   constructor(private readonly client: HttpClient = httpClient) {}
 
-  login(request: LoginRequest): Promise<ApiResponse<JwtTokens>> {
-    return this.client.post<ApiResponse<JwtTokens>, LoginRequest>('/auth/login', request, {
+  login(request: LoginRequest): Promise<ApiResponse<LoginResponseData>> {
+    return this.client.post<ApiResponse<LoginResponseData>, LoginRequest>('/auth/login', request, {
       skipAuth: true,
     });
   }
 
-  register(request: RegisterRequest): Promise<ApiResponse<JwtTokens>> {
-    return this.client.post<ApiResponse<JwtTokens>, RegisterRequest>('/auth/register', request, {
+  register(request: RegisterRequest): Promise<ApiResponse<RegisterResultData>> {
+    return this.client.post<ApiResponse<RegisterResultData>, RegisterRequest>('/auth/register', request, {
+      skipAuth: true,
+    });
+  }
+
+  confirmEmail(request: ConfirmEmailRequest): Promise<ApiResponse<null>> {
+    return this.client.post<ApiResponse<null>, ConfirmEmailRequest>('/auth/confirm-email', request, {
+      skipAuth: true,
+    });
+  }
+
+  resendConfirmation(request: ResendConfirmationRequest): Promise<ApiResponse<null>> {
+    return this.client.post<ApiResponse<null>, ResendConfirmationRequest>('/auth/resend-confirmation', request, {
+      skipAuth: true,
+    });
+  }
+
+  verifyTwoFactor(request: VerifyTwoFactorRequest): Promise<ApiResponse<JwtTokens>> {
+    return this.client.post<ApiResponse<JwtTokens>, VerifyTwoFactorRequest>('/auth/verify-2fa', request, {
+      skipAuth: true,
+    });
+  }
+
+  resendTwoFactor(request: ResendTwoFactorRequest): Promise<ApiResponse<TwoFactorChallenge>> {
+    return this.client.post<ApiResponse<TwoFactorChallenge>, ResendTwoFactorRequest>('/auth/resend-2fa', request, {
       skipAuth: true,
     });
   }
@@ -46,6 +79,18 @@ export class AuthApi {
 
   verifyToken(request: VerifyTokenRequest): Promise<ApiResponse<VerifyTokenResponse>> {
     return this.client.post<ApiResponse<VerifyTokenResponse>, VerifyTokenRequest>('/auth/verify-token', request, {
+      skipAuth: true,
+    });
+  }
+
+  forgotPassword(request: ForgotPasswordRequest): Promise<ApiResponse<null>> {
+    return this.client.post<ApiResponse<null>, ForgotPasswordRequest>('/auth/forgot-password', request, {
+      skipAuth: true,
+    });
+  }
+
+  resetPassword(request: ResetPasswordRequest): Promise<ApiResponse<null>> {
+    return this.client.post<ApiResponse<null>, ResetPasswordRequest>('/auth/reset-password', request, {
       skipAuth: true,
     });
   }

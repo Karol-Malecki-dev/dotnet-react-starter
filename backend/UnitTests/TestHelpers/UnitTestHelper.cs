@@ -23,4 +23,26 @@ public static class UnitTestHelper
             Audience = "test-audience"
         });
     }
+
+    public static IOptions<EmailConfirmationSettings> CreateEmailConfirmationSettingsOptions()
+    {
+        return Options.Create(new EmailConfirmationSettings
+        {
+            PublicOrigin = "http://localhost:3000",
+            ConfirmationPath = "/confirm-email",
+            TokenExpiresInHours = 24
+        });
+    }
+
+    public static IOptions<EmailTwoFactorSettings> CreateEmailTwoFactorSettingsOptions()
+    {
+        return Options.Create(new EmailTwoFactorSettings
+        {
+            Enabled = true,
+            EnableForNewUsers = true,
+            CodeExpiresInMinutes = 10,
+            CodeLength = 6,
+            MaxFailedAttempts = 5
+        });
+    }
 }

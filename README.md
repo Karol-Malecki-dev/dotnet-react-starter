@@ -9,11 +9,12 @@ This repository is a practical base for auth-heavy applications, admin dashboard
 - Clean Architecture backend split into `API`, `Application`, `Domain`, `Infrastructure`, and `Shared`
 - React + TypeScript frontend with protected routes and authenticated session handling
 - JWT access tokens with secure refresh-token rotation in HttpOnly cookies
+- Email confirmation and email-based 2FA during sign-in
 - Role-aware authorization for admin-only endpoints and views
 - React Hook Form + Zod for frontend form validation
 - Serilog logging and centralized exception handling
 - Dockerfiles for backend and frontend
-- Docker Compose setup with PostgreSQL, backend healthcheck, and frontend proxy-ready API routing
+- Docker Compose setup with PostgreSQL, Mailpit for local email delivery, backend healthcheck, and frontend proxy-ready API routing
 - Unit, integration, and smoke/E2E test projects
 - Swagger UI in development
 
@@ -111,6 +112,7 @@ Default local endpoints:
 - API: http://localhost:5000
 - Health: http://localhost:5000/health
 - Swagger UI: http://localhost:5000/swagger
+- Mail UI: http://localhost:8025
 
 ### Run Locally Without Docker
 
@@ -166,13 +168,18 @@ npm run build
 
 ## Authentication Overview
 
-- `POST /api/auth/login` returns an access token and sets the refresh-token cookie
-- `POST /api/auth/register` creates a user, returns an access token, and sets the refresh-token cookie
+- `POST /api/auth/register` creates a user and sends an email confirmation link
+- `POST /api/auth/confirm-email` confirms the address and activates the account
+- `POST /api/auth/login` returns either JWT tokens or a 2FA email challenge when email 2FA is enabled
+- `POST /api/auth/verify-2fa` verifies the email code and then returns the access token plus refresh-token cookie
+- `POST /api/auth/resend-2fa` rotates the active sign-in code and sends a fresh email
 - `POST /api/auth/refresh-token` rotates the refresh-token cookie and returns a fresh access token
 - `POST /api/auth/logout` revokes the refresh token and clears the cookie
 - `GET /api/auth/me` returns the authenticated user profile
 
 The frontend stores only the access token client-side. The refresh token stays in an HttpOnly cookie and is not exposed to JavaScript.
+
+For local Docker runs, transactional emails are delivered to Mailpit. Open http://localhost:8025 to see confirmation links and 2FA codes.
 
 ## Documentation
 
@@ -186,7 +193,6 @@ The frontend stores only the access token client-side. The refresh token stays i
 
 - Add full profile editing and change-password flows
 - Add CI with GitHub Actions for backend tests, frontend tests, and builds
-- Add forgot-password and email-confirmation flows
 - Expand admin user management and filtering
 - Migrate the frontend from CRA to Vite when the current feature set stabilizes
 
