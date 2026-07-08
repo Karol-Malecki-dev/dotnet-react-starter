@@ -41,7 +41,12 @@ export default function Register() {
         address: values.address,
       });
 
-      navigate('/dashboard', { replace: true });
+      navigate('/login', {
+        replace: true,
+        state: {
+          registrationPendingEmail: values.email,
+        },
+      });
     } catch (caughtError) {
       setSubmitError(
         getApiErrorMessage(caughtError, {
@@ -58,12 +63,12 @@ export default function Register() {
         <p className="eyebrow">Professional onboarding</p>
         <h1>Create a workspace account.</h1>
         <p>
-          Register against the backend JWT API and continue directly into the protected application shell.
+          Register against the backend API, confirm the email address, and finish the first sign-in with email-based two-factor verification.
         </p>
         <ul className="auth-callout__list">
           <li>Collects the same profile fields required by the backend contract.</li>
-          <li>Prepares the account for role-based navigation and admin workflows.</li>
-          <li>Keeps the first-run experience aligned with the production auth flow.</li>
+          <li>Creates the account without issuing JWTs before email confirmation.</li>
+          <li>Prepares the first login for the email 2FA challenge flow.</li>
         </ul>
       </article>
 
@@ -71,7 +76,7 @@ export default function Register() {
         <div className="auth-panel__header">
           <p className="eyebrow">New account</p>
           <h2>Register</h2>
-          <p>Fill in the fields below to create a JWT-backed account.</p>
+          <p>Fill in the fields below to create the account and receive the confirmation email.</p>
         </div>
 
         <form className="form" noValidate onSubmit={handleSubmit(onSubmit)}>
@@ -140,7 +145,7 @@ export default function Register() {
               {...registerField('password')}
             />
             {errors.password ? <span className="field__error">{errors.password.message}</span> : null}
-            <span className="field__hint">This password is sent to the backend register endpoint and used for the first JWT session.</span>
+            <span className="field__hint">After registration, we send an email confirmation link before the first sign-in can continue to 2FA.</span>
           </label>
           {submitError ?? error ? <p className="form__error">{submitError ?? error}</p> : null}
           <button className="button button--block" type="submit" disabled={loading}>

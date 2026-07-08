@@ -1,6 +1,7 @@
 using Application.DTOs.User;
 using Domain.Entities;
 using Domain.Interfaces;
+using Domain.ValueObjects;
 using Microsoft.Extensions.Logging;
 using Shared.Responses;
 using System;
@@ -118,6 +119,44 @@ namespace Application.Services
             _logger.LogInformation("✉️ Mock email confirmation check for {Email}", email);
             return await Task.FromResult(email == TestUser.Email);
         }
+
+        public Task<EmailTwoFactorChallengeDelivery?> CreateEmailTwoFactorChallengeAsync(Guid userId)
+        {
+            if (userId != TestUser.Id)
+            {
+                return Task.FromResult<EmailTwoFactorChallengeDelivery?>(null);
+            }
+
+            return Task.FromResult<EmailTwoFactorChallengeDelivery?>(new EmailTwoFactorChallengeDelivery(
+                Guid.NewGuid(),
+                TestUser.Id,
+                TestUser.Email,
+                TestUser.DisplayName,
+                "123456",
+                DateTime.UtcNow.AddMinutes(10)));
+        }
+
+        public Task<User?> VerifyEmailTwoFactorChallengeAsync(Guid challengeId, string code)
+        {
+            return Task.FromResult<User?>(code == "123456" ? TestUser : null);
+        }
+
+        public Task<EmailTwoFactorChallengeDelivery?> ResendEmailTwoFactorChallengeAsync(Guid challengeId)
+        {
+            if (challengeId == Guid.Empty)
+            {
+                return Task.FromResult<EmailTwoFactorChallengeDelivery?>(null);
+            }
+
+            return Task.FromResult<EmailTwoFactorChallengeDelivery?>(new EmailTwoFactorChallengeDelivery(
+                challengeId,
+                TestUser.Id,
+                TestUser.Email,
+                TestUser.DisplayName,
+                "654321",
+                DateTime.UtcNow.AddMinutes(10)));
+        }
+
         public async Task<bool> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword)
         {
             _logger.LogInformation("🔑 Mock change password for user {UserId}", userId);

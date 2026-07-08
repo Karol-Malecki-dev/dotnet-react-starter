@@ -1,5 +1,7 @@
 using Domain.Entities;
+using Domain.Entities.Auth;
 using Domain.Entities.JWT;
+using Domain.Enums.Auth;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Data;
@@ -17,6 +19,11 @@ public class ApplicationDbContext : DbContext
     public DbSet<User> Users => Set<User>();
 
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
+    public DbSet<EmailConfirmationToken> EmailConfirmationTokens => Set<EmailConfirmationToken>();
+
+    public DbSet<EmailTwoFactorChallenge> EmailTwoFactorChallenges => Set<EmailTwoFactorChallenge>();
+    public DbSet<PasswordResetRequest> PasswordResetRequests => Set<PasswordResetRequest>();
 
     /// <summary>
     /// Konfiguracja modeli i relacji między encjami
@@ -37,34 +44,103 @@ public class ApplicationDbContext : DbContext
 
         modelBuilder.Entity<RefreshToken>(entity =>
         {
-            entity.ToTable("Users");
-            entity.HasKey(u => u.Id);
+            entity.ToTable("RefreshTokens");
+            entity.HasKey(x => x.Id);
+            entity.HasIndex(x => x.TokenHash).IsUnique();
+            entity.HasIndex(x => x.UserId);
 
-            entity.Property(u => u.Email)
+            entity.Property(x => x.UserEmail)
                 .IsRequired()
                 .HasMaxLength(256);
 
-            entity.HasIndex(u => u.Email)
-                .IsUnique();
-
-            entity.Property(u => u.PasswordHash)
+            entity.Property(x => x.UserDisplayName)
                 .IsRequired()
-                .HasMaxLength(512);
+                .HasMaxLength(200);
 
-            entity.Property(u => u.DisplayName)
-                .IsRequired()
-                .HasMaxLength(150);
-
-            entity.Property(u => u.AvatarUrl)
-                .HasMaxLength(1024);
-
-            entity.Property(u => u.Role)
+            entity.Property(x => x.UserRole)
                 .HasConversion<string>()
                 .HasMaxLength(32)
                 .IsRequired();
 
-            entity.Property(u => u.CreatedAt)
-                .IsRequired();
+            entity.Property(x => x.TokenHash)
+                .IsRequired()
+                .HasMaxLength(128);
+
+            entity.Property(x => x.CreatedByIp)
+                .IsRequired()
+                .HasMaxLength(64);
+
+            entity.Property(x => x.LastUsedByIp)
+                .HasMaxLength(64);
+
+            entity.Property(x => x.RevocationReason)
+                .HasConversion<string>()
+                .HasMaxLength(64);
+
+            entity.Property(x => x.ReplacedByTokenHash)
+                .HasMaxLength(128);
+
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
+
+        modelBuilder.Entity<EmailConfirmationToken>(entity =>
+        {
+            entity.ToTable("EmailConfirmationTokens");
+            entity.HasKey(x => x.Id);
+            entity.HasIndex(x => x.TokenHash).IsUnique();
+            entity.HasIndex(x => x.UserId);
+
+            entity.Property(x => x.TokenHash)
+                .IsRequired()
+                .HasMaxLength(128);
+
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<EmailTwoFactorChallenge>(entity =>
+        {
+            entity.ToTable("EmailTwoFactorChallenges");
+            entity.HasKey(x => x.Id);
+            entity.HasIndex(x => x.UserId);
+            entity.HasIndex(x => x.ExpiresAt);
+
+            entity.Property(x => x.CodeHash)
+                .IsRequired()
+                .HasMaxLength(128);
+
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+        
+        modelBuilder.Entity<PasswordResetRequest>(entity =>
+        {
+            entity.ToTable("PasswordResetRequests");
+            entity.HasKey(x => x.Id);
+            entity.HasIndex(x => x.UserId);
+            entity.HasIndex(x => x.ExpiresAt);
+            entity.Property(x => x.ResetType)
+                .HasConversion<string>()
+                .HasMaxLength(32)
+                .IsRequired();
+            entity.Property(x => x.TokenHash)
+                .IsRequired()
+                .HasMaxLength(128);
+            entity.Property(x => x.CodeHash)
+                .IsRequired()
+                .HasMaxLength(128);
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
     }
 }

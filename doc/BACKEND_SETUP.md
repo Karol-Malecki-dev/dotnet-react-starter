@@ -21,6 +21,14 @@ Najważniejsze zmienne środowiskowe:
 - `Jwt__RefreshTokenCookieSameSite`
 - `Jwt__RefreshTokenCookieSecurePolicy`
 - `Cors__AllowedOrigins__0`, `Cors__AllowedOrigins__1`, ...
+- `EmailConfirmation__PublicOrigin`
+- `EmailConfirmation__ConfirmationPath`
+- `EmailTwoFactor__Enabled`
+- `EmailTwoFactor__CodeExpiresInMinutes`
+- `EmailDelivery__Enabled`
+- `EmailDelivery__Host`
+- `EmailDelivery__Port`
+- `EmailDelivery__FromAddress`
 
 Zasady organizacji:
 
@@ -28,6 +36,7 @@ Zasady organizacji:
 - CORS origins nie są hardcode'owane w `Program.cs`, tylko bind'owane z configu.
 - Cookie policy ma być zależna od środowiska: local zwykle `SameAsRequest`, produkcja zwykle `Always`.
 - Jeżeli frontend i backend działają cross-site, ustaw `SameSite=None` i `SecurePolicy=Always`.
+- Dla lokalnego Docker Compose używamy Mailpit jako SMTP sinka, więc maile potwierdzające i kody 2FA można odebrać bez zewnętrznego providera.
 backend/
 ├── API/                    # Entry point - Controllers, middleware
 ├── Application/            # Logika biznesowa - Services, DTOs

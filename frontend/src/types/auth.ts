@@ -34,6 +34,24 @@ export interface VerifyTokenRequest {
   token: string;
 }
 
+export interface ConfirmEmailRequest {
+  userId: string;
+  token: string;
+}
+
+export interface ResendConfirmationRequest {
+  email: string;
+}
+
+export interface VerifyTwoFactorRequest {
+  challengeId: string;
+  code: string;
+}
+
+export interface ResendTwoFactorRequest {
+  challengeId: string;
+}
+
 // ============================================
 // 2️⃣ RESPONSES (Backend → Frontend)
 // ============================================
@@ -43,6 +61,35 @@ export interface JwtTokens {
   accessToken: string;
   expiresIn: number; // seconds (900 = 15 minutes)
   tokenType?: string;
+}
+
+export interface RegisterResultData {
+  email: string;
+  requiresEmailConfirmation: boolean;
+}
+
+export interface TwoFactorChallenge {
+  requiresTwoFactor: true;
+  challengeId: string;
+  destinationHint: string;
+  expiresAt: string;
+}
+
+export type LoginResponseData = JwtTokens | TwoFactorChallenge;
+
+export interface LoginAuthenticatedResult {
+  kind: 'authenticated';
+}
+
+export interface LoginTwoFactorRequiredResult {
+  kind: 'two-factor-required';
+  challenge: TwoFactorChallenge;
+}
+
+export type LoginFlowResult = LoginAuthenticatedResult | LoginTwoFactorRequiredResult;
+
+export interface PendingTwoFactorChallenge extends TwoFactorChallenge {
+  fromPath?: string;
 }
 
 /** Current authenticated user - maps to /api/auth/me response */
@@ -65,7 +112,7 @@ export interface ChangePasswordRequest {
 export interface LoginResponse {
   statusCode: number;
   message: string;
-  data: JwtTokens;
+  data: LoginResponseData;
   errors: ErrorDetail[] | null;
   timestamp: string;
 }
@@ -74,7 +121,7 @@ export interface LoginResponse {
 export interface RegisterResponse {
   statusCode: number;
   message: string;
-  data: JwtTokens;
+  data: RegisterResultData;
   errors: ErrorDetail[] | null;
   timestamp: string;
 }
@@ -138,8 +185,10 @@ export interface AuthState {
 
 /** Auth context value */
 export interface AuthContextType extends AuthState {
-  login: (email: string, password: string) => Promise<void>;
-  register: (data: RegisterRequest) => Promise<void>;
+  login: (email: string, password: string) => Promise<LoginFlowResult>;
+  register: (data: RegisterRequest) => Promise<RegisterResultData>;
+  verifyTwoFactor: (challengeId: string, code: string) => Promise<void>;
+  resendTwoFactor: (challengeId: string) => Promise<TwoFactorChallenge>;
   logout: () => Promise<void>;
   refreshToken: () => Promise<void>;
   updateDisplayName: (displayName: string) => Promise<void>;

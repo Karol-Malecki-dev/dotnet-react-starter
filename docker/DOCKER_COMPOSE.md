@@ -20,8 +20,9 @@ docker-compose up --build
 Najważniejsze grupy zmiennych:
 
 - PostgreSQL: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`
-- Backend: `DEFAULT_CONNECTION`, `JWT_SECRET`, `JWT_*`, `CORS_*`
+- Backend: `DEFAULT_CONNECTION`, `JWT_SECRET`, `JWT_*`, `CORS_*`, `EMAIL_CONFIRMATION_*`, `EMAIL_TWO_FACTOR_*`, `EMAIL_DELIVERY_*`
 - Frontend build: `FRONTEND_REACT_APP_API_URL`
+- Mailpit: `MAILPIT_SMTP_PORT`, `MAILPIT_HTTP_PORT`
 
 ## Struktura naszego docker-compose.yml
 
@@ -73,9 +74,24 @@ environment:
   - DefaultConnection=${DEFAULT_CONNECTION}
   - Jwt__Secret=${JWT_SECRET}
   - Cors__AllowedOrigins__0=${CORS_ALLOWED_ORIGIN_0}
+  - EmailDelivery__Host=${EMAIL_DELIVERY_HOST}
 ```
 - Zmienne środowiskowe są wstrzykiwane z root `.env`
 - Backend nie trzyma sekretów w obrazie ani w `appsettings.json`
+
+## Mailpit Service
+
+```yaml
+mailpit:
+  image: axllent/mailpit:v1.27
+  ports:
+    - "1025:1025"
+    - "8025:8025"
+```
+
+- Port `1025` = lokalny SMTP dla backendu
+- Port `8025` = web UI do podglądu maili
+- Dzięki temu potwierdzenia email i kody 2FA da się testować lokalnie bez zewnętrznego providera
 
 ```yaml
 networks:
@@ -104,6 +120,7 @@ db:
   image: postgres:16-alpine
 ```
 - Compose uruchamia też PostgreSQL, żeby stack był samowystarczalny lokalnie
+- Compose uruchamia też Mailpit, żeby backend miał od razu działającą skrzynkę testową dla email confirmation i 2FA
 
 ```yaml
 frontend:

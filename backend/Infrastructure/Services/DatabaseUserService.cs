@@ -243,7 +243,15 @@ public class DatabaseUserService : IUserService
             CreatedAt = user.CreatedAt
         };
     }
-
+    private static UserSecurityDto MapToSecurityDto(User user)
+    {
+        return new UserSecurityDto
+        {
+            Email = user.Email,
+            IsEmailConfirmed = user.IsEmailConfirmed,
+            IsTwoFactorEnabled = user.IsTwoFactorEnabled
+        };
+    }
     private static (string FirstName, string LastName) SplitDisplayName(string displayName)
     {
         var parts = displayName.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -310,4 +318,47 @@ public class DatabaseUserService : IUserService
 
         return ApiResponse<UserDto>.Success(MapToDto(user), "Avatar URL updated");
     }
+
+    public async Task<ApiResponse<UserSecurityDto>> UpdateTwoFactorAsync(Guid userId, UpdateTwoFactorPreferenceDto enable)
+    {
+
+        var user = _dbContext.Users.FirstOrDefault(x => x.Id == userId);
+        if (user is null)
+        {
+            return ApiResponse<UserSecurityDto>.Error(404, "User not found");
+        }
+
+        if(enable.Enable && !user.IsEmailConfirmed)
+        {
+            return ApiResponse<UserSecurityDto>.Error(400, "Email must be confirmed before enabling two-factor authentication");
+        }
+
+        user.IsTwoFactorEnabled = enable.Enable;
+        await _dbContext.SaveChangesAsync();
+        return ApiResponse<UserSecurityDto>.Success(
+            MapToSecurityDto(user),
+            $"Two-factor authentication {(enable.Enable ? "enabled" : "disabled")} successfully"); 
+    }
+
+    public async Task<ApiResponse<bool>> IsTwoFactorEnabled(Guid userId)
+    {
+        var user = _dbContext.Users.FirstOrDefault(x => x.Id == userId);
+        if (user is null)
+        {
+            return ApiResponse<bool>.Error(404, "User not found");
+        }
+        return ApiResponse<bool>.Success(user.IsTwoFactorEnabled);
+    }
+
+    public async Task<ApiResponse<UserSecurityDto>> GetUserSecurityAsync(Guid userId)
+    {
+        var user = _dbContext.Users.FirstOrDefault(x => x.Id == userId);
+        if (user is null)
+        {
+            return ApiResponse<UserSecurityDto>.Error(404, "User not found");
+        }
+
+        return ApiResponse<UserSecurityDto>.Success(MapToSecurityDto(user));
+    }
 }
+

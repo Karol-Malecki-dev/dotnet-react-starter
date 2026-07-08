@@ -14,5 +14,13 @@ export const registerSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters long.'),
 });
 
+export const twoFactorSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{4,10}$/, 'Enter the verification code exactly as it appears in the email.'),
+});
+
 export type LoginFormValues = z.infer<typeof loginSchema>;
 export type RegisterFormValues = z.infer<typeof registerSchema>;
+export type TwoFactorFormValues = z.infer<typeof twoFactorSchema>;

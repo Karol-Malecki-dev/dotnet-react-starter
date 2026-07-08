@@ -46,6 +46,7 @@ docker-compose up
 - 🔌 API: http://localhost:5000
 - 📖 Dokumentacja: http://localhost:5000/swagger
 - ✅ Health: http://localhost:5000/health
+- ✉️ Mailpit: http://localhost:8025
 
 ### Lokalne Uruchomienie
 
@@ -190,11 +191,14 @@ dotnet-react-starter/
 ## 🔐 Autentykacja & Bezpieczeństwo
 
 ### Jak Działa Autentykacja
-1. **Rejestracja** – `POST /api/auth/register` tworzy użytkownika z hasłem zhashowanym BCrypt
-2. **Login** – `POST /api/auth/login` zwraca JWT access token + refresh token
-3. **Dostęp** – Frontend wysyła `Authorization: Bearer {accessToken}` na protected endpoints
-4. **Odświeżenie** – `POST /api/auth/refresh-token` rotuje parę tokenów przed expiry
-5. **Logout** – `POST /api/auth/logout` cofa refresh token
+1. **Rejestracja** – `POST /api/auth/register` tworzy konto i wysyła link potwierdzający email
+2. **Potwierdzenie email** – `POST /api/auth/confirm-email` aktywuje konto po kliknięciu linku
+3. **Login** – `POST /api/auth/login` po poprawnym haśle zwraca JWT albo challenge 2FA z kodem wysyłanym na email
+4. **Weryfikacja 2FA** – `POST /api/auth/verify-2fa` sprawdza kod i dopiero wtedy wydaje access token + refresh token
+5. **Odświeżenie** – `POST /api/auth/refresh-token` rotuje parę tokenów przed expiry
+6. **Logout** – `POST /api/auth/logout` cofa refresh token
+
+W lokalnym Docker Compose maile trafiają do Mailpit. Linki aktywacyjne i kody 2FA odbierzesz pod `http://localhost:8025`.
 
 ### Funkcje Bezpieczeństwa ✅
 - Hasła hashowane BCrypt (nigdy nie przechowywane plain)

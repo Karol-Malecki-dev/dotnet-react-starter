@@ -11,10 +11,10 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using Scalar.AspNetCore;
 using Serilog;
 using Shared.Settings;
 using System.Linq;
+using System.Text;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -44,7 +44,6 @@ try
             config.RegisterValidatorsFromAssemblyContaining<Program>();
             config.DisableDataAnnotationsValidation = false;
         });
-    builder.Services.AddOpenApi();
     builder.Services.AddHealthChecks();
 
     // Configure DbContext
@@ -86,7 +85,38 @@ try
             "Wildcard CORS origins cannot be used when credentials are enabled.")
         .ValidateOnStart();
 
+    builder.Services.AddOptions<EmailConfirmationSettings>()
+        .Bind(builder.Configuration.GetSection("EmailConfirmation"))
+        .Validate(settings => Uri.TryCreate(settings.PublicOrigin, UriKind.Absolute, out _),
+            "Email confirmation public origin must be an absolute URL.")
+        .Validate(settings => settings.TokenExpiresInHours > 0,
+            "Email confirmation token lifetime must be greater than 0 hours.")
+        .Validate(settings => !string.IsNullOrWhiteSpace(settings.ConfirmationPath),
+            "Email confirmation path is required.")
+        .ValidateOnStart();
+
+    builder.Services.AddOptions<EmailTwoFactorSettings>()
+        .Bind(builder.Configuration.GetSection("EmailTwoFactor"))
+        .Validate(settings => settings.CodeExpiresInMinutes > 0,
+            "Email 2FA code lifetime must be greater than 0 minutes.")
+        .Validate(settings => settings.CodeLength >= 4 && settings.CodeLength <= 10,
+            "Email 2FA code length must be between 4 and 10 digits.")
+        .Validate(settings => settings.MaxFailedAttempts > 0,
+            "Email 2FA maximum failed attempts must be greater than 0.")
+        .ValidateOnStart();
+
+    builder.Services.AddOptions<EmailDeliverySettings>()
+        .Bind(builder.Configuration.GetSection("EmailDelivery"))
+        .Validate(settings => !settings.Enabled || !string.IsNullOrWhiteSpace(settings.Host),
+            "Email delivery host is required when email delivery is enabled.")
+        .Validate(settings => !settings.Enabled || settings.Port > 0,
+            "Email delivery port must be greater than 0 when email delivery is enabled.")
+        .Validate(settings => !settings.Enabled || !string.IsNullOrWhiteSpace(settings.FromAddress),
+            "Email delivery from address is required when email delivery is enabled.")
+        .ValidateOnStart();
+
     var corsSettings = builder.Configuration.GetSection("Cors").Get<CorsSettings>() ?? new CorsSettings();
+    var emailDeliverySettings = builder.Configuration.GetSection("EmailDelivery").Get<EmailDeliverySettings>() ?? new EmailDeliverySettings();
 
 
     builder.Services.AddHttpContextAccessor();
@@ -120,6 +150,12 @@ try
     builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
     builder.Services.AddScoped<IAuthService, DatabaseAuthService>();
     builder.Services.AddScoped<Application.Interfaces.IUserService, DatabaseUserService>();
+    builder.Services.AddScoped<LoggingAccountEmailSender>();
+    builder.Services.AddScoped<MailKitAccountEmailSender>();
+    builder.Services.AddScoped<IAccountEmailSender>(serviceProvider =>
+        emailDeliverySettings.Enabled
+            ? serviceProvider.GetRequiredService<MailKitAccountEmailSender>()
+            : serviceProvider.GetRequiredService<LoggingAccountEmailSender>());
 
     builder.Services.AddRateLimiter(options =>
     {
@@ -161,10 +197,16 @@ try
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-            // Apply pending Entity Framework migrations
-            await dbContext.Database.MigrateAsync();
-
-            Log.Information("✓ Database initialized successfully!");
+            if (dbContext.Database.IsRelational())
+            {
+                // Apply pending Entity Framework migrations only for relational providers.
+                await dbContext.Database.MigrateAsync();
+                Log.Information("✓ Database initialized successfully!");
+            }
+            else
+            {
+                Log.Information("✓ Database initialized using non-relational provider");
+            }
         }
         catch (Exception ex)
         {
@@ -177,14 +219,12 @@ try
 
     if (app.Environment.IsDevelopment())
     {
-        app.MapOpenApi();
         app.UseSwagger();
         app.UseSwaggerUI();
         Log.Information("📖 Swagger UI available at /swagger");
     }
 
     app.UseHttpsRedirection();
-    app.UseCors("AllowWasm");
 
     // JWT Authentication & Authorization
     app.UseCors("ReactApp");
@@ -196,7 +236,6 @@ try
 
     app.MapHealthChecks("/health");
     app.MapControllers();
-    app.MapHealthChecks("/health");
 
     Log.Information("🌐 Application listening on configured ports");
     await app.RunAsync();
