@@ -7,6 +7,9 @@ import type {
   UpdateUserRequest,
   UpdateUserResponse,
   UpdateUserRoleResponse,
+  GetUserSecurityResponse,
+  UpdateTwoFactorPreferenceRequest,
+  UpdateTwoFactorPreferenceResponse,
 } from '../../types';
 import { httpClient, type HttpClient } from './HttpClient';
 
@@ -40,6 +43,19 @@ export class UserApi {
   deleteUser(id: string): Promise<ApiResponse<null>> {
     return this.client.delete<ApiResponse<null>>(`/users/${id}`);
   }
+
+  getUserSecurity(): Promise<GetUserSecurityResponse> {
+    return this.client.get<GetUserSecurityResponse>(`/users/me/security`);
+  }
+
+  updateTwoFactorPreference(request: UpdateTwoFactorPreferenceRequest): Promise<UpdateTwoFactorPreferenceResponse> {
+    return this.client.patch<UpdateTwoFactorPreferenceResponse, UpdateTwoFactorPreferenceRequest>(
+      '/users/me/security/two-factor',
+      request,
+    );
+  }
+
+
 }
 
 export const userApi = new UserApi();

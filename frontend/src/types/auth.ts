@@ -52,6 +52,27 @@ export interface ResendTwoFactorRequest {
   challengeId: string;
 }
 
+/** Mirrors backend Domain.Enums.Auth.ResetType. Serialized as its numeric value (no string enum converter on backend). */
+export enum ResetType {
+  Link = 0,
+  Code = 1,
+}
+
+/** Forgot password request - maps to ForgotPasswordRequestDto.cs. Backend currently only accepts ResetType.Link. */
+export interface ForgotPasswordRequest {
+  email: string;
+  resetType: ResetType;
+}
+
+/** Reset password request - maps to ResetPasswordRequestDto.cs. token is required for the link-based flow. */
+export interface ResetPasswordRequest {
+  email: string;
+  resetType: ResetType;
+  token?: string;
+  code?: string;
+  newPassword: string;
+}
+
 // ============================================
 // 2️⃣ RESPONSES (Backend → Frontend)
 // ============================================

@@ -3,6 +3,7 @@ import type {
   AuthUser,
   ChangePasswordRequest,
   ConfirmEmailRequest,
+  ForgotPasswordRequest,
   JwtTokens,
   LoginResponseData,
   LoginRequest,
@@ -11,6 +12,7 @@ import type {
   RegisterResultData,
   ResendConfirmationRequest,
   ResendTwoFactorRequest,
+  ResetPasswordRequest,
   TwoFactorChallenge,
   VerifyTwoFactorRequest,
   VerifyTokenRequest,
@@ -77,6 +79,18 @@ export class AuthApi {
 
   verifyToken(request: VerifyTokenRequest): Promise<ApiResponse<VerifyTokenResponse>> {
     return this.client.post<ApiResponse<VerifyTokenResponse>, VerifyTokenRequest>('/auth/verify-token', request, {
+      skipAuth: true,
+    });
+  }
+
+  forgotPassword(request: ForgotPasswordRequest): Promise<ApiResponse<null>> {
+    return this.client.post<ApiResponse<null>, ForgotPasswordRequest>('/auth/forgot-password', request, {
+      skipAuth: true,
+    });
+  }
+
+  resetPassword(request: ResetPasswordRequest): Promise<ApiResponse<null>> {
+    return this.client.post<ApiResponse<null>, ResetPasswordRequest>('/auth/reset-password', request, {
       skipAuth: true,
     });
   }

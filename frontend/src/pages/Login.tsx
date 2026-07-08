@@ -87,6 +87,9 @@ export default function Login() {
         </div>
 
         {reason === 'session-expired' ? <p className="form__warning">Your session expired. Please sign in again.</p> : null}
+        {reason === 'password-reset' ? (
+          <p className="form__success">Your password has been reset. Please sign in with your new password.</p>
+        ) : null}
         {registrationPendingEmail ? (
           <p className="form__warning">
             Account created for {registrationPendingEmail}. Confirm the email first, then sign in to receive the 2FA code.
@@ -116,6 +119,9 @@ export default function Login() {
             />
             {errors.password ? <span className="field__error">{errors.password.message}</span> : null}
           </label>
+          <p className="auth-panel__footer">
+            <Link to="/forgot-password">Forgot your password?</Link>
+          </p>
           {submitError ?? error ? <p className="form__error">{submitError ?? error}</p> : null}
           <button className="button button--block" type="submit" disabled={loading}>
             {loading ? 'Signing in...' : 'Sign in'}

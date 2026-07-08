@@ -2,13 +2,32 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { authApi } from '../services/api';
 import { getApiErrorMessage } from '../utils/helpers';
+import type { ResendConfirmationFormValues } from '../utils/authSchemas';
+import { resendConfirmationSchema } from '../utils/authSchemas';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 
 type ConfirmationStatus = 'loading' | 'success' | 'error';
+type ResendStatus = 'idle' | 'loading' | 'success' | 'error';
+
 
 export default function ConfirmEmail() {
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState<ConfirmationStatus>('loading');
   const [message, setMessage] = useState('We are verifying your email confirmation link.');
+  const [resendStatus, setResendStatus] = useState<ResendStatus>('idle');
+  const[resendError, setResendError] = useState<string | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<ResendConfirmationFormValues>({
+    resolver: zodResolver(resendConfirmationSchema),
+    defaultValues: {
+      email: '',
+    },
+  });
 
   useEffect(() => {
     const userId = searchParams.get('userId')?.trim();
@@ -52,6 +71,24 @@ export default function ConfirmEmail() {
     };
   }, [searchParams]);
 
+  const onResendSubmit = async (values: ResendConfirmationFormValues) => {
+    setResendStatus('loading');
+    setResendError(null);
+
+    try{
+      await authApi.resendConfirmation({ email: values.email });
+      setResendStatus('success');
+    } catch (error) {
+      setResendStatus('error');
+      setResendError(
+        getApiErrorMessage(error, {
+          defaultMessage: 'Unable to resend the confirmation email right now. Please try again.',
+          rateLimitMessage: 'Too many requests. Please wait a moment and try again.',
+        }),
+      );
+    }
+  }
+
   return (
     <section className="auth-layout">
       <article className="auth-callout">
@@ -71,6 +108,28 @@ export default function ConfirmEmail() {
 
         {status === 'loading' ? <p className="form__warning">Please wait while we validate the link.</p> : null}
         {status === 'error' ? <p className="form__error">{message}</p> : null}
+
+        {status === 'error' ? (
+          resendStatus === 'success' ? (
+            <p className="form__success">A new confirmation email has been sent. Please check your inbox.</p>
+          ) : (
+            <form onSubmit={handleSubmit(onResendSubmit)}>
+                <label htmlFor="email">Email</label>
+                <input
+                  id="email"
+                  type="email"
+                  placeholder="name@company.com"
+                  aria-invalid={errors.email ? 'true' : 'false'}
+                  {...register('email', { required: 'Email is required' })}
+                />
+                {errors.email && <span className="form__error">{errors.email.message}</span>}
+              {resendError && <p className="form__error">{resendError}</p>}
+              <button type="submit" className="button button--block" disabled={resendStatus === 'loading'}>
+                {resendStatus === 'loading' ? 'Resending...' : 'Resend confirmation email'}
+              </button>
+            </form>
+          )
+        ) : null}
 
         <div className="form">
           <Link className="button button--block" to="/login">

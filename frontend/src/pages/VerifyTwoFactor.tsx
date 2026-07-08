@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '../hooks/useAuth';
-import type { PendingTwoFactorChallenge, TwoFactorFormValues } from '../types';
+import type { PendingTwoFactorChallenge } from '../types';
 import { clearPendingTwoFactor, loadPendingTwoFactor, savePendingTwoFactor } from '../utils/pendingTwoFactor';
 import { getApiErrorMessage } from '../utils/helpers';
+import type { TwoFactorFormValues } from '../utils/authSchemas';
 import { twoFactorSchema } from '../utils/authSchemas';
 
 interface VerifyTwoFactorLocationState {
@@ -20,6 +21,21 @@ export default function VerifyTwoFactor() {
   const [challenge, setChallenge] = useState<PendingTwoFactorChallenge | null>(locationChallenge ?? loadPendingTwoFactor());
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!challenge) {
+      return undefined;
+    }
+
+    const interval = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [challenge]);
+
+  const isExpired = challenge ? now >= new Date(challenge.expiresAt).getTime() : false;
+
   const {
     register,
     handleSubmit,
@@ -59,6 +75,11 @@ export default function VerifyTwoFactor() {
     clearError();
     setSubmitError(null);
     setInfoMessage(null);
+
+    if(isExpired) {
+      setSubmitError('This verification code has expired. Please request a new one.');
+      return;
+    }
 
     try {
       await verifyTwoFactor(challenge.challengeId, values.code);
@@ -133,9 +154,10 @@ export default function VerifyTwoFactor() {
             />
             {errors.code ? <span className="field__error">{errors.code.message}</span> : null}
           </label>
+                    {isExpired ? <p className="form__warning">This code has expired. Use "Resend code" to get a new one.</p> : null}
           {infoMessage ? <p className="form__warning">{infoMessage}</p> : null}
           {submitError ?? error ? <p className="form__error">{submitError ?? error}</p> : null}
-          <button className="button button--block" type="submit" disabled={loading}>
+                    <button className="button button--block" type="submit" disabled={loading || isExpired}>
             {loading ? 'Verifying...' : 'Verify code'}
           </button>
           <button className="button button--ghost button--block" type="button" onClick={handleResend} disabled={loading}>
