@@ -113,17 +113,19 @@ export default function ConfirmEmail() {
           resendStatus === 'success' ? (
             <p className="form__success">A new confirmation email has been sent. Please check your inbox.</p>
           ) : (
-            <form onSubmit={handleSubmit(onResendSubmit)}>
-                <label htmlFor="email">Email</label>
+            <form className="form" noValidate onSubmit={handleSubmit(onResendSubmit)}>
+              <label className="field">
+                <span className="field__label">Email</span>
                 <input
-                  id="email"
                   type="email"
+                  autoComplete="email"
                   placeholder="name@company.com"
                   aria-invalid={errors.email ? 'true' : 'false'}
-                  {...register('email', { required: 'Email is required' })}
+                  {...register('email')}
                 />
-                {errors.email && <span className="form__error">{errors.email.message}</span>}
-              {resendError && <p className="form__error">{resendError}</p>}
+                {errors.email ? <span className="field__error">{errors.email.message}</span> : null}
+              </label>
+              {resendError ? <p className="form__error">{resendError}</p> : null}
               <button type="submit" className="button button--block" disabled={resendStatus === 'loading'}>
                 {resendStatus === 'loading' ? 'Resending...' : 'Resend confirmation email'}
               </button>
