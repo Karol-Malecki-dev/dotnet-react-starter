@@ -37,6 +37,12 @@ export type {
   ResetPasswordRequest,
 } from './auth';
 
+// Runtime config types
+export type {
+  AppFeatureFlagsDto,
+  AppRuntimeConfigurationDto,
+} from './runtimeConfig';
+
 // ResetType is a real runtime enum (not just a type), so it must be exported separately
 // from the `export type { ... }` block above (isolatedModules forbids mixing them).
 export { ResetType } from './auth';
