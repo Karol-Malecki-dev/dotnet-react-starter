@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
 using Shared.Settings;
 using System.Text;
 
@@ -44,6 +45,8 @@ namespace API.Configurations
                 ValidateIssuerSigningKey = true,
                 ValidIssuer = _jwtSettings.Issuer,
                 ValidAudience = _jwtSettings.Audience,
+                NameClaimType = JwtRegisteredClaimNames.Sub,
+                RoleClaimType = "role",
                 IssuerSigningKey = signingKey,
                 ClockSkew = TimeSpan.Zero // Brak tolerancji na różnicę czasu między serwerem a klientem
             };

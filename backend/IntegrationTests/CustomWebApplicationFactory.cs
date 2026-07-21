@@ -9,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 
 namespace IntegrationTests;
@@ -91,6 +92,8 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
                     ValidateIssuerSigningKey = true,
                     ValidIssuer = "test-issuer",
                     ValidAudience = "test-audience",
+                    NameClaimType = JwtRegisteredClaimNames.Sub,
+                    RoleClaimType = "role",
                     IssuerSigningKey = new SymmetricSecurityKey(
                         Encoding.UTF8.GetBytes("test-secret-key-1234567890-test-1234567890-extended")),
                     ClockSkew = TimeSpan.Zero

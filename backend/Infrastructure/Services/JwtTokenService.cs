@@ -46,6 +46,8 @@ namespace Infrastructure.Services
                 ValidateLifetime = true,
                 ValidIssuer = _jwtSettings.Issuer,
                 ValidAudience = _jwtSettings.Audience,
+                NameClaimType = JwtRegisteredClaimNames.Sub,
+                RoleClaimType = "role",
                 ClockSkew = TimeSpan.Zero
             };
         }

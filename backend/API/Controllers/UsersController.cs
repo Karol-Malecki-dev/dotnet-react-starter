@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Org.BouncyCastle.Asn1.Cmp;
 using Shared.Responses;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
 namespace API.Controllers;
@@ -100,7 +101,8 @@ public class UsersController : ControllerBase
     }
     private bool TryGetCurrentUserId(out Guid userId)
     {
-        var userIdValue = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var userIdValue = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
+            ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         return Guid.TryParse(userIdValue, out userId);
     }
 
