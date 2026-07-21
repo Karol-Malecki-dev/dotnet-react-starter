@@ -64,6 +64,17 @@ export type {
   UpdateTwoFactorPreferenceResponse,
 } from './user/index';
 
+// Admin types
+export type {
+  AdminDashboardStatsDto,
+  AdminUserListItemDto,
+  AdminUserDetailsDto,
+  AdminUserFilterRequestDto,
+  AdminUpdateUserRequestDto,
+} from './admin';
+
+export { AdminUserRole } from './admin';
+
 // API types
 export type {
   ApiResponse,

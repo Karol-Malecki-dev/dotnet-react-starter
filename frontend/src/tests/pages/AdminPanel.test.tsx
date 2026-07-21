@@ -1,26 +1,38 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import AdminPanel from '../../pages/AdminPanel';
-import { userApi } from '../../services/api';
+import { adminApi } from '../../services/api';
 
-jest.mock('../../services/api', () => ({
-  userApi: {
-    getUserCount: jest.fn(),
-  },
-}));
+jest.mock('../../services/api', () => {
+  const actual = jest.requireActual('../../services/api');
 
-const mockedUserApi = userApi as jest.Mocked<typeof userApi>;
+  return {
+    ...actual,
+    adminApi: {
+      getDashboardStats: jest.fn(),
+    },
+  };
+});
+
+const mockedAdminApi = adminApi as jest.Mocked<typeof adminApi>;
 
 describe('AdminPanel page', () => {
   beforeEach(() => {
     jest.resetAllMocks();
   });
 
-  it('renders the backend user count', async () => {
-    mockedUserApi.getUserCount.mockResolvedValue({
+  it('renders the backend dashboard stats', async () => {
+    mockedAdminApi.getDashboardStats.mockResolvedValue({
       statusCode: 200,
       message: 'OK',
-      data: 42,
+      data: {
+        totalUsers: 42,
+        activeUsers: 40,
+        inactiveUsers: 2,
+        newUsersLast7Days: 5,
+        adminUsers: 3,
+        activeAdminUsers: 3,
+      },
       errors: null,
       timestamp: '2026-06-26T00:00:00Z',
     });
@@ -32,11 +44,12 @@ describe('AdminPanel page', () => {
     );
 
     expect(await screen.findByRole('heading', { name: '42' })).toBeInTheDocument();
-    expect(screen.getByText(/live count from the backend admin endpoint/i)).toBeInTheDocument();
+    expect(screen.getByText(/active admins/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /open user directory/i })).toBeInTheDocument();
   });
 
   it('renders an error state when the admin overview fails', async () => {
-    mockedUserApi.getUserCount.mockRejectedValue(new Error('Access denied'));
+    mockedAdminApi.getDashboardStats.mockRejectedValue(new Error('Access denied'));
 
     render(
       <MemoryRouter>
@@ -48,7 +61,7 @@ describe('AdminPanel page', () => {
   });
 
   it('renders a 403 API message when the admin overview is forbidden', async () => {
-    mockedUserApi.getUserCount.mockRejectedValue(new Error('Forbidden'));
+    mockedAdminApi.getDashboardStats.mockRejectedValue(new Error('Forbidden'));
 
     render(
       <MemoryRouter>
@@ -60,7 +73,7 @@ describe('AdminPanel page', () => {
   });
 
   it('falls back to a generic message for non-Error failures', async () => {
-    mockedUserApi.getUserCount.mockRejectedValue('unexpected failure');
+    mockedAdminApi.getDashboardStats.mockRejectedValue('unexpected failure');
 
     render(
       <MemoryRouter>

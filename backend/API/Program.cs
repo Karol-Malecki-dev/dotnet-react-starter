@@ -147,9 +147,12 @@ try
 
     // Register services
     builder.Services.AddScoped<ValidationFilterAttribute>();
+    
     builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
     builder.Services.AddScoped<IAuthService, DatabaseAuthService>();
-    builder.Services.AddScoped<Application.Interfaces.IUserService, DatabaseUserService>();
+    builder.Services.AddScoped<IUserService, DatabaseUserService>();
+    builder.Services.AddScoped<IAdminService, DatabaseAdminService>();
+
     builder.Services.AddScoped<LoggingAccountEmailSender>();
     builder.Services.AddScoped<MailKitAccountEmailSender>();
     builder.Services.AddScoped<IAccountEmailSender>(serviceProvider =>

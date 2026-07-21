@@ -25,8 +25,8 @@ export function Navbar() {
         <NavLink to="/">Home</NavLink>
         {isAuthenticated ? <NavLink to="/dashboard">Dashboard</NavLink> : null}
         {isAuthenticated ? <NavLink to="/profile">Profile</NavLink> : null}
-        {isAuthenticated ? <NavLink to="/users">Users</NavLink> : null}
         {isAdmin ? <NavLink to="/admin">Admin</NavLink> : null}
+        {isAdmin ? <NavLink to="/admin/users">Users</NavLink> : null}
       </nav>
 
       <div className="navbar__actions">

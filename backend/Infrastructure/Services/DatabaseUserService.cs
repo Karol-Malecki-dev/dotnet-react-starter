@@ -1,3 +1,4 @@
+using Application.DTOs.Admin;
 using Application.DTOs.User;
 using Application.Interfaces;
 using Domain.Entities;
@@ -359,6 +360,11 @@ public class DatabaseUserService : IUserService
         }
 
         return ApiResponse<UserSecurityDto>.Success(MapToSecurityDto(user));
+    }
+
+    public Task<ApiResponse<AdminDashboardStatsDto>> GetAdminDashboardStatsAsync(Guid userID)
+    {
+        throw new NotImplementedException();
     }
 }
 

@@ -72,3 +72,9 @@
 
 ### P2.5 Workflow preferencje
 - Preferować workflow: tańszy model do wstępnego generowania dokumentacji i szybkie sprawdzenie mocniejszym modelem, np. GPT-5.4.
+
+### P2.6 Weryfikacja stanu plików
+- Użytkownik oczekuje precyzyjnej weryfikacji aktualnego stanu plików przed wskazywaniem niespójności i chce konkretne, jednoznaczne sugestie nazw klas/DTO.
+
+### P2.7 Uwagi o błędach
+- Uwagi o błędach powinny odnosić się do aktualnego kodu i po poprawkach mają być ponownie zweryfikowane precyzyjnie.
