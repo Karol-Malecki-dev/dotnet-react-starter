@@ -36,6 +36,7 @@ namespace Domain.Entities
 
         /// <summary>Indicates whether the account requires email-based two-factor verification during sign-in</summary>
         public bool IsTwoFactorEnabled { get; set; }
+        public string? Address { get; set; }
 
         /// <summary>Timestamp when the user account was created in UTC</summary>
         public DateTime CreatedAt { get; set; }

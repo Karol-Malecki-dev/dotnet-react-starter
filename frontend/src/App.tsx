@@ -37,11 +37,12 @@ export default function App() {
               <Route element={<ProtectedRoute />}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/profile" element={<Profile />} />
-                <Route path="/users" element={<UserList />} />
               </Route>
 
               <Route element={<ProtectedRoute allowedRoles={['Admin']} />}>
                 <Route path="/admin" element={<AdminPanel />} />
+                <Route path="/admin/users" element={<UserList />} />
+                <Route path="/users" element={<Navigate to="/admin/users" replace />} />
               </Route>
 
               <Route path="/forbidden" element={<Forbidden />} />

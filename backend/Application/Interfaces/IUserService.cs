@@ -1,4 +1,5 @@
-﻿using Application.DTOs.User;
+﻿using Application.DTOs.Admin;
+using Application.DTOs.User;
 using Shared.Responses;
 
 namespace Application.Interfaces;
@@ -11,7 +12,7 @@ public interface IUserService
     Task<ApiResponse<int>> GetUserCountAsync();
     Task<ApiResponse<string>> GetUserRoleAsync(Guid userId);
     Task<ApiResponse<UserSecurityDto>> GetUserSecurityAsync(Guid userId);
-
+    Task<ApiResponse<AdminDashboardStatsDto>> GetAdminDashboardStatsAsync(Guid userID);
 
     Task<ApiResponse<UserDto>> UpdateUserAsync(Guid userId, UpdateUserDto dto);
     Task<ApiResponse<UserDto>> UpdateDisplayNameAsync(Guid userId, string displayName);

@@ -77,8 +77,8 @@ describe('Navbar', () => {
 
     expect(screen.getByRole('link', { name: /dashboard/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /profile/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /users/i })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /admin/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /users/i })).not.toBeInTheDocument();
   });
 
   it('shows admin navigation for admin users', () => {
@@ -95,6 +95,7 @@ describe('Navbar', () => {
     );
 
     expect(screen.getByRole('link', { name: /admin/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /users/i })).toBeInTheDocument();
     expect(screen.getByText('Admin User')).toBeInTheDocument();
   });
 });

@@ -35,13 +35,15 @@ export default function Dashboard() {
         <Link className="button" to="/profile">
           Profile
         </Link>
-        <Link className="button button--ghost" to="/users">
-          Users directory
-        </Link>
         {isAdmin ? (
-          <Link className="button button--ghost" to="/admin">
-            Admin panel
-          </Link>
+          <>
+            <Link className="button button--ghost" to="/admin">
+              Admin panel
+            </Link>
+            <Link className="button button--ghost" to="/admin/users">
+              Users directory
+            </Link>
+          </>
         ) : null}
       </div>
     </section>

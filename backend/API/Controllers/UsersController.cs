@@ -17,7 +17,6 @@ namespace API.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly IUserService _userService;
-    private readonly IAuthService _authService;
     private readonly ILogger<UsersController> _logger;
 
 
@@ -144,5 +143,4 @@ public class UsersController : ControllerBase
             return StatusCode(500, ApiResponse<UserSecurityDto>.Error(500, "Internal server error", null));
         }
     }
-
 }
