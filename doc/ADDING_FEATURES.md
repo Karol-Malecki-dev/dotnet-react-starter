@@ -1,0 +1,145 @@
+# Adding Features
+
+Ten dokument opisuje, jak rozwijać ten starter w sposób spójny z obecną architekturą.
+
+## When To Read This Document
+
+Czytaj ten plik, gdy chcesz ustalić:
+
+- od czego zacząć dodawanie nowego feature'a
+- gdzie w projekcie powinna trafić nowa logika
+- w jakiej kolejności ruszać backend, frontend, bazę i dokumentację
+- jak nie zepsuć istniejących wzorców auth, runtime config i routingu
+
+Jeśli najpierw potrzebujesz zrozumieć obecną architekturę projektu, zacznij od `doc/ARCHITECTURE.md`.
+
+## General Rule
+
+Najpierw ustal, jakiego typu jest nowy feature.
+
+Najczęstsze przypadki:
+
+- nowy ekran lub nowy flow UI
+- nowy endpoint backendowy
+- rozszerzenie istniejącego auth flow
+- nowa flaga runtime
+- nowa tabela lub nowa relacja w bazie
+- nowa sekcja admina
+
+Nie zaczynaj od przypadkowego dopisywania kodu w widoku lub kontrolerze.
+Najpierw ustal źródło prawdy i granicę odpowiedzialności.
+
+## Adding a New Frontend Feature
+
+Jeśli dodajesz nowy feature po stronie UI:
+
+1. Ustal, czy to nowa strona, nowa sekcja istniejącej strony czy nowy komponent shella.
+2. Dodaj lub rozszerz typy w `frontend/src/types/`, jeśli zmienia się kontrakt z API.
+3. Dodaj lub rozszerz klienta API w `frontend/src/services/api/`.
+4. Dodaj schemat walidacji w `frontend/src/utils/`, jeśli feature ma formularz.
+5. Dodaj logikę do contextu lub hooka, jeśli stan ma być współdzielony.
+6. Dodaj routing w `frontend/src/components/AppRoutes.tsx`, jeśli to nowy ekran.
+7. Dodaj testy komponentu, hooka lub routingu adekwatne do zmiany.
+
+## Adding a New Backend Feature
+
+Jeśli dodajesz nowy feature po stronie backendu:
+
+1. Zacznij od domeny, jeśli pojawia się nowe pojęcie biznesowe.
+2. Dodaj DTO, interfejsy i walidację w `backend/Application/`.
+3. Dodaj implementację persistence lub integracji w `backend/Infrastructure/`.
+4. Dodaj lub rozszerz endpoint w `backend/API/Controllers/`.
+5. Zarejestruj nowe usługi w `backend/API/Services/AddProjectServices.cs`, jeśli to potrzebne.
+6. Dodaj testy jednostkowe i integracyjne.
+
+## Adding a New Runtime Feature Flag
+
+To jest ważny, powtarzalny wzorzec w tym projekcie.
+
+Jeśli chcesz dodać nową flagę runtime:
+
+1. Dodaj pole w backendowym settings, zwykle w `Shared/Settings/UiFeatureSettings.cs` albo innym odpowiednim settings class.
+2. Dodaj wartość w `backend/API/appsettings.json` i `backend/API/appsettings.Development.json`.
+3. Dodaj pole do `backend/Shared/Dtos/AppRuntimeConfigurationDto.cs`.
+4. Zmapuj je w `backend/API/Controllers/RuntimeConfigController.cs`.
+5. Dodaj odpowiadające pole do `frontend/src/types/runtimeConfig.ts`.
+6. Dodaj fallback i normalizację w `frontend/src/context/RuntimeConfigContext.tsx`.
+7. Wystaw prosty boolean przez `frontend/src/hooks/useFeatureAvailability.ts`.
+8. Użyj flagi w `Navbar`, `AppRoutes`, `AppBootstrapGate` albo odpowiednim komponencie.
+9. Dodaj testy dla runtime config contextu i miejsc, które są przez flagę sterowane.
+
+## Where to Put New Logic
+
+Kilka prostych reguł:
+
+- decyzje o widoczności trasy wkładaj do routingu
+- decyzje o widoczności linków i sekcji shella wkładaj do shella lub navbara
+- logikę pobierania i transformacji danych wkładaj do API clienta, contextu albo hooka
+- logikę walidacji formularzy trzymaj w `utils/` obok innych schematów
+- logikę bezpieczeństwa i autoryzacji trzymaj po stronie backendu
+
+## Adding a New Database Table or Relation
+
+Jeśli feature wymaga nowej tabeli:
+
+1. Dodaj encję w `backend/Domain/Entities/`.
+2. Dodaj `DbSet` i konfigurację relacji w `ApplicationDbContext`.
+3. Wygeneruj migrację EF Core.
+4. Dodaj lub rozszerz serwis infrastrukturalny, który pracuje na tych danych.
+5. Dodaj testy integracyjne sprawdzające zapis i odczyt.
+
+Warto pilnować, żeby relacje i indeksy były jawne i czytelne, szczególnie dla rekordów tokenów, challenge i danych użytkownika.
+
+## Naming Conventions
+
+Praktyczne zasady:
+
+- ekran: nazwa rzeczownikowa lub flow-oriented, np. `ResetPassword`, `UserList`
+- hook: `use` + odpowiedzialność, np. `useFeatureAvailability`
+- context: obszar stanu + `Context`, np. `RuntimeConfigContext`
+- API client: obszar + `Api`, np. `RuntimeConfigApi`
+- backend settings: obszar + `Settings`, np. `EmailTwoFactorSettings`
+- request/response DTO: cel + `RequestDto` lub `ResponseDto`, gdy to pomaga odróżnić kierunek
+
+## Common Mistakes to Avoid
+
+- nie dodawaj feature flags tylko po stronie frontendu, jeśli źródłem prawdy ma być backend
+- nie duplikuj tego samego kontraktu w kilku plikach pod inną nazwą
+- nie rozsiewaj logiki auth po wielu komponentach
+- nie wrzucaj logiki infrastrukturalnej do kontrolerów
+- nie traktuj ukrycia przycisku w UI jako zabezpieczenia
+- nie aktualizuj tylko jednego `appsettings`, jeśli feature ma działać spójnie w różnych środowiskach
+
+## Recommended Change Order
+
+Najbezpieczniejsza kolejność przy większych zmianach:
+
+1. kontrakt i model danych
+2. backendowa implementacja
+3. frontendowy klient API
+4. frontendowy stan i hooki
+5. routing i UI
+6. testy
+7. dokumentacja
+
+## Documentation Rule
+
+Jeśli feature wprowadza nowy przepływ, nowy typ danych albo nowy wzorzec architektoniczny, zaktualizuj dokumentację w `doc/` od razu po wdrożeniu zmiany.
+
+## Which Document To Open Next
+
+W zależności od typu zmiany przejdź dalej do odpowiedniego pliku:
+
+- `doc/ARCHITECTURE.md` - jeśli chcesz najpierw zrozumieć szeroki obraz projektu
+- `doc/BACKEND_SETUP.md` - jeśli dodajesz endpoint, persistence albo konfigurację backendu
+- `doc/FRONTEND_SETUP.md` - jeśli dodajesz ekran, routing, context albo integrację UI
+- `doc/JWT_ARCHITECTURE.md` - jeśli zmiana dotyka sesji, JWT, refresh tokenów albo `/me`
+- `doc/EMAIL_2FA_FLOWS.md` - jeśli zmiana dotyka confirm email, 2FA albo resetu hasła
+
+## See Also
+
+- `doc/ARCHITECTURE.md` - mapa odpowiedzialności i głównych przepływów informacji
+- `doc/BACKEND_SETUP.md` - warstwy backendu, konfiguracja i wzorce rozszerzania API
+- `doc/FRONTEND_SETUP.md` - bootstrap UI, routing i warstwa klienta API
+- `doc/JWT_ARCHITECTURE.md` - model sesji i bezpieczeństwo tokenów
+- `doc/EMAIL_2FA_FLOWS.md` - szczegółowe flow email confirmation, 2FA i password reset

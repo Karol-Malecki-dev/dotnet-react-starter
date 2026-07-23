@@ -1,9 +1,15 @@
 ﻿namespace Shared.Settings
 {
+    /// <summary>Configuration for JWT creation, validation, and the refresh-token cookie.</summary>
     public class JwtSettings
     {
+        /// <summary>Signing secret used to create and validate access tokens.</summary>
         public string Secret { get; set; } = string.Empty;
+
+        /// <summary>Expected issuer claim in access tokens.</summary>
         public string Issuer { get; set; } = string.Empty;
+
+        /// <summary>Expected audience claim in access tokens.</summary>
         public string Audience { get; set; } = string.Empty;
 
         /// <summary>Access token expiry. Default: 15 minutes.</summary>

@@ -1,362 +1,147 @@
-# 🚀 Getting Started - Uruchom projekt w 5 minut!
+# Getting Started
+
+Ten dokument prowadzi przez uruchomienie aktualnej wersji startera i wskazuje właściwą kolejność czytania dokumentacji.
+
+## When To Read This Document
+
+Czytaj ten plik, gdy konfigurujesz środowisko lokalne, uruchamiasz projekt po raz pierwszy albo szukasz podstawowych komend developerskich.
 
 ## Prerequisites
 
-Przed uruchomieniem upewnij się że masz zainstalowane:
+Do uruchomienia projektu lokalnie potrzebujesz:
 
-- ✅ **Docker** (with Docker Compose) - [Download](https://www.docker.com/products/docker-desktop)
-- ✅ **Git** - [Download](https://git-scm.com/)
-- ✅ **Node.js** 20+ (opcjonalnie, dla local development) - [Download](https://nodejs.org/)
-- ✅ **.NET 8 SDK** (opcjonalnie, dla local development) - [Download](https://dotnet.microsoft.com/)
+- .NET 9 SDK
+- Node.js 20+
+- Docker Desktop z Docker Compose, jeśli uruchamiasz pełny stack w kontenerach
+- PostgreSQL lokalnie albo PostgreSQL uruchomionego przez Docker Compose
 
----
+## Configuration
 
-## 🐳 Opcja 1: Docker (REKOMENDOWANE - najłatwiejsze!)
+Backend czyta konfigurację w tej kolejności:
 
-### 1. Clone projektu
-```bash
-git clone https://github.com/Karol8284/dotnet-react-starter.git
-cd dotnet-react-starter
+1. `backend/API/appsettings.json`
+2. `backend/API/appsettings.Development.json`
+3. zmienne środowiskowe, User Secrets albo konfigurację hostingu
+
+Frontend używa publicznych wartości build-time z prefiksem `REACT_APP_`.
+
+Dla lokalnego uruchomienia frontendu względem API ustaw w `frontend/.env.development.local`:
+
+```text
+REACT_APP_API_URL=http://localhost:5000
 ```
 
-### 2. Przygotuj konfigurację środowiskową
-```bash
-copy .env.example .env
-copy frontend/.env.example frontend/.env.development.local
+Dla frontendu za nginx reverse proxy użyj:
+
+```text
+REACT_APP_API_URL=/api
 ```
 
-Minimalnie sprawdź i popraw w `.env`:
-- `JWT_SECRET`
-- `POSTGRES_PASSWORD`
-- `DEFAULT_CONNECTION`
+Sekretów nie umieszczaj w plikach `REACT_APP_*`.
 
-Jeśli frontend ma korzystać z reverse proxy nginx w Dockerze, zostaw:
-```env
-FRONTEND_REACT_APP_API_URL=/api
-```
+## Run With Docker Compose
 
-### 3. Uruchom Docker Compose
-```bash
-docker-compose up --build
-```
+W katalogu głównym projektu:
 
-Pierwszych minutę będzie budować obrazy... ⏳
-
-### 4. Czekaj na:
-```
-frontend       | > Compiled successfully!
-backend        | Now listening on: http://0.0.0.0:5000
-```
-
-### 5. Otwórz przeglądarke
-- 🌐 Frontend: **http://localhost:3000**
-- 🔌 API: **http://localhost:5000**
-- 📚 Swagger (API docs): **http://localhost:5000/openapi/v1.json**
-
-### 6. Stop
-```bash
-docker-compose down
-```
-
----
-
-## 💻 Opcja 2: Local Development (bez Docker)
-
-### Backend (.NET)
-
-**1. Przejdź do folderu backend**
-```bash
-cd backend
-```
-
-**2. Przywróć zależności NuGet**
-```bash
-dotnet restore
-```
-
-**3. Ustaw sekrety i config**
-
-Backend bierze konfigurację z:
-1. `appsettings.json`
-2. `appsettings.Development.json`
-3. zmiennych środowiskowych / user secrets
-
-Najważniejsze wartości dla local dev:
 ```powershell
-$env:Jwt__Secret="change-this-to-a-long-random-secret-at-least-32-characters"
-$env:DefaultConnection="Host=localhost;Port=5432;Database=dotnetreact;Username=postgres;Password=postgres"
+Copy-Item .env.example .env
+docker compose up --build
 ```
 
-**4. Uruchom API**
-```bash
-dotnet run --project API/API.csproj
+Domyślne adresy:
+
+- frontend: `http://localhost:3000`
+- API: `http://localhost:5000`
+- health endpoint: `http://localhost:5000/health`
+- Swagger UI: `http://localhost:5000/swagger`
+- Mailpit: `http://localhost:8025`
+
+Mailpit pozwala lokalnie odczytywać linki confirm email i kody 2FA bez wysyłania prawdziwych wiadomości.
+
+Zatrzymanie środowiska:
+
+```powershell
+docker compose down
 ```
 
-API będzie dostępne na: `http://localhost:5000`
+Usunięcie również danych z wolumenów:
 
----
-
-### Frontend (React)
-
-**1. Przejdź do folderu frontend**
-```bash
-cd frontend
+```powershell
+docker compose down -v
 ```
 
-**2. Skopiuj env dla CRA**
-```bash
-copy .env.example .env.development.local
-```
+## Run Backend Locally
 
-**3. Zainstaluj zależności npm**
-```bash
-npm install
-```
+W katalogu głównym:
 
-**4. Uruchom dev server**
-```bash
-npm start
-```
-
-Frontend będzie dostępny na: `http://localhost:3000`
-
----
-
-## 📖 Dokumentacja
-
-Po zapoznaniu się z projektem, przeczytaj:
-
-1. **[ARCHITECTURE.md](./ARCHITECTURE.md)** - Ogólna struktura projektu
-2. **[BACKEND_SETUP.md](./BACKEND_SETUP.md)** - Jak pisać backend (Domain, Application, Infrastructure)
-3. **[FRONTEND_SETUP.md](./FRONTEND_SETUP.md)** - Jak pisać frontend (Components, Hooks, Services)
-4. **[backend/DOCKER.md](../backend/DOCKER.md)** - Wyjaśnienie Dockerfile dla backendu
-5. **[frontend/DOCKER.md](../frontend/DOCKER.md)** - Wyjaśnienie Dockerfile dla frontendu
-6. **[docker/DOCKER_COMPOSE.md](../docker/DOCKER_COMPOSE.md)** - Docker Compose orchestracja
-
----
-
-## 🏗️ Struktura Projektu
-
-```
-dotnet-react-starter/
-│
-├── backend/                    # .NET 8 API
-│   ├── API/                    # Kontrolery, Middleware
-│   ├── Application/            # Business logic, Services, DTOs
-│   ├── Domain/                 # Encje, Interfejsy, Reguły biznesowe
-│   ├── Infrastructure/         # Baza danych, Repositories
-│   ├── Shared/                 # Wspólne klasy (Responses, Constants)
-│   ├── UnitTests/
-│   ├── IntegrationTests/
-│   ├── E2ETests/
-│   ├── Dockerfile              # Instrukcje budowania kontenerów
-│   └── DOCKER.md               # Wyjaśnienie
-│
-├── frontend/                   # React + TypeScript
-│   ├── public/                 # Statyczne pliki
-│   ├── src/
-│   │   ├── components/         # Reusable komponenty React
-│   │   ├── pages/              # Full page components
-│   │   ├── services/           # API calls (Axios)
-│   │   ├── hooks/              # Custom React hooks
-│   │   ├── context/            # State management (Zustand)
-│   │   ├── types/              # TypeScript interfaces
-│   │   ├── utils/              # Helper functions
-│   │   ├── App.tsx             # Main component with routing
-│   │   └── index.tsx           # Entry point
-│   ├── Dockerfile              # Instrukcje budowania
-│   └── DOCKER.md               # Wyjaśnienie
-│
-├── docker/                     # Docker configs
-│   ├── nginx.conf              # Nginx reverse proxy
-│   └── DOCKER_COMPOSE.md       # Wyjaśnienie docker-compose.yml
-│
-├── doc/                        # Dokumentacja
-│   ├── ARCHITECTURE.md         # Ogólna architektura
-│   ├── BACKEND_SETUP.md        # Backend best practices
-│   └── FRONTEND_SETUP.md       # Frontend best practices
-│
-├── docker-compose.yml          # Orkestracja Production
-├── docker-compose.dev.yml      # Orkestracja Development (TODO)
-├── README.md
-└── LICENSE
-```
-
----
-
-## 🎯 Szybkie Komendy
-
-### Docker
-```bash
-# Uruchom wszystko
-docker-compose up
-
-# Uruchom w tle
-docker-compose up -d
-
-# Przebuduj (po zmianie kodu)
-docker-compose up --build
-
-# Logi
-docker-compose logs -f frontend
-docker-compose logs -f backend
-
-# Stop
-docker-compose down
-
-# Stop + usuń dane
-docker-compose down -v
-```
-
-### Backend (.NET)
-```bash
-# Uruchom
+```powershell
+dotnet restore backend/backend.slnx
 dotnet run --project backend/API/API.csproj
-
-# Testy
-dotnet test backend/UnitTests/UnitTests.csproj
-
-# Buduj
-dotnet build backend/
 ```
 
-### Frontend (React)
-```bash
-# Uruchom dev server
+Przed uruchomieniem zapewnij działający PostgreSQL oraz poprawne wartości `DefaultConnection` i `Jwt__Secret` w środowisku lokalnym lub User Secrets.
+
+## Run Frontend Locally
+
+W osobnym terminalu:
+
+```powershell
+Set-Location frontend
+npm install
 npm start
+```
 
-# Build do produkcji
+Frontend będzie dostępny pod `http://localhost:3000`.
+
+## Test And Build Commands
+
+Backend:
+
+```powershell
+dotnet build backend/backend.slnx
+dotnet test backend/UnitTests/UnitTests.csproj
+dotnet test backend/IntegrationTests/IntegrationTests.csproj
+dotnet test backend/E2ETests/E2ETests.csproj
+```
+
+Testy E2E wymagają uruchomionej aplikacji i poprawnego środowiska testowego.
+
+Frontend:
+
+```powershell
+Set-Location frontend
+npm run test:once
 npm run build
-
-# Testy
-npm test
-
-# Lint
-npm run lint
 ```
 
----
+## Documentation Reading Order
 
-## 🐛 Troubleshooting
+Zalecana kolejność:
 
-### ❌ Port 3000/5000 już w użyciu
-```bash
-# Zmień port w docker-compose.yml
-ports:
-  - "3001:3000"  # zamiast 3000:3000
-```
+1. `README.md` - szybki opis projektu i główne komendy
+2. `ARCHITECTURE.md` - granice warstw i przepływy informacji
+3. `BACKEND_SETUP.md` - backend, konfiguracja i persistence
+4. `FRONTEND_SETUP.md` - bootstrap, routing i warstwa API
+5. `JWT_ARCHITECTURE.md` - sesja, JWT i refresh token rotation
+6. `EMAIL_2FA_FLOWS.md` - confirm email, 2FA i reset hasła
+7. `ADDING_FEATURES.md` - workflow rozszerzania projektu
 
-### ❌ Docker nie znaleziony
-```bash
-# Zainstaluj Docker Desktop:
-# https://www.docker.com/products/docker-desktop
+## Troubleshooting Order
 
-# Lub na Linux:
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-```
+Gdy aplikacja nie startuje, sprawdź kolejno:
 
-### ❌ Frontend nie widzi backendu
-```bash
-# Sprawdź czy backend działa
-docker-compose ps
+1. czy Docker, PostgreSQL, .NET SDK i Node.js są dostępne
+2. czy backend ma poprawne sekrety i connection string
+3. czy API odpowiada pod `http://localhost:5000/health`
+4. czy frontend używa właściwego `REACT_APP_API_URL`
+5. logi kontenerów albo terminala procesu, który nie wystartował
 
-# Sprawdź logi backendu
-docker-compose logs backend
+## See Also
 
-# Local CRA -> local backend: REACT_APP_API_URL=http://localhost:5000
-# Docker/nginx proxy: FRONTEND_REACT_APP_API_URL=/api
-```
-
-### ❌ "package.json not found"
-```bash
-# Frontend folder musi mieć package.json
-cd frontend
-npm install zustand axios @tanstack/react-query react-router-dom @mui/material @emotion/react @emotion/styled react-hook-form zod @hookform/resolvers lodash-es date-fns classnames
-```
-
-### ❌ .NET projekty się nie budują
-```bash
-# Usuń cache i przebuduj
-rm -r backend/**/bin
-rm -r backend/**/obj
-dotnet build backend/
-```
-
----
-
-## 📝 Pierwszy Commit
-
-Projekt jest już na GitHub z v0.1 tagiem! 🎉
-
-```bash
-# Sprawdź git status
-git status
-
-# Commity już są wysłane
-git log --oneline
-
-# Tagi
-git tag
-```
-
----
-
-## 🚀 Następne Kroki
-
-1. **Przeczytaj dokumentację** - [BACKEND_SETUP.md](./BACKEND_SETUP.md)
-2. **Dodaj pierwszą encję** - np. `Product` w Domain
-3. **Dodaj test** - UnitTest dla nowej encji
-4. **Dodaj endpoint** - Controller dla API
-5. **Dodaj frontend** - React component do wyświetlenia danych
-6. **Test całości** - Otwórz `http://localhost:3000`
-
----
-
-## 📚 Usefull Resources
-
-- **[Clean Architecture - Robert C. Martin](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html)**
-- **[React Documentation](https://react.dev/)**
-- **[.NET Documentation](https://docs.microsoft.com/en-us/dotnet/)**
-- **[Docker Best Practices](https://docs.docker.com/develop/develop-images/dockerfile_best-practices/)**
-- **[TypeScript Handbook](https://www.typescriptlang.org/docs/)**
-
----
-
-## ❓ FAQ
-
-### P: Czy muszę używać Docker?
-**O:** Nie! Możesz korzystać z opcji 2 (Local Development). Ale Docker jest MEGA polecany, szczególnie w zespołach.
-
-### P: Którą bazę danych używamy?
-**O:** Aktualnie brak (TODO). Backend jest przygotowany dla EF Core, możesz użyć SQL Server, PostgreSQL, czy SQLite.
-
-### P: Gdzie mam pisać nowy kod?
-**O:** Czytaj [BACKEND_SETUP.md](./BACKEND_SETUP.md) i [FRONTEND_SETUP.md](./FRONTEND_SETUP.md) - tam są dokładne instrukcje!
-
-### P: Jak deployować na produkcję?
-**O:** Docker images są już gotowe! Możesz deployować do:
-- Docker Hub
-- AWS ECR
-- Azure Container Registry
-- Kubernetes
-- Heroku, Railway, Render, itd.
-
----
-
-## 💬 Support
-
-Jeśli masz pytania:
-1. Czytaj dokumentację w `/doc` folder
-2. Sprawdź [GitHub Issues](https://github.com/Karol8284/dotnet-react-starter/issues)
-3. Stwórz nowe Issue jeśli problem się powtarza
-
----
-
-**Gotowy?** 🎉
-
-```bash
-docker-compose up
-```
-
-Otwórz http://localhost:3000 i zacznij kodować! 🚀
+- `README.md` - aktualny opis funkcji, stacku i endpointów auth
+- `ARCHITECTURE.md` - ogólny model projektu
+- `BACKEND_SETUP.md` - szczegóły backendu
+- `FRONTEND_SETUP.md` - szczegóły frontendu
+- `JWT_ARCHITECTURE.md` - model sesji i tokenów
+- `EMAIL_2FA_FLOWS.md` - flow emailowe i 2FA
+- `ADDING_FEATURES.md` - zasady dodawania feature'ów

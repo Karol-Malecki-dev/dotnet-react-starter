@@ -206,6 +206,8 @@ For local Docker runs, transactional emails are delivered to Mailpit. Open http:
 - [doc/ARCHITECTURE.md](doc/ARCHITECTURE.md)
 - [doc/BACKEND_SETUP.md](doc/BACKEND_SETUP.md)
 - [doc/FRONTEND_SETUP.md](doc/FRONTEND_SETUP.md)
+- [doc/JWT_ARCHITECTURE.md](doc/JWT_ARCHITECTURE.md)
+- [doc/EMAIL_2FA_FLOWS.md](doc/EMAIL_2FA_FLOWS.md)
 - [docker/DOCKER_COMPOSE.md](docker/DOCKER_COMPOSE.md)
 
 ## Suggested Next Steps

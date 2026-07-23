@@ -15,6 +15,10 @@ using System.Text;
 
 namespace Infrastructure.Services;
 
+/// <summary>
+/// Database-backed authentication service responsible for account credentials,
+/// email confirmation tokens, password reset requests, and email 2FA challenges.
+/// </summary>
 public class DatabaseAuthService : IAuthService
 {
     private readonly ApplicationDbContext _dbContext;
@@ -35,6 +39,7 @@ public class DatabaseAuthService : IAuthService
         _logger = logger;
     }
 
+    /// <inheritdoc />
     public async Task<User?> AuthenticateAsync(string email, string password)
     {
         var normalizedEmail = NormalizeEmail(email);
@@ -62,6 +67,7 @@ public class DatabaseAuthService : IAuthService
         return user;
     }
 
+    /// <inheritdoc />
     public async Task<User?> RegisterAsync(string email, string password, string displayName)
     {
         var normalizedEmail = NormalizeEmail(email);
@@ -91,21 +97,26 @@ public class DatabaseAuthService : IAuthService
         return user;
     }
 
+    /// <inheritdoc />
     public Task<bool> LogoutAsync(Guid userId)
         => Task.FromResult(true);
 
+    /// <inheritdoc />
     public async Task<bool> UserExistsAsync(string email)
     {
         var normalizedEmail = NormalizeEmail(email);
         return await _dbContext.Users.AnyAsync(x => x.Email == normalizedEmail);
     }
 
+    /// <inheritdoc />
     public async Task<bool> IsEmailConfirmedAsync(Guid userId)
         => await _dbContext.Users.AnyAsync(x => x.Id == userId && x.IsEmailConfirmed);
 
+    /// <inheritdoc />
     public async Task<bool> IsUserActiveAsync(Guid userId)
         => await _dbContext.Users.AnyAsync(x => x.Id == userId && x.IsActive);
 
+    /// <inheritdoc />
     public async Task<bool> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword)
     {
         var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId);
@@ -125,6 +136,7 @@ public class DatabaseAuthService : IAuthService
         return true;
     }
 
+    /// <inheritdoc />
     public async Task<bool> SendPasswordResetEmailAsync(string email)
     {
         var normalizedEmail = NormalizeEmail(email);
@@ -170,9 +182,11 @@ public class DatabaseAuthService : IAuthService
         return true;
     }
 
+    /// <inheritdoc />
     public Task<string?> GeneratePasswordResetTokenAsync(string email)
         => Task.FromResult<string?>(null);
 
+    /// <inheritdoc />
     public async Task<bool> ResetPasswordAsync(string email, string resetToken, string newPassword)
     {
         var normalizedEmail = NormalizeEmail(email);
@@ -225,6 +239,7 @@ public class DatabaseAuthService : IAuthService
         return true;
     }
 
+    /// <inheritdoc />
     public async Task<string?> GenerateEmailConfirmationTokenAsync(Guid userId)
     {
         var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == userId);
@@ -257,6 +272,7 @@ public class DatabaseAuthService : IAuthService
         return rawToken;
     }
 
+    /// <inheritdoc />
     public async Task<bool> ConfirmEmailAsync(Guid userId, string confirmationToken)
     {
         if (userId == Guid.Empty || string.IsNullOrWhiteSpace(confirmationToken))
@@ -305,12 +321,14 @@ public class DatabaseAuthService : IAuthService
         return true;
     }
 
+    /// <inheritdoc />
     public async Task<bool> ConfirmEmailConfirmedAsync(string email)
     {
         var normalizedEmail = NormalizeEmail(email);
         return await _dbContext.Users.AnyAsync(x => x.Email == normalizedEmail && x.IsEmailConfirmed);
     }
 
+    /// <inheritdoc />
     public async Task<EmailTwoFactorChallengeDelivery?> CreateEmailTwoFactorChallengeAsync(Guid userId)
     {
         if (!_emailTwoFactorSettings.Enabled || userId == Guid.Empty)
@@ -358,6 +376,7 @@ public class DatabaseAuthService : IAuthService
             challenge.ExpiresAt);
     }
 
+    /// <inheritdoc />
     public async Task<User?> VerifyEmailTwoFactorChallengeAsync(Guid challengeId, string code)
     {
         if (!_emailTwoFactorSettings.Enabled || challengeId == Guid.Empty || string.IsNullOrWhiteSpace(code))
@@ -412,6 +431,7 @@ public class DatabaseAuthService : IAuthService
         return user;
     }
 
+    /// <inheritdoc />
     public async Task<EmailTwoFactorChallengeDelivery?> ResendEmailTwoFactorChallengeAsync(Guid challengeId)
     {
         if (!_emailTwoFactorSettings.Enabled || challengeId == Guid.Empty)
@@ -456,6 +476,10 @@ public class DatabaseAuthService : IAuthService
             challenge.ExpiresAt);
     }
 
+    /// <summary>
+    /// Generates a cryptographically secure URL-safe token.
+    /// </summary>
+    /// <returns>A raw token that must not be logged or persisted as plain text.</returns>
     private static string GenerateSecureToken()
     {
         var bytes = RandomNumberGenerator.GetBytes(32);
@@ -465,6 +489,11 @@ public class DatabaseAuthService : IAuthService
             .TrimEnd('=');
     }
 
+    /// <summary>
+    /// Generates a cryptographically secure numeric verification code.
+    /// </summary>
+    /// <param name="length">Number of digits to generate.</param>
+    /// <returns>A numeric code with the requested length.</returns>
     private static string GenerateNumericCode(int length)
     {
         var buffer = new char[length];
@@ -477,12 +506,22 @@ public class DatabaseAuthService : IAuthService
         return new string(buffer);
     }
 
+    /// <summary>
+    /// Creates the SHA-256 hash used for comparing one-time secrets with persisted values.
+    /// </summary>
+    /// <param name="token">Raw token or code to hash.</param>
+    /// <returns>Uppercase hexadecimal SHA-256 hash.</returns>
     private static string HashToken(string token)
     {
         var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(token));
         return Convert.ToHexString(hashBytes);
     }
 
+    /// <summary>
+    /// Normalizes an email address for consistent lookup and uniqueness checks.
+    /// </summary>
+    /// <param name="email">Email address to normalize.</param>
+    /// <returns>A trimmed lowercase email address.</returns>
     private static string NormalizeEmail(string email)
         => email.Trim().ToLowerInvariant();
 }
