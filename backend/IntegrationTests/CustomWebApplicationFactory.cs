@@ -39,6 +39,11 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         builder.UseSetting("EmailTwoFactor:CodeExpiresInMinutes", "10");
         builder.UseSetting("EmailTwoFactor:CodeLength", "6");
         builder.UseSetting("EmailTwoFactor:MaxFailedAttempts", "5");
+        builder.UseSetting("UiFeatures:GlobalSearchEnabled", "true");
+        builder.UseSetting("UiFeatures:DashboardOverviewEnabled", "true");
+        builder.UseSetting("UiFeatures:AdminNavigationEnabled", "true");
+        builder.UseSetting("UiFeatures:UserManagementNavigationEnabled", "true");
+        builder.UseSetting("UiFeatures:EmailFeatureSectionsEnabled", "true");
 
         builder.ConfigureAppConfiguration((context, configBuilder) =>
         {
@@ -60,7 +65,12 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 ["EmailTwoFactor:EnableForNewUsers"] = "true",
                 ["EmailTwoFactor:CodeExpiresInMinutes"] = "10",
                 ["EmailTwoFactor:CodeLength"] = "6",
-                ["EmailTwoFactor:MaxFailedAttempts"] = "5"
+                ["EmailTwoFactor:MaxFailedAttempts"] = "5",
+                ["UiFeatures:GlobalSearchEnabled"] = "true",
+                ["UiFeatures:DashboardOverviewEnabled"] = "true",
+                ["UiFeatures:AdminNavigationEnabled"] = "true",
+                ["UiFeatures:UserManagementNavigationEnabled"] = "true",
+                ["UiFeatures:EmailFeatureSectionsEnabled"] = "true"
             };
 
             configBuilder.AddInMemoryCollection(settings);

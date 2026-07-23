@@ -5,6 +5,11 @@ import type { AppFeatureFlagsDto, AppRuntimeConfigurationDto } from '../types/ru
 const defaultRuntimeConfiguration: AppRuntimeConfigurationDto = {
   features: {
     emailDeliveryEnabled: false,
+    globalSearchEnabled: false,
+    dashboardOverviewEnabled: false,
+    adminNavigationEnabled: false,
+    userManagementNavigationEnabled: false,
+    emailFeatureSectionsEnabled: false,
     emailTwoFactorEnabled: false,
     emailTwoFactorEnabledForNewUsers: false,
   },
@@ -32,6 +37,11 @@ function normalizeRuntimeConfiguration(
   return {
     features: {
       emailDeliveryEnabled: Boolean(features.emailDeliveryEnabled),
+      globalSearchEnabled: Boolean(features.globalSearchEnabled),
+      dashboardOverviewEnabled: Boolean(features.dashboardOverviewEnabled),
+      adminNavigationEnabled: Boolean(features.adminNavigationEnabled),
+      userManagementNavigationEnabled: Boolean(features.userManagementNavigationEnabled),
+      emailFeatureSectionsEnabled: Boolean(features.emailFeatureSectionsEnabled),
       emailTwoFactorEnabled: Boolean(features.emailTwoFactorEnabled),
       emailTwoFactorEnabledForNewUsers: Boolean(features.emailTwoFactorEnabledForNewUsers),
     },
@@ -103,7 +113,7 @@ export function RuntimeConfigProvider({ children }: { children: React.ReactNode 
   const value: RuntimeConfigContextType = {
     ...state,
     refresh,
-    isFeatureEnabled: (featureName) => state.runtimeConfiguration.features[featureName],
+    isFeatureEnabled: (featureName) => Boolean(state.runtimeConfiguration.features[featureName]),
   };
 
   return <RuntimeConfigContext.Provider value={value}>{children}</RuntimeConfigContext.Provider>;

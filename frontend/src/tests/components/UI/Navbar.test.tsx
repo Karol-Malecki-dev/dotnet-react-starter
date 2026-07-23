@@ -2,9 +2,12 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Navbar } from '../../../components/UI/Navbar';
 import { useAuth } from '../../../hooks/useAuth';
+import { useFeatureAvailability } from '../../../hooks/useFeatureAvailability';
 
 jest.mock('../../../hooks/useAuth');
+jest.mock('../../../hooks/useFeatureAvailability');
 const mockedUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
+const mockedUseFeatureAvailability = useFeatureAvailability as jest.MockedFunction<typeof useFeatureAvailability>;
 
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => {
@@ -19,6 +22,19 @@ describe('Navbar', () => {
   beforeEach(() => {
     mockNavigate.mockClear();
     jest.resetAllMocks();
+    mockedUseFeatureAvailability.mockReturnValue({
+      loading: false,
+      loaded: true,
+      error: null,
+      globalSearchEnabled: true,
+      dashboardOverviewEnabled: true,
+      adminNavigationEnabled: true,
+      userManagementNavigationEnabled: true,
+      emailFeatureSectionsEnabled: true,
+      emailDeliveryEnabled: false,
+      emailTwoFactorEnabled: true,
+      emailTwoFactorEnabledForNewUsers: true,
+    });
   });
 
   it('renders login and register links when user is not authenticated', () => {
@@ -34,6 +50,7 @@ describe('Navbar', () => {
       </MemoryRouter>
     );
 
+    expect(screen.getByRole('searchbox', { name: /project search/i })).toBeInTheDocument();
     expect(screen.getByText(/login/i)).toBeInTheDocument();
     expect(screen.getByText(/register/i)).toBeInTheDocument();
   });
@@ -97,5 +114,23 @@ describe('Navbar', () => {
     expect(screen.getByRole('link', { name: /admin/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /users/i })).toBeInTheDocument();
     expect(screen.getByText('Admin User')).toBeInTheDocument();
+  });
+
+  it('shows quick search suggestions when enabled', () => {
+    mockedUseAuth.mockReturnValue({
+      isAuthenticated: false,
+      user: null,
+      logout: jest.fn(),
+    } as any);
+
+    render(
+      <MemoryRouter>
+        <Navbar />
+      </MemoryRouter>
+    );
+
+    fireEvent.change(screen.getByRole('searchbox', { name: /project search/i }), { target: { value: 'register' } });
+
+    expect(screen.getByRole('button', { name: /register/i })).toBeInTheDocument();
   });
 });

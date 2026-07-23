@@ -22,6 +22,31 @@ public sealed class AppFeatureFlagsDto
     public bool EmailDeliveryEnabled { get; init; }
 
     /// <summary>
+    /// Indicates whether the global quick search command bar should be visible in the frontend shell.
+    /// </summary>
+    public bool GlobalSearchEnabled { get; init; }
+
+    /// <summary>
+    /// Indicates whether the dashboard summary area should be visible to authenticated users.
+    /// </summary>
+    public bool DashboardOverviewEnabled { get; init; }
+
+    /// <summary>
+    /// Indicates whether admin-oriented navigation links should be exposed in the shell.
+    /// </summary>
+    public bool AdminNavigationEnabled { get; init; }
+
+    /// <summary>
+    /// Indicates whether the users management navigation entry should be exposed.
+    /// </summary>
+    public bool UserManagementNavigationEnabled { get; init; }
+
+    /// <summary>
+    /// Indicates whether email-related feature sections should be visible in the frontend.
+    /// </summary>
+    public bool EmailFeatureSectionsEnabled { get; init; }
+
+    /// <summary>
     /// Indicates whether email-based two-factor authentication is enabled.
     /// </summary>
     public bool EmailTwoFactorEnabled { get; init; }

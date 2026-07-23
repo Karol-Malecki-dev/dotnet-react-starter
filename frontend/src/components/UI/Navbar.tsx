@@ -1,10 +1,32 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { useFeatureAvailability } from '../../hooks/useFeatureAvailability';
+import { QuickSearchBar, type QuickSearchItem } from './QuickSearchBar';
 
 export function Navbar() {
   const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
+  const {
+    globalSearchEnabled,
+    dashboardOverviewEnabled,
+    adminNavigationEnabled,
+    userManagementNavigationEnabled,
+    emailTwoFactorEnabled,
+  } = useFeatureAvailability();
   const isAdmin = user?.role === 'Admin';
+
+  const searchItems: QuickSearchItem[] = [
+    { label: 'Home', description: 'Landing page and auth overview', to: '/' },
+    ...(isAuthenticated && dashboardOverviewEnabled ? [{ label: 'Dashboard', description: 'Protected workspace summary', to: '/dashboard' }] : []),
+    ...(isAuthenticated ? [{ label: 'Profile', description: 'Manage your account details', to: '/profile' }] : []),
+    ...(isAdmin && adminNavigationEnabled ? [{ label: 'Admin panel', description: 'Administration overview', to: '/admin' }] : []),
+    ...(isAdmin && userManagementNavigationEnabled ? [{ label: 'Users directory', description: 'Search and manage users', to: '/admin/users', keywords: ['users', 'people'] }] : []),
+    ...(emailTwoFactorEnabled ? [{ label: 'Two-factor verification', description: 'Complete the 2FA challenge', to: '/verify-2fa' }] : []),
+    ...(!isAuthenticated ? [
+      { label: 'Login', description: 'Sign in to continue', to: '/login' },
+      { label: 'Register', description: 'Create a new account', to: '/register' },
+    ] : []),
+  ];
 
   const handleLogout = async () => {
     await logout();
@@ -21,12 +43,20 @@ export function Navbar() {
         </div>
       </div>
 
+      {globalSearchEnabled ? (
+        <QuickSearchBar
+          items={searchItems}
+          placeholder="Search pages, users, and actions"
+          label="Project search"
+        />
+      ) : null}
+
       <nav className="navbar__links">
         <NavLink to="/">Home</NavLink>
-        {isAuthenticated ? <NavLink to="/dashboard">Dashboard</NavLink> : null}
+        {isAuthenticated && dashboardOverviewEnabled ? <NavLink to="/dashboard">Dashboard</NavLink> : null}
         {isAuthenticated ? <NavLink to="/profile">Profile</NavLink> : null}
-        {isAdmin ? <NavLink to="/admin">Admin</NavLink> : null}
-        {isAdmin ? <NavLink to="/admin/users">Users</NavLink> : null}
+        {isAdmin && adminNavigationEnabled ? <NavLink to="/admin">Admin</NavLink> : null}
+        {isAdmin && userManagementNavigationEnabled ? <NavLink to="/admin/users">Users</NavLink> : null}
       </nav>
 
       <div className="navbar__actions">

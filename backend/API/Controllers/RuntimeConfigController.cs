@@ -16,13 +16,16 @@ public class RuntimeConfigController : ControllerBase
 {
     private readonly EmailDeliverySettings _emailDeliverySettings;
     private readonly EmailTwoFactorSettings _emailTwoFactorSettings;
+    private readonly UiFeatureSettings _uiFeatureSettings;
 
     public RuntimeConfigController(
         IOptions<EmailDeliverySettings> emailDeliveryOptions,
-        IOptions<EmailTwoFactorSettings> emailTwoFactorOptions)
+        IOptions<EmailTwoFactorSettings> emailTwoFactorOptions,
+        IOptions<UiFeatureSettings> uiFeatureOptions)
     {
         _emailDeliverySettings = emailDeliveryOptions.Value;
         _emailTwoFactorSettings = emailTwoFactorOptions.Value;
+        _uiFeatureSettings = uiFeatureOptions.Value;
     }
 
     /// <summary>
@@ -39,6 +42,11 @@ public class RuntimeConfigController : ControllerBase
             Features = new AppFeatureFlagsDto
             {
                 EmailDeliveryEnabled = _emailDeliverySettings.Enabled,
+                GlobalSearchEnabled = _uiFeatureSettings.GlobalSearchEnabled,
+                DashboardOverviewEnabled = _uiFeatureSettings.DashboardOverviewEnabled,
+                AdminNavigationEnabled = _uiFeatureSettings.AdminNavigationEnabled,
+                UserManagementNavigationEnabled = _uiFeatureSettings.UserManagementNavigationEnabled,
+                EmailFeatureSectionsEnabled = _uiFeatureSettings.EmailFeatureSectionsEnabled,
                 EmailTwoFactorEnabled = _emailTwoFactorSettings.Enabled,
                 EmailTwoFactorEnabledForNewUsers = _emailTwoFactorSettings.EnableForNewUsers
             }

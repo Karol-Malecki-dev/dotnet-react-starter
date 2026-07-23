@@ -1,5 +1,4 @@
 import type {
-  ApiResponse,
   UpdateUserRequest,
   UpdateUserResponse,
   GetUserSecurityResponse,

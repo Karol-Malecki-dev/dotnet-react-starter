@@ -39,6 +39,11 @@ describe('RuntimeConfigContext', () => {
       data: {
         features: {
           emailDeliveryEnabled: true,
+          globalSearchEnabled: true,
+          dashboardOverviewEnabled: true,
+          adminNavigationEnabled: true,
+          userManagementNavigationEnabled: true,
+          emailFeatureSectionsEnabled: true,
           emailTwoFactorEnabled: true,
           emailTwoFactorEnabledForNewUsers: false,
         },
