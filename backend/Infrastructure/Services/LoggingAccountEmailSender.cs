@@ -3,6 +3,10 @@ using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.Services;
 
+/// <summary>
+/// Local email sender used when external delivery is disabled.
+/// It records confirmation links and 2FA codes through the application logger.
+/// </summary>
 public class LoggingAccountEmailSender : IAccountEmailSender
 {
     private readonly ILogger<LoggingAccountEmailSender> _logger;
@@ -12,6 +16,7 @@ public class LoggingAccountEmailSender : IAccountEmailSender
         _logger = logger;
     }
 
+    /// <inheritdoc />
     public Task SendEmailConfirmationAsync(string email, string displayName, string confirmationLink)
     {
         _logger.LogInformation(
@@ -23,6 +28,7 @@ public class LoggingAccountEmailSender : IAccountEmailSender
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc />
     public Task SendTwoFactorCodeAsync(string email, string displayName, string code, DateTime expiresAt)
     {
         _logger.LogInformation(

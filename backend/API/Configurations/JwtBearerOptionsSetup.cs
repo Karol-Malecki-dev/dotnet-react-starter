@@ -9,8 +9,8 @@ namespace API.Configurations
 {
 
     /// <summary>
-    /// Konfiguruje JwtBearerOptions z JwtSettings (IOptions pattern).
-    /// Używa IConfigureNamedOptions aby działać poprawnie z DI i testami integracyjnymi.
+    /// Configures JwtBearerOptions from JwtSettings through the IOptions pattern.
+    /// IConfigureNamedOptions keeps the setup compatible with DI and integration tests.
     /// </summary>
     public class JwtBearerOptionsSetup : IConfigureNamedOptions<JwtBearerOptions>
     {
@@ -36,7 +36,7 @@ namespace API.Configurations
             var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Secret));
 
 
-            options.MapInboundClaims = false; // Zachowaj oryginalne nazwy claimów (sub, email itd.) od AI , sam nie wiedziałem o co chodzi z tym konkretnie :(
+            options.MapInboundClaims = false; // Preserve original JWT claim names such as sub and email.
             options.TokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuer = true,
@@ -48,7 +48,7 @@ namespace API.Configurations
                 NameClaimType = JwtRegisteredClaimNames.Sub,
                 RoleClaimType = "role",
                 IssuerSigningKey = signingKey,
-                ClockSkew = TimeSpan.Zero // Brak tolerancji na różnicę czasu między serwerem a klientem
+                ClockSkew = TimeSpan.Zero // Do not add tolerance for clock differences.
             };
         }
     }

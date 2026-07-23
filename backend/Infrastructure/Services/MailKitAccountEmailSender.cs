@@ -8,6 +8,10 @@ using Shared.Settings;
 
 namespace Infrastructure.Services;
 
+/// <summary>
+/// SMTP-backed account email sender implemented with MailKit.
+/// It is registered when email delivery is enabled in runtime configuration.
+/// </summary>
 public class MailKitAccountEmailSender : IAccountEmailSender
 {
     private readonly EmailDeliverySettings _settings;
@@ -21,6 +25,7 @@ public class MailKitAccountEmailSender : IAccountEmailSender
         _logger = logger;
     }
 
+    /// <inheritdoc />
     public Task SendEmailConfirmationAsync(string email, string displayName, string confirmationLink)
     {
         var subject = "Confirm your email address";
@@ -35,6 +40,7 @@ public class MailKitAccountEmailSender : IAccountEmailSender
         return SendAsync(email, displayName, subject, htmlBody, textBody);
     }
 
+    /// <inheritdoc />
     public Task SendTwoFactorCodeAsync(string email, string displayName, string code, DateTime expiresAt)
     {
         var subject = "Your verification code";
