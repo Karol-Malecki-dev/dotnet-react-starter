@@ -26,6 +26,11 @@ public class RuntimeConfigIntegrationTests
         Assert.NotNull(apiResponse);
         Assert.NotNull(apiResponse!.Data);
         Assert.False(apiResponse.Data.Features.EmailDeliveryEnabled);
+        Assert.True(apiResponse.Data.Features.GlobalSearchEnabled);
+        Assert.True(apiResponse.Data.Features.DashboardOverviewEnabled);
+        Assert.True(apiResponse.Data.Features.AdminNavigationEnabled);
+        Assert.True(apiResponse.Data.Features.UserManagementNavigationEnabled);
+        Assert.True(apiResponse.Data.Features.EmailFeatureSectionsEnabled);
         Assert.True(apiResponse.Data.Features.EmailTwoFactorEnabled);
         Assert.True(apiResponse.Data.Features.EmailTwoFactorEnabledForNewUsers);
         Assert.Equal("Runtime configuration loaded", apiResponse.Message);

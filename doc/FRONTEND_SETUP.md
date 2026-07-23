@@ -1,5 +1,14 @@
 # ⚛️ Frontend Setup - Struktura React + TypeScript
 
+This frontend now uses a backend-driven runtime config during bootstrap.
+
+- `RuntimeConfigProvider` loads feature flags before the app shell renders.
+- `useFeatureAvailability()` centralizes feature gating.
+- `AppBootstrapGate` prevents shell flashing while auth and config are loading.
+- `Navbar` contains a small quick search bar enabled by runtime flags.
+
+Keep real authorization in the backend. Use feature flags only for UI visibility and flow gating.
+
 ## Struktura Frontendowa
 
 ```
@@ -29,6 +38,20 @@ Zasady:
 - Nigdy nie wkładaj sekretów do `REACT_APP_*`.
 - Traktuj `frontend/.env.example` jako szablon, a własne wartości trzymaj w `frontend/.env.development.local` lub w pipeline builda.
 - Dla auth cookie frontend musi wysyłać requesty z `credentials: 'include'`.
+
+## Runtime Configuration
+
+Backend exposes `GET /api/runtime-config`.
+
+Useful flags in this starter:
+
+- `GlobalSearchEnabled`
+- `DashboardOverviewEnabled`
+- `AdminNavigationEnabled`
+- `UserManagementNavigationEnabled`
+- `EmailFeatureSectionsEnabled`
+
+Use a single hook/helper to read flags and avoid scattering `if` statements around `App.tsx`, `Navbar.tsx`, and pages.
 frontend/
 ├── public/                 # Statyczne pliki (favicon, manifest)
 ├── src/

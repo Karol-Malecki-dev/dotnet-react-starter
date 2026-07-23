@@ -7,6 +7,11 @@
 /** Feature flags safe to expose to the UI. */
 export interface AppFeatureFlagsDto {
   emailDeliveryEnabled: boolean;
+  globalSearchEnabled: boolean;
+  dashboardOverviewEnabled: boolean;
+  adminNavigationEnabled: boolean;
+  userManagementNavigationEnabled: boolean;
+  emailFeatureSectionsEnabled: boolean;
   emailTwoFactorEnabled: boolean;
   emailTwoFactorEnabledForNewUsers: boolean;
 }

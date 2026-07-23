@@ -7,7 +7,7 @@ This repository is a practical base for auth-heavy applications, admin dashboard
 ## Features
 
 - Clean Architecture backend split into `API`, `Application`, `Domain`, `Infrastructure`, and `Shared`
-- React + TypeScript frontend with protected routes and authenticated session handling
+- React + TypeScript frontend with protected routes, authenticated session handling, runtime feature gating, and a quick search shell
 - JWT access tokens with secure refresh-token rotation in HttpOnly cookies
 - Email confirmation and email-based 2FA during sign-in
 - Role-aware authorization for admin-only endpoints and views
@@ -89,6 +89,23 @@ Rules:
 - For Docker/nginx deployments, use `FRONTEND_REACT_APP_API_URL=/api`.
 - For local frontend to local backend development, use `REACT_APP_API_URL=http://localhost:5000`.
 
+## Runtime Feature Flags
+
+The frontend consumes `GET /api/runtime-config` during startup.
+
+Current flags include:
+
+- `GlobalSearchEnabled`
+- `DashboardOverviewEnabled`
+- `AdminNavigationEnabled`
+- `UserManagementNavigationEnabled`
+- `EmailFeatureSectionsEnabled`
+- `EmailDeliveryEnabled`
+- `EmailTwoFactorEnabled`
+- `EmailTwoFactorEnabledForNewUsers`
+
+Use `RuntimeConfigProvider` and `useFeatureAvailability()` to read them from the frontend.
+
 ## Quick Start
 
 ### Prerequisites
@@ -136,6 +153,8 @@ If you run the frontend locally against the local backend, make sure `frontend/.
 ```text
 REACT_APP_API_URL=http://localhost:5000
 ```
+
+The frontend shell now waits for both auth and runtime config before rendering protected UI. When `GlobalSearchEnabled` is on, `Ctrl+K` opens the quick search bar in the navbar.
 
 ## Testing
 
