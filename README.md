@@ -168,6 +168,12 @@ dotnet test backend/E2ETests/E2ETests.csproj
 
 Smoke tests in `E2ETests` are meant for a running application, for example after `docker compose up` or after deployment.
 
+To build the containers, wait for the backend and frontend, run the full test solution, and clean up automatically:
+
+```powershell
+./scripts/Invoke-E2ETests.ps1
+```
+
 Optional smoke-test overrides:
 
 ```powershell

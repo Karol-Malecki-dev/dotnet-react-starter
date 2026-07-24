@@ -2,6 +2,7 @@
 using API.Filters;
 using Application.Interfaces;
 using Application.Services;
+using FluentValidation;
 using FluentValidation.AspNetCore;
 using Domain.Interfaces;
 using Infrastructure.Data;
@@ -38,12 +39,9 @@ namespace API.Services
 
         private static IServiceCollection AddApiPipelineServices(this IServiceCollection services)
         {
-            services.AddControllers()
-                .AddFluentValidation(config =>
-                {
-                    config.RegisterValidatorsFromAssemblyContaining<global::Program>();
-                    config.DisableDataAnnotationsValidation = false;
-                });
+            services.AddControllers();
+            services.AddFluentValidationAutoValidation();
+            services.AddValidatorsFromAssemblyContaining<global::Program>();
 
             services.AddHealthChecks();
             services.AddHttpContextAccessor();

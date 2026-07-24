@@ -1,14 +1,14 @@
 import { z } from 'zod';
 
 export const loginSchema = z.object({
-  email: z.email('Enter a valid email address.'),
+  email: z.string().email('Enter a valid email address.'),
   password: z.string().min(8, 'Password must be at least 8 characters long.'),
 });
 
 export const registerSchema = z.object({
   firstName: z.string().trim().min(1, 'First name is required.'),
   lastName: z.string().trim().min(1, 'Last name is required.'),
-  email: z.email('Enter a valid email address.'),
+  email: z.string().email('Enter a valid email address.'),
   phoneNumber: z.string().trim().min(6, 'Phone number must be at least 6 characters long.'),
   address: z.string().trim().min(3, 'Address must be at least 3 characters long.'),
   password: z.string().min(8, 'Password must be at least 8 characters long.'),
@@ -22,7 +22,7 @@ export const twoFactorSchema = z.object({
 });
 
 export const forgotPasswordSchema = z.object({
-  email: z.email('Enter a valid email address.'),
+  email: z.string().email('Enter a valid email address.'),
 });
 
 export const resetPasswordSchema = z
@@ -36,7 +36,7 @@ export const resetPasswordSchema = z
   });
 
 export const resendConfirmationSchema = z.object({
-  email: z.email('Enter a valid email address.'),
+  email: z.string().email('Enter a valid email address.'),
 });
 
 export type LoginFormValues = z.infer<typeof loginSchema>;
