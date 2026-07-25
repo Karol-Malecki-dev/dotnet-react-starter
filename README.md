@@ -214,12 +214,13 @@ For local Docker runs, transactional emails are delivered to Mailpit. Open http:
 - [doc/FRONTEND_SETUP.md](doc/FRONTEND_SETUP.md)
 - [doc/JWT_ARCHITECTURE.md](doc/JWT_ARCHITECTURE.md)
 - [doc/EMAIL_2FA_FLOWS.md](doc/EMAIL_2FA_FLOWS.md)
+- [doc/CI_CD.md](doc/CI_CD.md)
 - [docker/DOCKER_COMPOSE.md](docker/DOCKER_COMPOSE.md)
 
 ## Suggested Next Steps
 
 - Add full profile editing and change-password flows
-- Add CI with GitHub Actions for backend tests, frontend tests, and builds
+- Add a hosting-specific deployment job after choosing the target platform
 - Expand admin user management and filtering
 - Migrate the frontend from CRA to Vite when the current feature set stabilizes
 
