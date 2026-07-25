@@ -41,5 +41,7 @@ namespace Domain.Entities
         /// <summary>Timestamp when the user account was created in UTC</summary>
         public DateTime CreatedAt { get; set; }
 
+        public ICollection<ProjectMember> ProjectMemberships { get; set; } = [];
+
     }
 }

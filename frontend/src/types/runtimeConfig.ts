@@ -6,6 +6,9 @@
 
 /** Feature flags safe to expose to the UI. */
 export interface AppFeatureFlagsDto {
+  projectsEnabled: boolean;
+  projectArchiveEnabled: boolean;
+  projectTaskAssignmentEnabled: boolean;
   emailDeliveryEnabled: boolean;
   globalSearchEnabled: boolean;
   dashboardOverviewEnabled: boolean;

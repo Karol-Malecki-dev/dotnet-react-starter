@@ -12,12 +12,14 @@ export function Navbar() {
     adminNavigationEnabled,
     userManagementNavigationEnabled,
     emailTwoFactorEnabled,
+    projectsEnabled,
   } = useFeatureAvailability();
   const isAdmin = user?.role === 'Admin';
 
   const searchItems: QuickSearchItem[] = [
     { label: 'Home', description: 'Landing page and auth overview', to: '/' },
     ...(isAuthenticated && dashboardOverviewEnabled ? [{ label: 'Dashboard', description: 'Protected workspace summary', to: '/dashboard' }] : []),
+    ...(isAuthenticated && projectsEnabled ? [{ label: 'Projects', description: 'Manage projects and tasks', to: '/projects' }] : []),
     ...(isAuthenticated ? [{ label: 'Profile', description: 'Manage your account details', to: '/profile' }] : []),
     ...(isAdmin && adminNavigationEnabled ? [{ label: 'Admin panel', description: 'Administration overview', to: '/admin' }] : []),
     ...(isAdmin && userManagementNavigationEnabled ? [{ label: 'Users directory', description: 'Search and manage users', to: '/admin/users', keywords: ['users', 'people'] }] : []),
@@ -54,6 +56,7 @@ export function Navbar() {
       <nav className="navbar__links">
         <NavLink to="/">Home</NavLink>
         {isAuthenticated && dashboardOverviewEnabled ? <NavLink to="/dashboard">Dashboard</NavLink> : null}
+        {isAuthenticated && projectsEnabled ? <NavLink to="/projects">Projects</NavLink> : null}
         {isAuthenticated ? <NavLink to="/profile">Profile</NavLink> : null}
         {isAdmin && adminNavigationEnabled ? <NavLink to="/admin">Admin</NavLink> : null}
         {isAdmin && userManagementNavigationEnabled ? <NavLink to="/admin/users">Users</NavLink> : null}

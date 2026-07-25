@@ -1,19 +1,27 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Net.Mail;
 
-namespace Shared.Helpers
+namespace Shared.Helpers;
+
+public class EmailAddress
 {
-    public class EmailAddress
+    public string Email { get; }
+    public string EmailDomain { get; }
+
+    public EmailAddress(string email)
     {
-        public string Email { get; private set; }
-        public string EmailDomain { get; private set; }
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            throw new ArgumentException("Email address is required.", nameof(email));
+        }
 
-        // Constructor to initialize the EmailAddress object
-        // DO napisania i urzytkowania w przyszłości:
-        // przy tworzeniu przypisywanie EmailDomain = Email.Split('@')[1]; // Extract the domain from the email address
+        var normalizedEmail = email.Trim();
+        var parsedAddress = new MailAddress(normalizedEmail);
+        if (!string.Equals(parsedAddress.Address, normalizedEmail, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new FormatException("Email address has an invalid format.");
+        }
 
+        Email = normalizedEmail;
+        EmailDomain = parsedAddress.Host;
     }
 }

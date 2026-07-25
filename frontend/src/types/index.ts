@@ -95,3 +95,30 @@ export type {
 
 export { HttpStatusCode } from './api';
 
+// Project management types
+export {
+  ProjectTaskStatus,
+  ProjectTaskPriority,
+  ProjectMemberRole,
+} from './project';
+
+export type {
+  ProjectDto,
+  ProjectTaskDto,
+  ProjectMemberDto,
+  ProjectMemberUserDto,
+  CreateProjectRequest,
+  UpdateProjectRequest,
+  CreateProjectTaskRequest,
+  UpdateProjectTaskRequest,
+  UpdateProjectTaskStatusRequest,
+  ProjectsResponse,
+  ProjectResponse,
+  ProjectTasksResponse,
+  ProjectTaskResponse,
+  ProjectOperationResponse,
+  ProjectMembersResponse,
+  ProjectMemberUsersResponse,
+  ProjectMemberResponse,
+} from './project';
+

@@ -343,7 +343,7 @@ public class DatabaseUserService : IUserService
 
     public async Task<ApiResponse<bool>> IsTwoFactorEnabled(Guid userId)
     {
-        var user = _dbContext.Users.FirstOrDefault(x => x.Id == userId);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId);
         if (user is null)
         {
             return ApiResponse<bool>.Error(404, "User not found");
@@ -353,7 +353,7 @@ public class DatabaseUserService : IUserService
 
     public async Task<ApiResponse<UserSecurityDto>> GetUserSecurityAsync(Guid userId)
     {
-        var user = _dbContext.Users.FirstOrDefault(x => x.Id == userId);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId);
         if (user is null)
         {
             return ApiResponse<UserSecurityDto>.Error(404, "User not found");

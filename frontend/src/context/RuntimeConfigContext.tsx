@@ -4,6 +4,9 @@ import type { AppFeatureFlagsDto, AppRuntimeConfigurationDto } from '../types/ru
 
 const defaultRuntimeConfiguration: AppRuntimeConfigurationDto = {
   features: {
+    projectsEnabled: false,
+    projectArchiveEnabled: false,
+    projectTaskAssignmentEnabled: false,
     emailDeliveryEnabled: false,
     globalSearchEnabled: false,
     dashboardOverviewEnabled: false,
@@ -36,6 +39,9 @@ function normalizeRuntimeConfiguration(
 
   return {
     features: {
+      projectsEnabled: Boolean(features.projectsEnabled),
+      projectArchiveEnabled: Boolean(features.projectArchiveEnabled),
+      projectTaskAssignmentEnabled: Boolean(features.projectTaskAssignmentEnabled),
       emailDeliveryEnabled: Boolean(features.emailDeliveryEnabled),
       globalSearchEnabled: Boolean(features.globalSearchEnabled),
       dashboardOverviewEnabled: Boolean(features.dashboardOverviewEnabled),

@@ -12,6 +12,9 @@ export interface FeatureAvailability {
   emailDeliveryEnabled: boolean;
   emailTwoFactorEnabled: boolean;
   emailTwoFactorEnabledForNewUsers: boolean;
+  projectsEnabled: boolean;
+  projectArchiveEnabled: boolean;
+  projectTaskAssignmentEnabled: boolean;
 }
 
 export function useFeatureAvailability(): FeatureAvailability {
@@ -29,5 +32,8 @@ export function useFeatureAvailability(): FeatureAvailability {
     emailDeliveryEnabled: isFeatureEnabled('emailDeliveryEnabled'),
     emailTwoFactorEnabled: isFeatureEnabled('emailTwoFactorEnabled'),
     emailTwoFactorEnabledForNewUsers: isFeatureEnabled('emailTwoFactorEnabledForNewUsers'),
+    projectsEnabled: isFeatureEnabled('projectsEnabled'),
+    projectArchiveEnabled: isFeatureEnabled('projectArchiveEnabled'),
+    projectTaskAssignmentEnabled: isFeatureEnabled('projectTaskAssignmentEnabled'),
   };
 }

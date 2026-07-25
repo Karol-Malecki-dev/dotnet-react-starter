@@ -94,12 +94,67 @@ Najważniejsze tabele/encje:
 - `EmailConfirmationTokens`
 - `EmailTwoFactorChallenges`
 - `PasswordResetRequests`
+- `Projects`
+- `ProjectMembers`
+- `ProjectTasks`
 
 Relacje są proste i czytelne:
 
 - tokeny i challenge są przypisane do `User`
 - usunięcie użytkownika kaskadowo usuwa powiązane rekordy auth
 - tokeny mają indeksy na hashach i datach wygaśnięcia
+- `Project` należy do jednego `User` przez `OwnerId`
+- `Project` ma członków przez encję `ProjectMember`; właściciel jest dodawany automatycznie
+- `ProjectMember` łączy projekt z aktywnym użytkownikiem i posiada unikalny indeks na `(ProjectId, UserId)`
+- `Project` jest aggregate rootem dla `ProjectTask`
+- `ProjectTask` należy do jednego `Project` przez wymagany `ProjectId`
+- `ProjectTask` może mieć opcjonalnego przypisanego członka projektu przez `AssignedUserId`
+- usunięcie projektu kaskadowo usuwa jego zadania
+- usunięcie przypisanego użytkownika ustawia `AssignedUserId` na `NULL`
+
+### Project And ProjectTask Domain
+
+`Project` posiada podstawowe dane biznesowe, właściciela i stan archiwizacji.
+Archiwizacja jest soft delete: aktywne odczyty pomijają projekt, a aktualizacje
+i tworzenie zadań dla projektu archiwalnego są blokowane.
+
+`ProjectTask` posiada własny cykl życia niezależny od projektu:
+
+- `Todo`, `InProgress`, `Done` jako `ProjectTaskStatus`,
+- `Low`, `Normal`, `High` jako `ProjectTaskPriority`,
+- opcjonalny termin wykonania,
+- opcjonalne przypisanie do aktywnego użytkownika.
+
+Bezpieczeństwo zadań jest dziedziczone przez granicę projektu. Serwis zadaniowy
+nie wyszukuje zadania wyłącznie po `taskId`; każde zapytanie filtruje jednocześnie
+po `projectId`, właścicielu projektu i aktywnym stanie projektu. Dzięki temu
+identyfikator zadania nie może ominąć kontroli dostępu.
+
+Przypisanie zadania jest dodatkowo walidowane względem aktywnego członkostwa
+w projekcie. Zarządzanie członkami jest dostępne wyłącznie właścicielowi projektu,
+a usunięcie członka czyści jego przypisania do zadań.
+
+Endpointy zadań są zagnieżdżone pod projektem:
+
+```text
+GET    /api/projects/{projectId}/tasks
+POST   /api/projects/{projectId}/tasks
+GET    /api/projects/{projectId}/tasks/{taskId}
+PUT    /api/projects/{projectId}/tasks/{taskId}
+PATCH  /api/projects/{projectId}/tasks/{taskId}/status
+DELETE /api/projects/{projectId}/tasks/{taskId}
+```
+
+Endpointy członków projektu:
+
+```text
+GET    /api/projects/{projectId}/members
+GET    /api/projects/{projectId}/members/available
+POST   /api/projects/{projectId}/members
+DELETE /api/projects/{projectId}/members/{userId}
+```
+
+Szczegółowy workflow dodawania tej funkcji znajduje się w `doc/ADDING_FEATURES.md`.
 
 To oznacza, że baza jest obecnie zorientowana głównie wokół auth i kont użytkowników, a nie rozbudowanej domeny biznesowej.
 

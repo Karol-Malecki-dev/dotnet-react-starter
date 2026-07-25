@@ -41,6 +41,9 @@ public class RuntimeConfigController : ControllerBase
         {
             Features = new AppFeatureFlagsDto
             {
+                ProjectsEnabled = _uiFeatureSettings.ProjectsEnabled,
+                ProjectArchiveEnabled = _uiFeatureSettings.ProjectArchiveEnabled,
+                ProjectTaskAssignmentEnabled = _uiFeatureSettings.ProjectTaskAssignmentEnabled,
                 EmailDeliveryEnabled = _emailDeliverySettings.Enabled,
                 GlobalSearchEnabled = _uiFeatureSettings.GlobalSearchEnabled,
                 DashboardOverviewEnabled = _uiFeatureSettings.DashboardOverviewEnabled,

@@ -126,6 +126,81 @@ Najbezpieczniejsza kolejność przy większych zmianach:
 
 Jeśli feature wprowadza nowy przepływ, nowy typ danych albo nowy wzorzec architektoniczny, zaktualizuj dokumentację w `doc/` od razu po wdrożeniu zmiany.
 
+## Project And ProjectTask Feature
+
+Feature zarządzania projektami składa się z dwóch powiązanych pojęć domenowych:
+
+- `Project` jest aggregate rootem i należy do jednego użytkownika (`OwnerId`),
+- `ProjectTask` należy do dokładnie jednego projektu (`ProjectId`),
+- jeden projekt może mieć wiele zadań,
+- zadanie może być opcjonalnie przypisane do aktywnego użytkownika (`AssignedUserId`).
+
+Relacja ma następującą postać:
+
+```text
+User 1 ---- * Project 1 ---- * ProjectTask
+										\---- * ProjectTask ---- 0..1 User (AssignedUser)
+```
+
+### Backend Contract
+
+Projekty:
+
+```text
+GET    /api/projects
+POST   /api/projects
+GET    /api/projects/{projectId}
+PUT    /api/projects/{projectId}
+DELETE /api/projects/{projectId}
+```
+
+`DELETE /api/projects/{projectId}` jest soft delete i ustawia `IsArchived = true`.
+Archiwalne projekty są pomijane domyślnie. Właściciel może pobrać je jawnie przez
+`includeArchived=true`. Zarchiwizowany projekt nie przyjmuje nowych zmian ani zadań.
+
+Zadania:
+
+```text
+GET    /api/projects/{projectId}/tasks
+POST   /api/projects/{projectId}/tasks
+GET    /api/projects/{projectId}/tasks/{taskId}
+PUT    /api/projects/{projectId}/tasks/{taskId}
+PATCH  /api/projects/{projectId}/tasks/{taskId}/status
+DELETE /api/projects/{projectId}/tasks/{taskId}
+```
+
+Każdy endpoint zadań najpierw sprawdza, czy zalogowany użytkownik jest właścicielem
+aktywnego projektu. Samo posiadanie identyfikatora projektu lub zadania nie daje dostępu.
+
+### Database Relation
+
+Relację należy konfigurować jawnie w `ApplicationDbContext`:
+
+- `ProjectTask.ProjectId` jest wymaganym kluczem obcym do `Project.Id` i używa cascade delete,
+- `ProjectTask.AssignedUserId` jest opcjonalnym kluczem obcym do `User.Id` i używa `SetNull`,
+- `Status` i `Priority` są enumami zapisywanymi jako tekst,
+- po zmianie modelu należy wygenerować migrację z katalogu `backend/`.
+
+Przykład komendy:
+
+```powershell
+dotnet ef migrations add AddProjectTasks `
+	--project Infrastructure `
+	--startup-project API `
+	--context ApplicationDbContext `
+	--output-dir Data\Migrations
+```
+
+### Recommended Implementation Order
+
+1. Domena: `Project`, `ProjectTask` i enumy.
+2. `DbSet`, indeksy, klucze obce i migracja.
+3. DTO, walidatory i kontrakty serwisów.
+4. Serwis z kontrolą właściciela projektu.
+5. Nested controller pod `/api/projects/{projectId}/tasks`.
+6. Testy cyklu życia zadania, własności, archiwizacji i walidacji.
+7. Dopiero po stabilizacji API integracja z frontendem.
+
 ## Which Document To Open Next
 
 W zależności od typu zmiany przejdź dalej do odpowiedniego pliku:
