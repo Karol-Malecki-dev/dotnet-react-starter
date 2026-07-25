@@ -14,6 +14,8 @@ export interface UserDto {
   role?: 'User' | 'Admin';
   phoneNumber: string;
   address: string;
+  isEmailConfirmed: boolean;
+  isTwoFactorEnabled: boolean;
   createdAt: string;
 }
 
@@ -161,29 +163,3 @@ export interface UserFormState {
   success: boolean;
   successMessage: string | null;
 }
-
-export interface UserSecurity {
-  email: string;
-  isEmailConfirmed: boolean;
-  hasTwoFactorEnabled: boolean;
-}
-
-export interface UpdateTwoFactorPreferenceRequest {
-  enable: boolean;
-}
-
-export interface GetUserSecurityResponse {
-  statusCode: number;
-  message: string;
-  data: UserSecurity;
-  errors: ErrorDetail[] | null;
-  timestamp: string;
-}
-
-export interface UpdateTwoFactorPreferenceResponse {
-  statusCode: number;
-  message: string;
-  data: UserSecurity;
-  errors: ErrorDetail[] | null;
-  timestamp: string;
-} 

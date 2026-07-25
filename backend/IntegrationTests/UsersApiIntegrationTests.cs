@@ -164,6 +164,67 @@ public class UsersApiIntegrationTests
         Assert.Equal("https://example.com/avatar.png", meResult.Data.AvatarUrl);
     }
 
+    [Fact]
+    public async Task GetUserSecurity_Returns_security_snapshot_for_authenticated_user()
+    {
+        var userId = await SeedUserAsync("security.user@example.com", "password123", "Security User", UserRole.User);
+
+        var tokens = await LoginAsync("security.user@example.com", "password123");
+        await UpdateUserSecurityFlagsAsync(userId, isTwoFactorEnabled: true);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+
+        var response = await _client.GetAsync("/api/users/me/security");
+
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<ApiResponse<Application.DTOs.User.UserSecurityDto>>();
+
+        Assert.NotNull(result?.Data);
+        Assert.Equal("security.user@example.com", result.Data.Email);
+        Assert.True(result.Data.IsEmailConfirmed);
+        Assert.True(result.Data.IsTwoFactorEnabled);
+    }
+
+    [Fact]
+    public async Task UpdateTwoFactor_Updates_security_preference_for_confirmed_user()
+    {
+        await SeedUserAsync("two-factor.update@example.com", "password123", "Two Factor Update", UserRole.User);
+
+        var tokens = await LoginAsync("two-factor.update@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+
+        var response = await _client.PatchAsJsonAsync("/api/users/me/security/two-factor", new { Enable = true });
+
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<ApiResponse<Application.DTOs.User.UserSecurityDto>>();
+
+        Assert.NotNull(result?.Data);
+        Assert.True(result.Data.IsTwoFactorEnabled);
+    }
+
+    [Fact]
+    public async Task UpdateTwoFactor_Rejects_unconfirmed_email()
+    {
+        var userId = await SeedUserAsync(
+            "two-factor.unconfirmed@example.com",
+            "password123",
+            "Two Factor Unconfirmed",
+            UserRole.User);
+
+        var tokens = await LoginAsync("two-factor.unconfirmed@example.com", "password123");
+        await UpdateUserSecurityFlagsAsync(userId, isEmailConfirmed: false);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+
+        var response = await _client.PatchAsJsonAsync("/api/users/me/security/two-factor", new { Enable = true });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var result = await response.Content.ReadFromJsonAsync<ApiResponse<Application.DTOs.User.UserSecurityDto>>();
+
+        Assert.NotNull(result);
+        Assert.Equal(400, result!.StatusCode);
+        Assert.Null(result.Data);
+        Assert.Contains("Email must be confirmed", result.Message);
+    }
+
     private async Task<AuthTokenResponse> LoginAsync(string email, string password)
     {
         var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new { Email = email, Password = password });
@@ -174,7 +235,13 @@ public class UsersApiIntegrationTests
         return apiResponse.Data;
     }
 
-    private async Task<Guid> SeedUserAsync(string email, string password, string displayName, UserRole role)
+    private async Task<Guid> SeedUserAsync(
+        string email,
+        string password,
+        string displayName,
+        UserRole role,
+        bool isEmailConfirmed = true,
+        bool isTwoFactorEnabled = false)
     {
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -186,7 +253,8 @@ public class UsersApiIntegrationTests
             DisplayName = displayName,
             Role = role,
             IsActive = true,
-            IsEmailConfirmed = true,
+            IsEmailConfirmed = isEmailConfirmed,
+            IsTwoFactorEnabled = isTwoFactorEnabled,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -194,6 +262,29 @@ public class UsersApiIntegrationTests
         dbContext.Users.Add(user);
         await dbContext.SaveChangesAsync();
         return user.Id;
+    }
+
+    private async Task UpdateUserSecurityFlagsAsync(
+        Guid userId,
+        bool? isEmailConfirmed = null,
+        bool? isTwoFactorEnabled = null)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var user = await dbContext.Users.FindAsync(userId);
+        Assert.NotNull(user);
+
+        if (isEmailConfirmed.HasValue)
+        {
+            user!.IsEmailConfirmed = isEmailConfirmed.Value;
+        }
+
+        if (isTwoFactorEnabled.HasValue)
+        {
+            user!.IsTwoFactorEnabled = isTwoFactorEnabled.Value;
+        }
+
+        await dbContext.SaveChangesAsync();
     }
 
     private sealed class CurrentUserDto
