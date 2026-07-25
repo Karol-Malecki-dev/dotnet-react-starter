@@ -50,6 +50,7 @@ try
         catch (Exception ex)
         {
             Log.Error(ex, "✗ Database initialization failed");
+            throw;
         }
     }
 

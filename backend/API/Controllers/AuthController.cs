@@ -225,7 +225,7 @@ namespace API.Controllers
                     return BadRequest(ApiResponse<object>.Error(400, "Invalid or expired confirmation link", null));
                 }
 
-                return Ok(ApiResponse<object>.Success(null, "Email confirmed successfully", 200));
+                return Ok(ApiResponse<object?>.Success(null, "Email confirmed successfully", 200));
             }
             catch (Exception ex)
             {
@@ -272,7 +272,7 @@ namespace API.Controllers
                     }
                 }
 
-                return Ok(ApiResponse<object>.Success(
+                return Ok(ApiResponse<object?>.Success(
                     null,
                     "If the account exists and is not yet confirmed, a confirmation email has been sent.",
                     200));
@@ -566,7 +566,7 @@ namespace API.Controllers
                     return BadRequest(ApiResponse<object>.Error(400, "Current password is invalid", null));
                 }
 
-                return Ok(ApiResponse<object>.Success(null, "Password changed successfully", 200));
+                return Ok(ApiResponse<object?>.Success(null, "Password changed successfully", 200));
             }
             catch (Exception ex)
             {
@@ -706,13 +706,13 @@ namespace API.Controllers
                 var result = await _authService.SendPasswordResetEmailAsync(dto.Email);
                 if (!result)
                 {
-                    return Ok(ApiResponse<object>.Success(
+                    return Ok(ApiResponse<object?>.Success(
                         null,
                         "If the account exists, a password reset message has been sent.",
                         200));
                 }
                 _logger.LogInformation("✓ Password reset email sent to: {Email}", dto.Email);
-                return Ok(ApiResponse<object>.Success(null, "Password reset email sent", 200));
+                return Ok(ApiResponse<object?>.Success(null, "Password reset email sent", 200));
             }
             catch (Exception ex)
             {
@@ -756,7 +756,7 @@ namespace API.Controllers
                     return BadRequest(ApiResponse<object>.Error(400, "Invalid token or email", null));
                 }
 
-                return Ok(ApiResponse<object>.Success(null, "Password reset successful", 200));
+                return Ok(ApiResponse<object?>.Success(null, "Password reset successful", 200));
             }
             catch (Exception ex)
             {

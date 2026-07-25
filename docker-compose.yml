@@ -38,7 +38,7 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
       - ASPNETCORE_URLS=${ASPNETCORE_URLS:-http://+:5000}
-      - DefaultConnection=${DEFAULT_CONNECTION:-Host=db;Port=5432;Database=dotnetreact;Username=postgres;Password=postgres}
+      - ConnectionStrings__DefaultConnection=${DEFAULT_CONNECTION:-Host=db;Port=5432;Database=dotnetreact;Username=postgres;Password=postgres}
       - Jwt__Secret=${JWT_SECRET:-local-development-secret-change-before-production-123456789}
       - Jwt__Issuer=${JWT_ISSUER:-Dotnet-React-Starter-API}
       - Jwt__Audience=${JWT_AUDIENCE:-Dotnet-React-Starter-App}
@@ -100,6 +100,11 @@ services:
         condition: service_healthy
     networks:
       - dotnet-react-network
+    healthcheck:
+      test: [ "CMD", "wget", "--spider", "--quiet", "http://127.0.0.1:3000/" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
 networks:
   dotnet-react-network:
