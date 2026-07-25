@@ -16,6 +16,12 @@ public sealed class AppRuntimeConfigurationDto
 /// </summary>
 public sealed class AppFeatureFlagsDto
 {
+    public bool ProjectsEnabled { get; init; }
+
+    public bool ProjectArchiveEnabled { get; init; }
+
+    public bool ProjectTaskAssignmentEnabled { get; init; }
+
     /// <summary>
     /// Indicates whether account email messages are delivered through the configured mail provider.
     /// </summary>

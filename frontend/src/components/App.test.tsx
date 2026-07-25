@@ -43,6 +43,9 @@ test('renders the public home experience for anonymous users', () => {
     emailDeliveryEnabled: false,
     emailTwoFactorEnabled: false,
     emailTwoFactorEnabledForNewUsers: false,
+    projectsEnabled: true,
+    projectArchiveEnabled: true,
+    projectTaskAssignmentEnabled: true,
   });
 
   render(<App />);

@@ -34,6 +34,9 @@ describe('Navbar', () => {
       emailDeliveryEnabled: false,
       emailTwoFactorEnabled: true,
       emailTwoFactorEnabledForNewUsers: true,
+      projectsEnabled: true,
+      projectArchiveEnabled: true,
+      projectTaskAssignmentEnabled: true,
     });
   });
 
