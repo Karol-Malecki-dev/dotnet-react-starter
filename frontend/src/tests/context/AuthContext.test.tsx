@@ -234,6 +234,8 @@ describe('AuthContext', () => {
         role: 'User',
         phoneNumber: '+48 123 456 789',
         address: 'Warsaw',
+        isEmailConfirmed: true,
+        isTwoFactorEnabled: false,
         createdAt: '2026-06-26T00:00:00Z',
       },
       errors: null,

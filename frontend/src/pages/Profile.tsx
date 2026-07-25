@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import type { AuthUser, UpdateUserRequest } from '../types';
+import { authApi, userApi } from '../services/api';
+import type { AuthUser, UpdateUserRequest, UserSecurity } from '../types';
 import { getApiErrorMessage } from '../utils/helpers';
 
 function splitDisplayName(displayName: string) {
@@ -36,9 +37,57 @@ export default function Profile() {
   const [profileError, setProfileError] = useState<string | null>(null);
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [security, setSecurity] = useState<UserSecurity | null>(null);
+  const [loadingSecurity, setLoadingSecurity] = useState(false);
+  const [updatingTwoFactor, setUpdatingTwoFactor] = useState(false);
+  const [resendingConfirmation, setResendingConfirmation] = useState(false);
+  const [securityMessage, setSecurityMessage] = useState<string | null>(null);
+  const [securityError, setSecurityError] = useState<string | null>(null);
 
   useEffect(() => {
     setProfile(createProfileState(user));
+  }, [user]);
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    const loadSecurity = async () => {
+      if (!user) {
+        setSecurity(null);
+        return;
+      }
+
+      setLoadingSecurity(true);
+      setSecurityError(null);
+
+      try {
+        const response = await userApi.getUserSecurity();
+        if (isCurrent) {
+          if (!response.data) {
+            throw new Error('Security response missing data');
+          }
+          setSecurity(response.data);
+        }
+      } catch (caughtError) {
+        if (isCurrent) {
+          setSecurityError(
+            getApiErrorMessage(caughtError, {
+              defaultMessage: 'Unable to load account security right now.',
+            }),
+          );
+        }
+      } finally {
+        if (isCurrent) {
+          setLoadingSecurity(false);
+        }
+      }
+    };
+
+    void loadSecurity();
+
+    return () => {
+      isCurrent = false;
+    };
   }, [user]);
 
   const handleProfileSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -117,6 +166,56 @@ export default function Profile() {
       );
     } finally {
       setChangingPassword(false);
+    }
+  };
+
+  const handleTwoFactorChange = async (enabled: boolean) => {
+    if (!security || (enabled && !security.isEmailConfirmed)) {
+      return;
+    }
+
+    setUpdatingTwoFactor(true);
+    setSecurityMessage(null);
+    setSecurityError(null);
+
+    try {
+      const response = await userApi.updateTwoFactorPreference({ enable: enabled });
+      if (!response.data) {
+        throw new Error('Security update response missing data');
+      }
+      setSecurity(response.data);
+      setSecurityMessage(response.message || 'Security settings updated.');
+    } catch (caughtError) {
+      setSecurityError(
+        getApiErrorMessage(caughtError, {
+          defaultMessage: 'Unable to update two-factor authentication right now.',
+        }),
+      );
+    } finally {
+      setUpdatingTwoFactor(false);
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!security?.email) {
+      return;
+    }
+
+    setResendingConfirmation(true);
+    setSecurityMessage(null);
+    setSecurityError(null);
+
+    try {
+      const response = await authApi.resendConfirmation({ email: security.email });
+      setSecurityMessage(response.message || 'Confirmation email sent.');
+    } catch (caughtError) {
+      setSecurityError(
+        getApiErrorMessage(caughtError, {
+          defaultMessage: 'Unable to resend the confirmation email right now.',
+        }),
+      );
+    } finally {
+      setResendingConfirmation(false);
     }
   };
 
@@ -235,6 +334,46 @@ export default function Profile() {
                 {changingPassword ? 'Saving...' : 'Change password'}
               </button>
             </form>
+          </article>
+
+          <article className="card stack">
+            <div className="stack stack--tight">
+              <h2>Account security</h2>
+              <p className="page-note">Manage email confirmation and two-factor authentication.</p>
+            </div>
+            {loadingSecurity ? <p role="status">Loading security settings...</p> : null}
+            {securityError ? <p className="form__error" role="alert">{securityError}</p> : null}
+            {security ? (
+              <div className="stack stack--tight">
+                <p>
+                  <strong>Email confirmation:</strong>{' '}
+                  {security.isEmailConfirmed ? 'Confirmed' : 'Not confirmed'}
+                </p>
+                {!security.isEmailConfirmed ? (
+                  <button
+                    className="button button--ghost"
+                    type="button"
+                    onClick={handleResendConfirmation}
+                    disabled={resendingConfirmation}
+                  >
+                    {resendingConfirmation ? 'Sending...' : 'Resend confirmation'}
+                  </button>
+                ) : null}
+                <label className="field field--inline">
+                  <span className="field__label">Two-factor authentication</span>
+                  <input
+                    type="checkbox"
+                    checked={security.isTwoFactorEnabled}
+                    onChange={(event) => void handleTwoFactorChange(event.target.checked)}
+                    disabled={updatingTwoFactor || !security.isEmailConfirmed}
+                  />
+                </label>
+                {!security.isEmailConfirmed ? (
+                  <p className="field__hint">Confirm your email before enabling two-factor authentication.</p>
+                ) : null}
+                {securityMessage ? <p className="form__success">{securityMessage}</p> : null}
+              </div>
+            ) : null}
           </article>
         </div>
       ) : (
