@@ -1,6 +1,6 @@
 # .NET React Starter
 
-Production-oriented full-stack starter with ASP.NET Core 9 API, React + TypeScript frontend, JWT authentication, refresh-token rotation in HttpOnly cookies, Docker Compose, and automated test projects.
+Production-minded full-stack learning starter with ASP.NET Core 9 API, React + TypeScript frontend, JWT authentication, refresh-token rotation in HttpOnly cookies, Docker Compose, and automated test projects.
 
 This repository is a practical base for auth-heavy applications, admin dashboards, and future starter implementations. It already includes backend auth flows, protected frontend routes, role-aware access, Docker wiring, and test projects you can extend.
 
@@ -155,6 +155,8 @@ REACT_APP_API_URL=http://localhost:5000
 ```
 
 The frontend shell now waits for both auth and runtime config before rendering protected UI. When `GlobalSearchEnabled` is on, `Ctrl+K` opens the quick search bar in the navbar.
+
+The default Docker Compose configuration is intended for local development and smoke testing. The CD workflow publishes container images to GHCR but does not deploy them to a hosting platform. Production secrets, migrations, monitoring, rollback, and hosting configuration remain environment-specific.
 
 ## Testing
 
