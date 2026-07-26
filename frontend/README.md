@@ -30,7 +30,7 @@ The app shell shows a loading gate until both auth and runtime config are ready.
 Set the API URL in `frontend/.env.development.local`:
 
 ```env
-REACT_APP_API_URL=http://localhost:5000
+VITE_API_URL=http://localhost:5000
 ```
 
 ## Quick Search

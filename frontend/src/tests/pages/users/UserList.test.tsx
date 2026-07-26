@@ -1,14 +1,15 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { vi } from 'vitest';
 import UserList from '../../../pages/users/UserList';
 import { useAuth } from '../../../hooks/useAuth';
 import { adminApi } from '../../../services/api';
 import { AdminUserRole } from '../../../types';
 import type { AdminUserDetailsDto, AdminUserListItemDto } from '../../../types';
 
-jest.mock('../../../hooks/useAuth');
-jest.mock('../../../services/api', () => {
-  const actual = jest.requireActual('../../../services/api');
+vi.mock('../../../hooks/useAuth');
+vi.mock('../../../services/api', async () => {
+  const actual = await vi.importActual<typeof import('../../../services/api')>('../../../services/api');
 
   return {
     ...actual,

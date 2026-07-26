@@ -66,7 +66,7 @@ RUN rm -rf /usr/share/nginx/html/*
 - `html/` to folder gdzie nginx szuka plików do serwowania
 
 ```dockerfile
-COPY --from=builder /app/build /usr/share/nginx/html
+COPY --from=builder /app/dist /usr/share/nginx/html
 ```
 - Kopujemy zbudowaną aplikację React z etapu builder
 - Nginx będzie serwować te pliki

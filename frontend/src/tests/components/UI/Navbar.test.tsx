@@ -4,14 +4,16 @@ import { Navbar } from '../../../components/UI/Navbar';
 import { useAuth } from '../../../hooks/useAuth';
 import { useFeatureAvailability } from '../../../hooks/useFeatureAvailability';
 
-jest.mock('../../../hooks/useAuth');
-jest.mock('../../../hooks/useFeatureAvailability');
+import { vi } from 'vitest';
+
+vi.mock('../../../hooks/useAuth');
+vi.mock('../../../hooks/useFeatureAvailability');
 const mockedUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 const mockedUseFeatureAvailability = useFeatureAvailability as jest.MockedFunction<typeof useFeatureAvailability>;
 
-const mockNavigate = jest.fn();
-jest.mock('react-router-dom', () => {
-  const actual = jest.requireActual('react-router-dom');
+const mockNavigate = vi.hoisted(() => vi.fn());
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
   return {
     ...actual,
     useNavigate: () => mockNavigate,

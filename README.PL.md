@@ -31,7 +31,7 @@ Full-stack starter przygotowany z myślą o nauce wzorców stosowanych w aplikac
 - React Router 6;
 - React Hook Form;
 - Zod;
-- Testing Library, Jest i `react-scripts`.
+- Testing Library, Vitest i Vite.
 
 Aktywny manifest aplikacji frontendowej znajduje się w [frontend/package.json](frontend/package.json). Rootowe manifesty Node nie są wymagane do budowania aplikacji.
 
@@ -99,7 +99,7 @@ npm install
 npm start
 ```
 
-Przy lokalnym uruchomieniu frontendu ustaw `REACT_APP_API_URL=http://localhost:5000` w `frontend/.env.development.local`.
+Przy lokalnym uruchomieniu frontendu ustaw `VITE_API_URL=http://localhost:5000` w `frontend/.env.development.local`.
 
 ## Uwierzytelnianie
 
@@ -149,7 +149,7 @@ Workflow CD publikuje obrazy z tagiem SHA oraz `latest`. Nie wykonuje jeszcze wd
 
 ## Znane ograniczenia
 
-- frontend korzysta obecnie z Create React App; migracja do Vite jest możliwym przyszłym krokiem;
+- frontend korzysta z Vite i Vitest; pozostałe podatności React Routera wymagają osobnej decyzji dotyczącej migracji do wersji 7;
 - Docker Compose jest przede wszystkim lokalnym środowiskiem uruchomieniowym i testowym;
 - domyślne hasła oraz sekrety Compose nie nadają się do środowiska produkcyjnego;
 - publikacja obrazu do GHCR nie jest równoznaczna z deploymentem;

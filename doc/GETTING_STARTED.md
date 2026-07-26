@@ -23,21 +23,21 @@ Backend czyta konfigurację w tej kolejności:
 2. `backend/API/appsettings.Development.json`
 3. zmienne środowiskowe, User Secrets albo konfigurację hostingu
 
-Frontend używa publicznych wartości build-time z prefiksem `REACT_APP_`.
+Frontend używa publicznych wartości build-time z prefiksem `VITE_`.
 
 Dla lokalnego uruchomienia frontendu względem API ustaw w `frontend/.env.development.local`:
 
 ```text
-REACT_APP_API_URL=http://localhost:5000
+VITE_API_URL=http://localhost:5000
 ```
 
 Dla frontendu za nginx reverse proxy użyj:
 
 ```text
-REACT_APP_API_URL=/api
+VITE_API_URL=/api
 ```
 
-Sekretów nie umieszczaj w plikach `REACT_APP_*`.
+Sekretów nie umieszczaj w plikach `VITE_*`.
 
 ## Run With Docker Compose
 
@@ -133,7 +133,7 @@ Gdy aplikacja nie startuje, sprawdź kolejno:
 1. czy Docker, PostgreSQL, .NET SDK i Node.js są dostępne
 2. czy backend ma poprawne sekrety i connection string
 3. czy API odpowiada pod `http://localhost:5000/health`
-4. czy frontend używa właściwego `REACT_APP_API_URL`
+4. czy frontend używa właściwego `VITE_API_URL`
 5. logi kontenerów albo terminala procesu, który nie wystartował
 
 ## See Also

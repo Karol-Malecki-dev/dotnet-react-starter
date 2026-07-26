@@ -4,9 +4,9 @@ FROM node:20-alpine AS builder
 # Ustawiamy folder roboczy
 WORKDIR /app
 
-ARG REACT_APP_API_URL=/api
+ARG VITE_API_URL=/api
 ARG NODE_OPTIONS=--max_old_space_size=4096
-ENV REACT_APP_API_URL=$REACT_APP_API_URL
+ENV VITE_API_URL=$VITE_API_URL
 ENV NODE_OPTIONS=$NODE_OPTIONS
 
 # Kopiujemy package.json i package-lock.json
@@ -18,7 +18,7 @@ RUN npm ci
 # Kopiujemy kod źródłowy React
 COPY . .
 
-# Budujemy aplikację React (tworzy folder build/)
+# Budujemy aplikację React (tworzy folder dist/)
 RUN npm run build
 
 
@@ -32,7 +32,7 @@ COPY docker/nginx.conf /etc/nginx/nginx.conf
 RUN rm -rf /usr/share/nginx/html/*
 
 # Kopiujemy zbudowaną aplikację React z etapu builder
-COPY --from=builder /app/build /usr/share/nginx/html
+COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Otwieramy port 3000 (na tym porcie nasłuchuje aplikacja)
 EXPOSE 3000

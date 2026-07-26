@@ -3,8 +3,10 @@ import Profile from '../../pages/Profile';
 import { useAuth } from '../../hooks/useAuth';
 import { authApi, userApi } from '../../services/api';
 
-jest.mock('../../hooks/useAuth');
-jest.mock('../../services/api', () => ({
+import { vi } from 'vitest';
+
+vi.mock('../../hooks/useAuth');
+vi.mock('../../services/api', () => ({
   authApi: {
     resendConfirmation: jest.fn(),
   },

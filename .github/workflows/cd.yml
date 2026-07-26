@@ -66,7 +66,7 @@ jobs:
           file: ./frontend/Dockerfile
           push: true
           build-args: |
-            REACT_APP_API_URL=/api
+            VITE_API_URL=/api
             NODE_OPTIONS=--max_old_space_size=4096
           tags: |
             ${{ steps.meta.outputs.frontend }}:${{ steps.meta.outputs.tag }}

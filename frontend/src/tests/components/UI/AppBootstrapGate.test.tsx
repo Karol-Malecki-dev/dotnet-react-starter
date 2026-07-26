@@ -3,8 +3,10 @@ import { AppBootstrapGate } from '../../../components/UI/AppBootstrapGate';
 import { useAuth } from '../../../hooks/useAuth';
 import { useFeatureAvailability } from '../../../hooks/useFeatureAvailability';
 
-jest.mock('../../../hooks/useAuth');
-jest.mock('../../../hooks/useFeatureAvailability');
+import { vi } from 'vitest';
+
+vi.mock('../../../hooks/useAuth');
+vi.mock('../../../hooks/useFeatureAvailability');
 
 const mockedUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 const mockedUseFeatureAvailability = useFeatureAvailability as jest.MockedFunction<typeof useFeatureAvailability>;

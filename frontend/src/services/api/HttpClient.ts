@@ -33,7 +33,7 @@ export class HttpClient {
   private onUnauthorized?: () => Promise<boolean>;
 
   constructor(options: HttpClientOptions = {}) {
-    const configuredBaseUrl = options.baseUrl ?? process.env.REACT_APP_API_URL ?? 'http://localhost:5000';
+    const configuredBaseUrl = options.baseUrl ?? import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
     this.baseUrl = configuredBaseUrl.endsWith('/api')
       ? configuredBaseUrl.replace(/\/$/, '')
       : `${configuredBaseUrl.replace(/\/$/, '')}/api`;

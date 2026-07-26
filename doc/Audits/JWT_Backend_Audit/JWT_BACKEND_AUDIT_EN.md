@@ -1,10 +1,10 @@
-# JWT Backend Audit Before Frontend Integration
+# JWT Backend Authentication Audit
 
 ## Goal
-The purpose of this audit was to verify whether the ASP.NET backend is properly prepared to work with a React TypeScript frontend for JWT-based authentication.
+The purpose of this audit is to verify whether the ASP.NET backend correctly implements JWT-based authentication and is prepared to work with the React TypeScript frontend.
 
 ## Overall Status
-The JWT backend is currently **ready for frontend integration**.
+The JWT backend is currently **implemented and verified for frontend integration**.
 
 The following areas were verified:
 - JWT configuration correctness,
@@ -20,10 +20,10 @@ The following areas were verified:
 - The project builds successfully.
 
 ### Unit Tests
-- Result: **41/41 passed**
+- Result: **55/55 passed**
 
 ### Integration Tests
-- Result: **10/10 passed**
+- Result: **42/42 passed**
 
 Verified scenarios:
 - login returns an access token and a refresh token,
@@ -65,15 +65,10 @@ Verified scenarios:
 
 ## Current Limitations
 
-### MockAuthService
-The backend currently relies on `MockAuthService`, which means:
-- login works in a test/demo manner,
-- final integration with real user and password logic is not implemented yet.
+### Current Authentication Service
+The backend uses the real authentication flow implemented by `AuthService` and the user persistence model. Passwords are hashed through the configured password hasher, and authentication is connected to the persisted user data.
 
-This does not block frontend work, but before production use the project should:
-- replace the mock authentication service with a real one,
-- add secure password hashing,
-- connect the actual user management logic.
+The audit verifies the authentication and JWT behavior covered by the current unit and integration suites. It does not replace a production security review, penetration test, or infrastructure review.
 
 ## Recommendations Before Frontend Work
 
@@ -94,14 +89,13 @@ At this stage it is recommended to:
 ## Recommendations for Next Stages
 
 ### Short Term
-- implement the frontend authentication flow,
-- add an API/interceptor layer for access token handling,
-- implement refresh token flow on the frontend.
+- keep the frontend authentication flow aligned with the backend API contract,
+- keep access tokens in the existing client-side session mechanism,
+- keep refresh tokens in `HttpOnly` cookies and preserve rotation behavior.
 
 ### Medium Term
-- replace `MockAuthService` with a real user authentication service,
-- add secure password storage,
-- consider switching refresh token handling to `HttpOnly cookies`.
+- add a dedicated security review for production hosting, cookies, CORS, and headers,
+- expand tests for failure paths and production database configuration.
 
 ### Long Term
 - separate development, test, and production configuration more clearly,
@@ -111,9 +105,9 @@ At this stage it is recommended to:
 ## Final Conclusion
 The JWT backend is currently **stable enough and sufficiently verified** to begin implementing the authentication layer on the React TypeScript frontend.
 
-Most important points for starting frontend work:
+Most important points for the current release:
 - JWT configuration works,
 - protected endpoints work,
 - token refresh works,
 - tests pass,
-- the main remaining risk is in the future real user authentication implementation, not in the JWT mechanism itself.
+- the remaining risk is primarily deployment configuration and the scope of security testing, not an unimplemented authentication service.

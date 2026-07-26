@@ -1,17 +1,20 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { useRuntimeConfig } from '../../hooks/useRuntimeConfig';
 import { RuntimeConfigProvider } from '../../context/RuntimeConfigContext';
+import { runtimeConfigApi } from '../../services/api/RuntimeConfigApi';
 
-jest.mock('../../services/api/RuntimeConfigApi', () => ({
+import { vi } from 'vitest';
+
+vi.mock('../../services/api/RuntimeConfigApi', () => ({
   runtimeConfigApi: {
     getRuntimeConfiguration: jest.fn(),
   },
 }));
 
-const mockedRuntimeConfigApi = jest.requireMock('../../services/api/RuntimeConfigApi') as {
+const mockedRuntimeConfigApi = {
   runtimeConfigApi: {
-    getRuntimeConfiguration: jest.Mock;
-  };
+    getRuntimeConfiguration: vi.mocked(runtimeConfigApi.getRuntimeConfiguration),
+  },
 };
 
 function RuntimeConfigConsumer() {
@@ -38,6 +41,9 @@ describe('RuntimeConfigContext', () => {
       message: 'Runtime configuration loaded',
       data: {
         features: {
+          projectsEnabled: false,
+          projectArchiveEnabled: false,
+          projectTaskAssignmentEnabled: false,
           emailDeliveryEnabled: true,
           globalSearchEnabled: true,
           dashboardOverviewEnabled: true,

@@ -4,7 +4,9 @@ import Register from '../../pages/Register';
 import { useAuth } from '../../hooks/useAuth';
 import { HttpError } from '../../services/api';
 
-jest.mock('../../hooks/useAuth');
+import { vi } from 'vitest';
+
+vi.mock('../../hooks/useAuth');
 const mockedUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 
 describe('Register page', () => {

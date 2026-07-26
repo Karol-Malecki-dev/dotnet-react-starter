@@ -13,13 +13,12 @@
     "strict": true,
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
-    "module": "Node16", // Updated from "esnext" to "Node16" for compatibility with "moduleResolution: node16"
-    "moduleResolution": "node16", // Updated from "node" to "node16" for modern compatibility
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react-jsx",
-    "ignoreDeprecations": "6.0" // Suppress deprecation warnings for TypeScript 6.0
+    "jsx": "react-jsx"
   },
   "include": [
     "src",

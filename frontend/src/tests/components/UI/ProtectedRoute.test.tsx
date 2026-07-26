@@ -3,7 +3,9 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { ProtectedRoute } from '../../../components/UI/ProtectedRoute';
 import { useAuth } from '../../../hooks/useAuth';
 
-jest.mock('../../../hooks/useAuth');
+import { vi } from 'vitest';
+
+vi.mock('../../../hooks/useAuth');
 const mockedUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 
 describe('ProtectedRoute', () => {

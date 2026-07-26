@@ -5,9 +5,11 @@ import { useAuth } from '../../hooks/useAuth';
 import { useFeatureAvailability } from '../../hooks/useFeatureAvailability';
 import { ProjectMemberRole, ProjectTaskPriority, ProjectTaskStatus } from '../../types';
 
-jest.mock('../../context/ProjectsContext');
-jest.mock('../../hooks/useAuth');
-jest.mock('../../hooks/useFeatureAvailability');
+import { vi } from 'vitest';
+
+vi.mock('../../context/ProjectsContext');
+vi.mock('../../hooks/useAuth');
+vi.mock('../../hooks/useFeatureAvailability');
 
 const mockedUseProjects = useProjects as jest.MockedFunction<typeof useProjects>;
 const mockedUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;

@@ -21,7 +21,7 @@ Najważniejsze grupy zmiennych:
 
 - PostgreSQL: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`
 - Backend: `DEFAULT_CONNECTION`, `JWT_SECRET`, `JWT_*`, `CORS_*`, `EMAIL_CONFIRMATION_*`, `EMAIL_TWO_FACTOR_*`, `EMAIL_DELIVERY_*`
-- Frontend build: `FRONTEND_REACT_APP_API_URL`
+- Frontend build: `FRONTEND_REACT_APP_API_URL` (passed to Vite as `VITE_API_URL`)
 - Mailpit: `MAILPIT_SMTP_PORT`, `MAILPIT_HTTP_PORT`
 
 ## Struktura naszego docker-compose.yml
@@ -128,7 +128,7 @@ frontend:
     context: ./frontend
     dockerfile: Dockerfile
     args:
-      REACT_APP_API_URL: ${FRONTEND_REACT_APP_API_URL:-/api}
+      VITE_API_URL: ${FRONTEND_REACT_APP_API_URL:-/api}
   container_name: dotnet-react-frontend
   ports:
     - "3000:3000"
@@ -244,7 +244,7 @@ docker-compose exec backend bash
 ### Frontend (React) → Backend (API)
 ```javascript
 // src/services/api.ts
-const API_URL = process.env.REACT_APP_API_URL || '/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 fetch(`${API_URL}/api/users`)
 ```
