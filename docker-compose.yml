@@ -90,7 +90,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        REACT_APP_API_URL: ${FRONTEND_REACT_APP_API_URL:-/api}
+        VITE_API_URL: ${FRONTEND_REACT_APP_API_URL:-/api}
         NODE_OPTIONS: ${FRONTEND_NODE_OPTIONS:---max_old_space_size=4096}
     container_name: dotnet-react-frontend
     ports:

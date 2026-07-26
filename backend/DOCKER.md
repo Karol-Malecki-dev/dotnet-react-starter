@@ -7,9 +7,9 @@ Plik, który opisuje jak zbudować **obraz Dockera** - to jak przepis na zestawi
 
 ### 🏗️ Stage 1: Builder (Etap budowania)
 ```dockerfile
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS builder
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS builder
 ```
-- **FROM** - pobieramy bazowy obraz (w tym wypadku SDK .NET 8)
+- **FROM** - pobieramy bazowy obraz (w tym wypadku SDK .NET 9)
 - **AS builder** - nazwę etapu (będziemy do niego odwoływać się później)
 - **mcr.microsoft.com** - Microsoft Container Registry, oficjalny source Microsoftu
 
@@ -48,7 +48,7 @@ RUN dotnet publish -c Release -o /app/publish --no-build
 
 ### 🚀 Stage 2: Runtime (Etap uruchomienia)
 ```dockerfile
-FROM mcr.microsoft.com/dotnet/aspnet:8.0
+FROM mcr.microsoft.com/dotnet/aspnet:9.0
 ```
 - Pobieramy **nowy bazowy obraz** - tylko runtime (bez SDK)
 - To robi obraz **DUŻO mniejszym** (brak zbędnego SDK)

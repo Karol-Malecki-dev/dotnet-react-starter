@@ -195,7 +195,7 @@ Projekt ma kilka poziomów testów:
 - `backend/UnitTests/` - testy jednostkowe backendu
 - `backend/IntegrationTests/` - testy integracyjne API i warstwy persistence
 - `backend/E2ETests/` - smoke tests uruchamiane przeciw działającej aplikacji
-- `frontend/src/tests/` i testy przy komponentach - testy React + RTL/Jest
+- `frontend/src/tests/` i testy przy komponentach - testy React + RTL/Vitest
 
 ## Recommended Reading Order
 

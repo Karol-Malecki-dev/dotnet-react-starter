@@ -1,10 +1,11 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { vi } from 'vitest';
 import AdminPanel from '../../pages/AdminPanel';
 import { adminApi } from '../../services/api';
 
-jest.mock('../../services/api', () => {
-  const actual = jest.requireActual('../../services/api');
+vi.mock('../../services/api', async () => {
+  const actual = await vi.importActual<typeof import('../../services/api')>('../../services/api');
 
   return {
     ...actual,

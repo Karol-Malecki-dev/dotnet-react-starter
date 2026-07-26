@@ -58,7 +58,7 @@ CD **nie wdraża jeszcze aplikacji na konkretny hosting**. To celowe: sposób ur
 - workflow ma minimalne uprawnienia `contents: read` i `packages: write`;
 - sekretów aplikacji nie należy wpisywać do workflow;
 - sekrety runtime, takie jak `JWT_SECRET` i connection string, powinny być konfigurowane w środowisku docelowym;
-- `REACT_APP_API_URL` nie jest sekretem, ponieważ trafia do publicznego buildu frontendu.
+- `VITE_API_URL` nie jest sekretem, ponieważ trafia do publicznego buildu frontendu.
 
 ## Jak czytać pipeline
 

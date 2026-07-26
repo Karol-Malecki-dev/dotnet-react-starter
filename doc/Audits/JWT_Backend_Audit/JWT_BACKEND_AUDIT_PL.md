@@ -1,10 +1,10 @@
-# Audyt backendu JWT przed implementacją frontendu
+# Audyt uwierzytelniania backendu JWT
 
 ## Cel
-Celem audytu było sprawdzenie, czy backend ASP.NET jest poprawnie przygotowany do współpracy z frontendem React TypeScript w zakresie uwierzytelniania JWT.
+Celem audytu jest sprawdzenie, czy backend ASP.NET poprawnie implementuje uwierzytelnianie JWT i jest przygotowany do współpracy z frontendem React TypeScript.
 
 ## Status ogólny
-Backend JWT jest obecnie **gotowy do integracji z frontendem**.
+Backend JWT jest obecnie **zaimplementowany i zweryfikowany pod kątem integracji z frontendem**.
 
 Zweryfikowano:
 - poprawność konfiguracji JWT,
@@ -20,10 +20,10 @@ Zweryfikowano:
 - Kompilacja projektu przechodzi poprawnie.
 
 ### Testy jednostkowe
-- Wynik: **41/41 passed**
+- Wynik: **55/55 passed**
 
 ### Testy integracyjne
-- Wynik: **10/10 passed**
+- Wynik: **42/42 passed**
 
 Przetestowane scenariusze:
 - logowanie zwraca access token i refresh token,
@@ -65,15 +65,10 @@ Przetestowane scenariusze:
 
 ## Ograniczenia obecnej wersji
 
-### MockAuthService
-Obecnie backend korzysta z `MockAuthService`, co oznacza, że:
-- logowanie działa testowo,
-- nie ma jeszcze finalnej integracji z docelową logiką użytkowników i haseł.
+### Aktualny serwis uwierzytelniania
+Backend korzysta z rzeczywistego przepływu uwierzytelniania zaimplementowanego w `AuthService` oraz z trwałego modelu użytkownika. Hasła są hashowane przez skonfigurowany password hasher, a logowanie korzysta z zapisanych danych użytkownika.
 
-To nie blokuje rozpoczęcia prac nad frontendem, ale przed użyciem produkcyjnym należy:
-- wdrożyć właściwy serwis autoryzacji,
-- dodać bezpieczne hashowanie haseł,
-- podłączyć prawdziwą logikę użytkowników.
+Audyt obejmuje zachowanie uwierzytelniania i JWT pokryte aktualnymi testami jednostkowymi i integracyjnymi. Nie zastępuje on testów penetracyjnych, produkcyjnego przeglądu bezpieczeństwa ani audytu infrastruktury.
 
 ## Rekomendacje przed frontendem
 
@@ -94,14 +89,13 @@ Na obecnym etapie warto:
 ## Zalecenia na kolejne etapy
 
 ### Krótkoterminowo
-- wdrożyć frontendowy flow auth,
-- dodać interceptor/warstwę API dla access tokenu,
-- obsłużyć refresh token flow po stronie frontu.
+- utrzymywać frontendowy flow auth zgodny z kontraktem API,
+- zachować istniejący mechanizm lokalnej sesji access tokenu,
+- przechowywać refresh token w ciasteczku `HttpOnly` i zachować jego rotację.
 
 ### Średni termin
-- zamienić `MockAuthService` na prawdziwy serwis użytkowników,
-- dodać bezpieczne przechowywanie haseł,
-- rozważyć przejście na `HttpOnly cookies` dla refresh tokenów.
+- wykonać osobny przegląd bezpieczeństwa hostingu, cookies, CORS i nagłówków,
+- rozszerzyć testy o ścieżki błędów i produkcyjną konfigurację bazy danych.
 
 ### Długoterminowo
 - rozdzielić konfigurację dev/test/prod,
@@ -111,9 +105,9 @@ Na obecnym etapie warto:
 ## Wniosek końcowy
 Backend JWT jest obecnie **wystarczająco stabilny i zweryfikowany**, aby rozpocząć implementację warstwy autoryzacji po stronie frontendu React TypeScript.
 
-Najważniejsze z perspektywy startu frontendu:
+Najważniejsze z perspektywy obecnego wydania:
 - konfiguracja JWT działa,
 - endpointy chronione działają,
 - token refresh działa,
 - testy przechodzą,
-- główne ryzyko pozostaje w obszarze docelowej logiki użytkowników, a nie samego mechanizmu JWT.
+- główne ryzyko pozostaje w konfiguracji wdrożeniowej i zakresie testów bezpieczeństwa, a nie w braku implementacji serwisu uwierzytelniania.

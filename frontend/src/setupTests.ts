@@ -3,11 +3,14 @@
 // expect(element).toHaveTextContent(/react/i)
 // learn more: https://github.com/testing-library/jest-dom
 import '@testing-library/jest-dom';
+import { vi } from 'vitest';
+
+(globalThis as unknown as { jest: typeof vi }).jest = vi;
 
 const originalWarn = console.warn;
 
 beforeAll(() => {
-	jest.spyOn(console, 'warn').mockImplementation((message?: unknown, ...optionalParams: unknown[]) => {
+		vi.spyOn(console, 'warn').mockImplementation((message?: unknown, ...optionalParams: unknown[]) => {
 		if (typeof message === 'string' && message.includes('React Router Future Flag Warning')) {
 			return;
 		}
@@ -17,5 +20,5 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-	(console.warn as jest.MockedFunction<typeof console.warn>).mockRestore();
+	(console.warn as unknown as ReturnType<typeof vi.spyOn>).mockRestore();
 });

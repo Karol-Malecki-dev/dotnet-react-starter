@@ -159,18 +159,18 @@ Schemat jest prosty:
 
 ## Environment Configuration
 
-Frontend używa tylko publicznych wartości build-time z prefiksem `REACT_APP_`.
+Frontend używa tylko publicznych wartości build-time z prefiksem `VITE_`.
 
 Najważniejsza zmienna:
 
-- `REACT_APP_API_URL`
+- `VITE_API_URL`
 
 Przykłady:
 
 - local frontend do local backendu: `http://localhost:5000`
 - Docker/nginx reverse proxy: `/api`
 
-Nigdy nie wkładaj sekretów do `REACT_APP_*`.
+Nigdy nie wkładaj sekretów do `VITE_*`.
 
 ## Naming Guidelines
 

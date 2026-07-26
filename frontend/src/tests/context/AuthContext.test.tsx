@@ -4,7 +4,9 @@ import { AuthProvider, useAuthContext } from '../../context/AuthContext';
 import { authApi, userApi } from '../../services/api';
 import { tokenManager } from '../../services/api/TokenManager';
 
-jest.mock('../../services/api', () => ({
+import { vi } from 'vitest';
+
+vi.mock('../../services/api', () => ({
   authApi: {
     login: jest.fn(),
     register: jest.fn(),
@@ -22,7 +24,7 @@ jest.mock('../../services/api', () => ({
   },
 }));
 
-jest.mock('../../services/api/TokenManager', () => ({
+vi.mock('../../services/api/TokenManager', () => ({
   tokenManager: {
     getSession: jest.fn(),
     getUser: jest.fn(),

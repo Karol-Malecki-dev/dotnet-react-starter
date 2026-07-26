@@ -4,9 +4,11 @@ import App from '../App';
 import { useAuth } from '../hooks/useAuth';
 import { useFeatureAvailability } from '../hooks/useFeatureAvailability';
 
-jest.mock('../hooks/useAuth');
-jest.mock('../hooks/useFeatureAvailability');
-jest.mock('../context/RuntimeConfigContext', () => ({
+import { vi } from 'vitest';
+
+vi.mock('../hooks/useAuth');
+vi.mock('../hooks/useFeatureAvailability');
+vi.mock('../context/RuntimeConfigContext', () => ({
   RuntimeConfigProvider: ({ children }: { children: ReactNode }) => children,
 }));
 

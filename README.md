@@ -37,8 +37,8 @@ This repository is a practical base for auth-heavy applications, admin dashboard
 - React Router
 - React Hook Form
 - Zod
-- Testing Library + Jest
-- CRA build pipeline via `react-scripts`
+- Testing Library + Vitest
+- Vite build pipeline with Vitest-based frontend tests
 
 ## Project Structure
 
@@ -85,9 +85,9 @@ Copy-Item frontend/.env.example frontend/.env.development.local
 Rules:
 
 - Backend secrets belong in root `.env`, CI/CD secrets, or hosting configuration.
-- Frontend `REACT_APP_*` values are public at build time. Never store secrets there.
-- For Docker/nginx deployments, use `FRONTEND_REACT_APP_API_URL=/api`.
-- For local frontend to local backend development, use `REACT_APP_API_URL=http://localhost:5000`.
+- Frontend `VITE_*` values are public at build time. Never store secrets there.
+- For Docker/nginx deployments, use `FRONTEND_REACT_APP_API_URL=/api` (mapped to `VITE_API_URL` during the image build).
+- For local frontend to local backend development, use `VITE_API_URL=http://localhost:5000`.
 
 ## Runtime Feature Flags
 
@@ -151,7 +151,7 @@ npm start
 If you run the frontend locally against the local backend, make sure `frontend/.env.development.local` contains:
 
 ```text
-REACT_APP_API_URL=http://localhost:5000
+VITE_API_URL=http://localhost:5000
 ```
 
 The frontend shell now waits for both auth and runtime config before rendering protected UI. When `GlobalSearchEnabled` is on, `Ctrl+K` opens the quick search bar in the navbar.
@@ -224,7 +224,7 @@ For local Docker runs, transactional emails are delivered to Mailpit. Open http:
 - Add full profile editing and change-password flows
 - Add a hosting-specific deployment job after choosing the target platform
 - Expand admin user management and filtering
-- Migrate the frontend from CRA to Vite when the current feature set stabilizes
+- Evaluate a controlled React Router v7 upgrade after reviewing its breaking changes
 
 ## License
 
