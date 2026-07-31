@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using Application.Interfaces;
 using Domain.Entities;
 using Domain.Enums;
 using Infrastructure.Data;
@@ -9,10 +10,12 @@ namespace Infrastructure.Services;
 public sealed class DatabaseProjectTaskService : IProjectTaskApplicationService
 {
     private readonly ApplicationDbContext _dbContext;
+    private readonly INotificationService _notificationService;
 
-    public DatabaseProjectTaskService(ApplicationDbContext dbContext)
+    public DatabaseProjectTaskService(ApplicationDbContext dbContext, INotificationService notificationService)
     {
         _dbContext = dbContext;
+        _notificationService = notificationService;
     }
 
     public async Task<ProjectOperationResult<PagedProjectTaskView>> GetProjectTasksAsync(ProjectTaskQuery query)
@@ -88,6 +91,17 @@ public sealed class DatabaseProjectTaskService : IProjectTaskApplicationService
         _dbContext.ProjectTasks.Add(task);
         await _dbContext.SaveChangesAsync();
 
+        if (task.AssignedUserId.HasValue && task.AssignedUserId != command.OwnerId)
+        {
+            await _notificationService.CreateAsync(
+                task.AssignedUserId.Value,
+                NotificationType.TaskAssigned,
+                "You were assigned a task",
+                $"You were assigned the task '{task.Title}'.",
+                "ProjectTask",
+                task.Id);
+        }
+
         return ProjectOperationResult<ProjectTaskView>.Success(MapToView(task), "Project task created", 201);
     }
 
@@ -111,6 +125,7 @@ public sealed class DatabaseProjectTaskService : IProjectTaskApplicationService
             return ProjectOperationResult<ProjectTaskView>.Failure(ProjectOperationStatus.ValidationError, assignedUserError);
         }
 
+        var previousAssignedUserId = task.AssignedUserId;
         task.Title = command.Title.Trim();
         task.Description = NormalizeDescription(command.Description);
         task.Priority = command.Priority;
@@ -118,6 +133,19 @@ public sealed class DatabaseProjectTaskService : IProjectTaskApplicationService
         task.AssignedUserId = command.AssignedUserId;
         task.UpdatedAt = DateTime.UtcNow;
         await _dbContext.SaveChangesAsync();
+
+        if (task.AssignedUserId.HasValue
+            && task.AssignedUserId != previousAssignedUserId
+            && task.AssignedUserId != command.OwnerId)
+        {
+            await _notificationService.CreateAsync(
+                task.AssignedUserId.Value,
+                NotificationType.TaskAssigned,
+                "You were assigned a task",
+                $"You were assigned the task '{task.Title}'.",
+                "ProjectTask",
+                task.Id);
+        }
 
         return ProjectOperationResult<ProjectTaskView>.Success(MapToView(task), "Project task updated");
     }
