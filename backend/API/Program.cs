@@ -2,6 +2,7 @@ using API.Middleware;
 using API.Services;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,11 +10,12 @@ var builder = WebApplication.CreateBuilder(args);
 // Configure Serilog structured logging
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
-    .WriteTo.Console(outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
+    .Enrich.FromLogContext()
+    .WriteTo.Console(outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3}] [{CorrelationId}] {Message:lj}{NewLine}{Exception}")
     .WriteTo.File(
         path: "logs/app-.txt",
         rollingInterval: RollingInterval.Day,
-        outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}",
+        outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3}] [{CorrelationId}] {Message:lj}{NewLine}{Exception}",
         retainedFileCountLimit: 7
     )
     .CreateLogger();
@@ -55,6 +57,7 @@ try
     }
 
     // Configure the HTTP request pipeline
+    app.UseMiddleware<CorrelationIdMiddleware>();
     app.UseMiddleware<ExceptionHandlingMiddleware>();
 
     if (app.Environment.IsDevelopment())
@@ -74,7 +77,19 @@ try
     app.UseAuthentication();
     app.UseAuthorization();
 
-    app.MapHealthChecks("/health");
+    app.MapHealthChecks("/health", new HealthCheckOptions
+    {
+        Predicate = healthCheck => !healthCheck.Tags.Contains("workers")
+    });
+    app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
+    app.MapHealthChecks("/health/ready", new HealthCheckOptions
+    {
+        Predicate = healthCheck => healthCheck.Tags.Contains("ready")
+    });
+    app.MapHealthChecks("/health/workers", new HealthCheckOptions
+    {
+        Predicate = healthCheck => healthCheck.Tags.Contains("workers")
+    });
     app.MapControllers();
 
     Log.Information("🌐 Application listening on configured ports");

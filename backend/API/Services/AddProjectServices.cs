@@ -44,7 +44,9 @@ namespace API.Services
             services.AddFluentValidationAutoValidation();
             services.AddValidatorsFromAssemblyContaining<global::Program>();
 
-            services.AddHealthChecks();
+            services.AddHealthChecks()
+                .AddCheck<DatabaseHealthCheck>("database", tags: ["ready", "database"])
+                .AddCheck<BackgroundWorkerHealthCheck>("background-workers", tags: ["workers"]);
             services.AddHttpContextAccessor();
             services.AddSwaggerGen();
             services.AddAuthorization();
@@ -149,6 +151,7 @@ namespace API.Services
             services.AddScoped<IUserService, DatabaseUserService>();
             services.AddScoped<INotificationService, DatabaseNotificationService>();
             services.AddScoped<LoggingNotificationEmailSender>();
+            services.AddSingleton<BackgroundWorkerHealthState>();
             services.AddScoped<MailKitNotificationEmailSender>();
             services.AddScoped<INotificationEmailSender>(serviceProvider =>
             {
