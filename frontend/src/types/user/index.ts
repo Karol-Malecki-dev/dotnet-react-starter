@@ -105,6 +105,7 @@ export interface UserSecurity {
   email: string;
   isEmailConfirmed: boolean;
   isTwoFactorEnabled: boolean;
+  isAuthenticatorEnabled: boolean;
 }
 
 /** Maps to Application.DTOs.User.UpdateTwoFactorPreferenceDto. */

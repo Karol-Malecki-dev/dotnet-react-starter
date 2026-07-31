@@ -6,6 +6,7 @@ import type {
   ProjectMembersResponse,
   ProjectMemberUsersResponse,
   ProjectMemberResponse,
+  ProjectActivitiesResponse,
   ProjectTaskResponse,
   ProjectTasksResponse,
   ProjectsResponse,
@@ -70,6 +71,10 @@ export class ProjectApi {
 
   getAvailableMembers(projectId: string): Promise<ProjectMemberUsersResponse> {
     return this.client.get<ProjectMemberUsersResponse>(`/projects/${projectId}/members/available`);
+  }
+
+  getActivity(projectId: string, pageNumber = 1, pageSize = 20): Promise<ProjectActivitiesResponse> {
+    return this.client.get<ProjectActivitiesResponse>(`/projects/${projectId}/activity?pageNumber=${pageNumber}&pageSize=${pageSize}`);
   }
 
   addMember(projectId: string, userId: string): Promise<ProjectMemberResponse> {

@@ -3,13 +3,16 @@ import { MemoryRouter } from 'react-router-dom';
 import { Navbar } from '../../../components/UI/Navbar';
 import { useAuth } from '../../../hooks/useAuth';
 import { useFeatureAvailability } from '../../../hooks/useFeatureAvailability';
+import { useNotifications } from '../../../hooks/useNotifications';
 
 import { vi } from 'vitest';
 
 vi.mock('../../../hooks/useAuth');
 vi.mock('../../../hooks/useFeatureAvailability');
+vi.mock('../../../hooks/useNotifications');
 const mockedUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 const mockedUseFeatureAvailability = useFeatureAvailability as jest.MockedFunction<typeof useFeatureAvailability>;
+const mockedUseNotifications = useNotifications as jest.MockedFunction<typeof useNotifications>;
 
 const mockNavigate = vi.hoisted(() => vi.fn());
 vi.mock('react-router-dom', async () => {
@@ -24,6 +27,15 @@ describe('Navbar', () => {
   beforeEach(() => {
     mockNavigate.mockClear();
     jest.resetAllMocks();
+    mockedUseNotifications.mockReturnValue({
+      notifications: [],
+      unreadCount: 0,
+      loading: false,
+      error: null,
+      refreshNotifications: jest.fn(),
+      markAsRead: jest.fn(),
+      markAllAsRead: jest.fn(),
+    });
     mockedUseFeatureAvailability.mockReturnValue({
       loading: false,
       loaded: true,

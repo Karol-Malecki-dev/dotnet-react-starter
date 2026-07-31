@@ -86,6 +86,45 @@ public sealed class DatabaseNotificationService : INotificationService
         return ApiResponse<int>.Success(notifications.Count, "Notifications marked as read");
     }
 
+    public async Task<ApiResponse<NotificationEmailPreferenceDto>> GetEmailPreferenceAsync(Guid userId)
+    {
+        var preference = await _dbContext.NotificationEmailPreferences
+            .AsNoTracking()
+            .FirstOrDefaultAsync(candidate => candidate.UserId == userId);
+
+        return ApiResponse<NotificationEmailPreferenceDto>.Success(new NotificationEmailPreferenceDto
+        {
+            IsEmailEnabled = preference?.IsEmailEnabled ?? true
+        });
+    }
+
+    public async Task<ApiResponse<NotificationEmailPreferenceDto>> UpdateEmailPreferenceAsync(Guid userId, bool isEmailEnabled)
+    {
+        var preference = await _dbContext.NotificationEmailPreferences
+            .FirstOrDefaultAsync(candidate => candidate.UserId == userId);
+        if (preference is null)
+        {
+            preference = new NotificationEmailPreference
+            {
+                UserId = userId,
+                IsEmailEnabled = isEmailEnabled,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _dbContext.NotificationEmailPreferences.Add(preference);
+        }
+        else
+        {
+            preference.IsEmailEnabled = isEmailEnabled;
+            preference.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await _dbContext.SaveChangesAsync();
+        return ApiResponse<NotificationEmailPreferenceDto>.Success(new NotificationEmailPreferenceDto
+        {
+            IsEmailEnabled = preference.IsEmailEnabled
+        }, "Notification email preference updated");
+    }
+
     public async Task CreateAsync(Guid userId, NotificationType type, string title, string message, string? resourceType = null, Guid? resourceId = null)
     {
         if (userId == Guid.Empty || string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(message))
@@ -93,7 +132,8 @@ public sealed class DatabaseNotificationService : INotificationService
             throw new ArgumentException("A notification requires a user, title, and message.");
         }
 
-        _dbContext.Set<Notification>().Add(new Notification
+        var now = DateTime.UtcNow;
+        var notification = new Notification
         {
             Id = Guid.NewGuid(),
             UserId = userId,
@@ -102,8 +142,26 @@ public sealed class DatabaseNotificationService : INotificationService
             Message = message.Trim(),
             ResourceType = string.IsNullOrWhiteSpace(resourceType) ? null : resourceType.Trim(),
             ResourceId = resourceId,
-            CreatedAt = DateTime.UtcNow
-        });
+            CreatedAt = now
+        };
+        _dbContext.Notifications.Add(notification);
+
+        var emailEnabled = await _dbContext.NotificationEmailPreferences
+            .Where(preference => preference.UserId == userId)
+            .Select(preference => (bool?)preference.IsEmailEnabled)
+            .FirstOrDefaultAsync() ?? true;
+        if (emailEnabled)
+        {
+            _dbContext.NotificationEmailOutboxMessages.Add(new NotificationEmailOutboxMessage
+            {
+                Id = Guid.NewGuid(),
+                NotificationId = notification.Id,
+                UserId = userId,
+                CreatedAt = now,
+                NextAttemptAt = now
+            });
+        }
+
         await _dbContext.SaveChangesAsync();
     }
 

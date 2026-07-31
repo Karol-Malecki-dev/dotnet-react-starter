@@ -57,6 +57,16 @@ export interface ProjectMemberUserDto {
   email: string;
 }
 
+export interface ProjectActivityDto {
+  id: string;
+  type: string;
+  description: string;
+  actorUserId: string;
+  actorDisplayName: string;
+  projectTaskId: string | null;
+  createdAt: string;
+}
+
 export interface CreateProjectRequest {
   name: string;
   description?: string;
@@ -97,3 +107,4 @@ export type ProjectOperationResponse = ApiResponse<boolean>;
 export type ProjectMembersResponse = ApiResponse<ProjectMemberDto[]>;
 export type ProjectMemberUsersResponse = ApiResponse<ProjectMemberUserDto[]>;
 export type ProjectMemberResponse = ApiResponse<ProjectMemberDto>;
+export type ProjectActivitiesResponse = ApiResponse<PagedResult<ProjectActivityDto>>;

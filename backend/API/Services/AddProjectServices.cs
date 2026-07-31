@@ -148,6 +148,16 @@ namespace API.Services
             services.AddScoped<IAuthService, DatabaseAuthService>();
             services.AddScoped<IUserService, DatabaseUserService>();
             services.AddScoped<INotificationService, DatabaseNotificationService>();
+            services.AddScoped<LoggingNotificationEmailSender>();
+            services.AddScoped<MailKitNotificationEmailSender>();
+            services.AddScoped<INotificationEmailSender>(serviceProvider =>
+            {
+                var emailDeliverySettings = serviceProvider.GetRequiredService<IOptions<EmailDeliverySettings>>().Value;
+                return emailDeliverySettings.Enabled
+                    ? serviceProvider.GetRequiredService<MailKitNotificationEmailSender>()
+                    : serviceProvider.GetRequiredService<LoggingNotificationEmailSender>();
+            });
+            services.AddHostedService<NotificationEmailOutboxWorker>();
             services.AddScoped<IAdminService, DatabaseAdminService>();
             services.AddScoped<IProjectApplicationService, DatabaseProjectService>();
             services.AddScoped<IProjectTaskApplicationService, DatabaseProjectTaskService>();

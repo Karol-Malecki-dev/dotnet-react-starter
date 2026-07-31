@@ -14,6 +14,11 @@ export type {
   ResendConfirmationRequest,
   VerifyTwoFactorRequest,
   ResendTwoFactorRequest,
+  AuthenticatorSetup,
+  ConfirmAuthenticatorSetupRequest,
+  AuthenticatorConfirmation,
+  DisableAuthenticatorRequest,
+  RegenerateAuthenticatorRecoveryCodesRequest,
   JwtTokens,
   RegisterResultData,
   TwoFactorChallenge,
@@ -120,6 +125,8 @@ export type {
   ProjectMembersResponse,
   ProjectMemberUsersResponse,
   ProjectMemberResponse,
+  ProjectActivityDto,
+  ProjectActivitiesResponse,
 } from './project';
 
 // Notification types
@@ -132,5 +139,9 @@ export type {
   GetUnreadCountResponse,
   MarkNotificationReadResponse,
   MarkAllNotificationsReadResponse,
+  NotificationEmailPreferenceDto,
+  UpdateNotificationEmailPreferenceRequest,
+  GetNotificationEmailPreferenceResponse,
+  UpdateNotificationEmailPreferenceResponse,
 } from './notifications';
 

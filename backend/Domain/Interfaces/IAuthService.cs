@@ -151,5 +151,23 @@ namespace Domain.Interfaces
         /// <returns>A delivery payload with the new raw code, or <see langword="null"/> when the challenge is invalid.</returns>
         /// <remarks>The expiration time and failed-attempt counter are reset for the newly sent code.</remarks>
         Task<EmailTwoFactorChallengeDelivery?> ResendEmailTwoFactorChallengeAsync(Guid challengeId);
+
+        /// <summary>Creates or replaces a pending authenticator-app setup for a confirmed account.</summary>
+        Task<AuthenticatorSetup?> BeginAuthenticatorSetupAsync(Guid userId);
+
+        /// <summary>Confirms a pending authenticator setup and returns single-use recovery codes.</summary>
+        Task<AuthenticatorConfirmation?> ConfirmAuthenticatorSetupAsync(Guid userId, string code);
+
+        /// <summary>Creates a short-lived challenge after password validation for an authenticator-app sign-in.</summary>
+        Task<AuthenticatorLoginChallengeInfo?> CreateAuthenticatorLoginChallengeAsync(Guid userId);
+
+        /// <summary>Completes an authenticator-app sign-in using a current TOTP or recovery code.</summary>
+        Task<User?> VerifyAuthenticatorLoginChallengeAsync(Guid challengeId, string code);
+
+        /// <summary>Disables an authenticator application after re-authenticating with password and a current TOTP or recovery code.</summary>
+        Task<bool> DisableAuthenticatorAsync(Guid userId, string currentPassword, string code);
+
+        /// <summary>Replaces all recovery codes after re-authenticating with password and a current TOTP or recovery code.</summary>
+        Task<AuthenticatorConfirmation?> RegenerateAuthenticatorRecoveryCodesAsync(Guid userId, string currentPassword, string code);
     }
 }

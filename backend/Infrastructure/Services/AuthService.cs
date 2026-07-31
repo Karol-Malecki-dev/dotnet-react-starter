@@ -241,6 +241,36 @@ public class AuthService : IAuthService
         return Task.FromResult<EmailTwoFactorChallengeDelivery?>(null);
     }
 
+    public Task<AuthenticatorSetup?> BeginAuthenticatorSetupAsync(Guid userId)
+    {
+        return Task.FromResult<AuthenticatorSetup?>(null);
+    }
+
+    public Task<AuthenticatorConfirmation?> ConfirmAuthenticatorSetupAsync(Guid userId, string code)
+    {
+        return Task.FromResult<AuthenticatorConfirmation?>(null);
+    }
+
+    public Task<AuthenticatorLoginChallengeInfo?> CreateAuthenticatorLoginChallengeAsync(Guid userId)
+    {
+        return Task.FromResult<AuthenticatorLoginChallengeInfo?>(null);
+    }
+
+    public Task<User?> VerifyAuthenticatorLoginChallengeAsync(Guid challengeId, string code)
+    {
+        return Task.FromResult<User?>(null);
+    }
+
+    public Task<bool> DisableAuthenticatorAsync(Guid userId, string currentPassword, string code)
+    {
+        return Task.FromResult(false);
+    }
+
+    public Task<AuthenticatorConfirmation?> RegenerateAuthenticatorRecoveryCodesAsync(Guid userId, string currentPassword, string code)
+    {
+        return Task.FromResult<AuthenticatorConfirmation?>(null);
+    }
+
     public Task<bool> StartResetPasswordBySendingTokenToEmailAsync(string email, ResetType resetType)
     {
         throw new NotImplementedException();

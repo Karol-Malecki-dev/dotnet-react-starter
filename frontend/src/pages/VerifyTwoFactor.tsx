@@ -35,6 +35,7 @@ export default function VerifyTwoFactor() {
   }, [challenge]);
 
   const isExpired = challenge ? now >= new Date(challenge.expiresAt).getTime() : false;
+  const isAuthenticatorChallenge = challenge?.method === 'authenticator';
 
   const {
     register,
@@ -123,15 +124,17 @@ export default function VerifyTwoFactor() {
   return (
     <section className="auth-layout">
       <article className="auth-callout">
-        <p className="eyebrow">Email 2FA</p>
+          <p className="eyebrow">{isAuthenticatorChallenge ? 'Authenticator app' : 'Email 2FA'}</p>
         <h1>Complete the sign-in.</h1>
         <p>
-          We sent a one-time verification code to <strong>{challenge.destinationHint}</strong>. Enter it below to finish the login.
+          {isAuthenticatorChallenge
+            ? 'Enter the current code from your authenticator app to finish the login.'
+            : <>We sent a one-time verification code to <strong>{challenge.destinationHint}</strong>. Enter it below to finish the login.</>}
         </p>
         <ul className="auth-callout__list">
           <li>The code is single-use and expires at {new Date(challenge.expiresAt).toLocaleTimeString()}.</li>
           <li>Refreshing the page keeps the current challenge until you complete or restart the sign-in.</li>
-          <li>You can request a fresh code if the email did not arrive or the code expired.</li>
+          {!isAuthenticatorChallenge ? <li>You can request a fresh code if the email did not arrive or the code expired.</li> : null}
         </ul>
       </article>
 
@@ -160,9 +163,11 @@ export default function VerifyTwoFactor() {
                     <button className="button button--block" type="submit" disabled={loading || isExpired}>
             {loading ? 'Verifying...' : 'Verify code'}
           </button>
-          <button className="button button--ghost button--block" type="button" onClick={handleResend} disabled={loading}>
-            Resend code
-          </button>
+          {!isAuthenticatorChallenge ? (
+            <button className="button button--ghost button--block" type="button" onClick={handleResend} disabled={loading}>
+              Resend code
+            </button>
+          ) : null}
         </form>
 
         <p className="auth-panel__footer">

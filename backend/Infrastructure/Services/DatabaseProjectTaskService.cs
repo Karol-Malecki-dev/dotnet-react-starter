@@ -89,6 +89,11 @@ public sealed class DatabaseProjectTaskService : IProjectTaskApplicationService
         };
 
         _dbContext.ProjectTasks.Add(task);
+        AddActivity(task.ProjectId, command.OwnerId, "task.created", $"created the task '{task.Title}'.", task.Id);
+        if (task.AssignedUserId.HasValue && task.AssignedUserId != command.OwnerId)
+        {
+            AddActivity(task.ProjectId, command.OwnerId, "task.assigned", $"assigned the task '{task.Title}'.", task.Id);
+        }
         await _dbContext.SaveChangesAsync();
 
         if (task.AssignedUserId.HasValue && task.AssignedUserId != command.OwnerId)
@@ -132,6 +137,11 @@ public sealed class DatabaseProjectTaskService : IProjectTaskApplicationService
         task.DueDate = command.DueDate;
         task.AssignedUserId = command.AssignedUserId;
         task.UpdatedAt = DateTime.UtcNow;
+        if (task.AssignedUserId != previousAssignedUserId)
+        {
+            AddActivity(task.ProjectId, command.OwnerId, task.AssignedUserId.HasValue ? "task.assigned" : "task.unassigned",
+                task.AssignedUserId.HasValue ? $"assigned the task '{task.Title}'." : $"unassigned the task '{task.Title}'.", task.Id);
+        }
         await _dbContext.SaveChangesAsync();
 
         if (task.AssignedUserId.HasValue
@@ -164,8 +174,13 @@ public sealed class DatabaseProjectTaskService : IProjectTaskApplicationService
             return ProjectOperationResult<ProjectTaskView>.Failure(ProjectOperationStatus.Forbidden, "You cannot change this task status");
         }
 
+        var previousStatus = task.Status;
         task.Status = command.Status;
         task.UpdatedAt = DateTime.UtcNow;
+        if (previousStatus != task.Status)
+        {
+            AddActivity(task.ProjectId, command.OwnerId, "task.status-changed", $"changed the status of '{task.Title}' to {task.Status}.", task.Id);
+        }
         await _dbContext.SaveChangesAsync();
 
         return ProjectOperationResult<ProjectTaskView>.Success(MapToView(task), "Project task status updated");
@@ -247,6 +262,18 @@ public sealed class DatabaseProjectTaskService : IProjectTaskApplicationService
         task.CreatedByUserId,
         task.CreatedAt,
         task.UpdatedAt);
+
+    private void AddActivity(Guid projectId, Guid actorUserId, string type, string description, Guid? projectTaskId = null)
+    {
+        _dbContext.ProjectActivities.Add(new ProjectActivity
+        {
+            ProjectId = projectId,
+            ActorUserId = actorUserId,
+            Type = type,
+            Description = description,
+            ProjectTaskId = projectTaskId
+        });
+    }
 
     private static string? NormalizeDescription(string? description)
         => string.IsNullOrWhiteSpace(description) ? null : description.Trim();

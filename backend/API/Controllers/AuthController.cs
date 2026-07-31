@@ -29,6 +29,7 @@ namespace API.Controllers
         private readonly IJwtTokenService _jwtTokenService;
         private readonly IAuthService _authService;
         private readonly IAccountEmailSender _accountEmailSender;
+        private readonly INotificationService? _notificationService;
         private readonly IUserService _userService;
         private readonly EmailConfirmationSettings _emailConfirmationSettings;
         private readonly EmailTwoFactorSettings _emailTwoFactorSettings;
@@ -43,7 +44,8 @@ namespace API.Controllers
             ILogger<AuthController> logger,
             IOptions<JwtSettings> jwtOptions,
             IOptions<EmailConfirmationSettings> emailConfirmationOptions,
-            IOptions<EmailTwoFactorSettings> emailTwoFactorOptions)
+            IOptions<EmailTwoFactorSettings> emailTwoFactorOptions,
+            INotificationService? notificationService = null)
         {
             _jwtTokenService = jwtTokenService;
             _authService = authService;
@@ -53,6 +55,7 @@ namespace API.Controllers
             _jwtSettings = jwtOptions.Value;
             _emailConfirmationSettings = emailConfirmationOptions.Value;
             _emailTwoFactorSettings = emailTwoFactorOptions.Value;
+            _notificationService = notificationService;
         }
 
         /// <summary>
@@ -93,6 +96,21 @@ namespace API.Controllers
                 {
                     _logger.LogWarning("⚠️ Login blocked for unconfirmed email: {Email}", dto.Email);
                     return StatusCode(403, ApiResponse<object>.Error(403, "Email address is not confirmed", null));
+                }
+
+                if (user.IsAuthenticatorEnabled)
+                {
+                    var challenge = await _authService.CreateAuthenticatorLoginChallengeAsync(user.Id);
+                    if (challenge is null)
+                    {
+                        _logger.LogError("Authenticator challenge generation failed for user: {UserId}", user.Id);
+                        return StatusCode(500, ApiResponse<object>.Error(500, "Two-factor verification could not be started", null));
+                    }
+
+                    return Accepted(ApiResponse<TwoFactorChallengeResponseDto>.Success(
+                        CreateAuthenticatorChallengeResponse(challenge),
+                        "Two-factor verification required. Enter a code from your authenticator app.",
+                        202));
                 }
 
                 if (_emailTwoFactorSettings.Enabled && user.IsTwoFactorEnabled)
@@ -304,7 +322,8 @@ namespace API.Controllers
 
             try
             {
-                var user = await _authService.VerifyEmailTwoFactorChallengeAsync(request.ChallengeId, request.Code);
+                var user = await _authService.VerifyAuthenticatorLoginChallengeAsync(request.ChallengeId, request.Code)
+                    ?? await _authService.VerifyEmailTwoFactorChallengeAsync(request.ChallengeId, request.Code);
                 if (user is null)
                 {
                     return Unauthorized(ApiResponse<object>.Error(401, "Invalid or expired two-factor code", null));
@@ -366,6 +385,94 @@ namespace API.Controllers
                 _logger.LogError(ex, "❌ Resend 2FA error for challenge {ChallengeId}", request.ChallengeId);
                 return StatusCode(500, ApiResponse<object>.Error(500, "Internal server error", null));
             }
+        }
+
+        /// <summary>Starts authenticator-app setup and returns the provisioning URI exactly once per request.</summary>
+        [HttpPost("authenticator/setup")]
+        [Authorize]
+        public async Task<IActionResult> BeginAuthenticatorSetup()
+        {
+            if (!TryGetCurrentUserId(out var userId))
+            {
+                return Unauthorized(ApiResponse<AuthenticatorSetupDto>.Error(401, "User not authenticated"));
+            }
+
+            var setup = await _authService.BeginAuthenticatorSetupAsync(userId);
+            if (setup is null)
+            {
+                return BadRequest(ApiResponse<AuthenticatorSetupDto>.Error(400, "Authenticator setup is unavailable for this account"));
+            }
+
+            return Ok(ApiResponse<AuthenticatorSetupDto>.Success(new AuthenticatorSetupDto
+            {
+                SharedKey = setup.SharedKey,
+                ProvisioningUri = setup.ProvisioningUri
+            }, "Authenticator setup started", 200));
+        }
+
+        /// <summary>Confirms an authenticator-app setup and returns one-time recovery codes.</summary>
+        [HttpPost("authenticator/confirm")]
+        [Authorize]
+        public async Task<IActionResult> ConfirmAuthenticatorSetup([FromBody] ConfirmAuthenticatorSetupRequestDto request)
+        {
+            if (!ModelState.IsValid || !TryGetCurrentUserId(out var userId))
+            {
+                return BadRequest(ApiResponse<AuthenticatorConfirmationDto>.Error(400, "Invalid authenticator confirmation request"));
+            }
+
+            var confirmation = await _authService.ConfirmAuthenticatorSetupAsync(userId, request.Code);
+            if (confirmation is null)
+            {
+                return BadRequest(ApiResponse<AuthenticatorConfirmationDto>.Error(400, "Authenticator code is invalid"));
+            }
+
+            await CreateSecurityAlertAsync(userId, "Authenticator enabled", "Your authenticator app was enabled and recovery codes were created.");
+            return Ok(ApiResponse<AuthenticatorConfirmationDto>.Success(new AuthenticatorConfirmationDto
+            {
+                RecoveryCodes = confirmation.RecoveryCodes
+            }, "Authenticator enabled. Store the recovery codes securely.", 200));
+        }
+
+        /// <summary>Disables an authenticator application after validating a current or recovery code.</summary>
+        [HttpPost("authenticator/disable")]
+        [Authorize]
+        public async Task<IActionResult> DisableAuthenticator([FromBody] DisableAuthenticatorRequestDto request)
+        {
+            if (!ModelState.IsValid || !TryGetCurrentUserId(out var userId))
+            {
+                return BadRequest(ApiResponse<object>.Error(400, "Invalid authenticator disable request", null));
+            }
+
+            if (!await _authService.DisableAuthenticatorAsync(userId, request.CurrentPassword, request.Code))
+            {
+                return BadRequest(ApiResponse<object>.Error(400, "Password or authenticator code is invalid", null));
+            }
+
+            await CreateSecurityAlertAsync(userId, "Authenticator disabled", "Your authenticator app was disabled after password re-authentication.");
+            return Ok(ApiResponse<object?>.Success(null, "Authenticator disabled", 200));
+        }
+
+        /// <summary>Regenerates all recovery codes after password re-authentication and a second-factor code check.</summary>
+        [HttpPost("authenticator/recovery-codes")]
+        [Authorize]
+        public async Task<IActionResult> RegenerateAuthenticatorRecoveryCodes([FromBody] RegenerateAuthenticatorRecoveryCodesRequestDto request)
+        {
+            if (!ModelState.IsValid || !TryGetCurrentUserId(out var userId))
+            {
+                return BadRequest(ApiResponse<AuthenticatorConfirmationDto>.Error(400, "Invalid recovery-code regeneration request"));
+            }
+
+            var confirmation = await _authService.RegenerateAuthenticatorRecoveryCodesAsync(userId, request.CurrentPassword, request.Code);
+            if (confirmation is null)
+            {
+                return BadRequest(ApiResponse<AuthenticatorConfirmationDto>.Error(400, "Password or authenticator code is invalid"));
+            }
+
+            await CreateSecurityAlertAsync(userId, "Recovery codes regenerated", "Your authenticator recovery codes were replaced after password re-authentication.");
+            return Ok(ApiResponse<AuthenticatorConfirmationDto>.Success(new AuthenticatorConfirmationDto
+            {
+                RecoveryCodes = confirmation.RecoveryCodes
+            }, "Recovery codes regenerated. Store them securely.", 200));
         }
 
         /// <summary>
@@ -593,6 +700,41 @@ namespace API.Controllers
                 DestinationHint = MaskEmail(challenge.Email),
                 ExpiresAt = challenge.ExpiresAt
             };
+        }
+
+        private static TwoFactorChallengeResponseDto CreateAuthenticatorChallengeResponse(AuthenticatorLoginChallengeInfo challenge)
+        {
+            return new TwoFactorChallengeResponseDto
+            {
+                Method = "authenticator",
+                ChallengeId = challenge.ChallengeId,
+                DestinationHint = "your authenticator app",
+                ExpiresAt = challenge.ExpiresAt
+            };
+        }
+
+        private bool TryGetCurrentUserId(out Guid userId)
+        {
+            var userIdValue = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
+                ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return Guid.TryParse(userIdValue, out userId);
+        }
+
+        private async Task CreateSecurityAlertAsync(Guid userId, string title, string message)
+        {
+            if (_notificationService is null)
+            {
+                return;
+            }
+
+            try
+            {
+                await _notificationService.CreateAsync(userId, Domain.Enums.NotificationType.SecurityAlert, title, message, "authenticator");
+            }
+            catch (Exception exception)
+            {
+                _logger.LogError(exception, "Could not create authenticator security alert for user {UserId}", userId);
+            }
         }
 
         private void SetRefreshTokenCookie(string refreshToken)

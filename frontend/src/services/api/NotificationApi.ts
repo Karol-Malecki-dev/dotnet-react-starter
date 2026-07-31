@@ -1,8 +1,11 @@
 import type {
   GetNotificationsResponse,
   GetUnreadCountResponse,
+  GetNotificationEmailPreferenceResponse,
   MarkAllNotificationsReadResponse,
   MarkNotificationReadResponse,
+  UpdateNotificationEmailPreferenceRequest,
+  UpdateNotificationEmailPreferenceResponse,
 } from '../../types';
 import { httpClient, type HttpClient } from './HttpClient';
 
@@ -34,6 +37,19 @@ export class NotificationApi {
 
   markAllAsRead(): Promise<MarkAllNotificationsReadResponse> {
     return this.client.patch<MarkAllNotificationsReadResponse>('/notifications/read-all');
+  }
+
+  getEmailPreference(): Promise<GetNotificationEmailPreferenceResponse> {
+    return this.client.get<GetNotificationEmailPreferenceResponse>('/notifications/email-preference');
+  }
+
+  updateEmailPreference(
+    request: UpdateNotificationEmailPreferenceRequest,
+  ): Promise<UpdateNotificationEmailPreferenceResponse> {
+    return this.client.patch<UpdateNotificationEmailPreferenceResponse, UpdateNotificationEmailPreferenceRequest>(
+      '/notifications/email-preference',
+      request,
+    );
   }
 }
 

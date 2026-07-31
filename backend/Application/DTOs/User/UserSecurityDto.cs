@@ -11,5 +11,6 @@ namespace Application.DTOs.User
         public string Email{ get; set; } = string.Empty;
         public bool IsEmailConfirmed{ get; set; } 
         public bool IsTwoFactorEnabled { get; set; }
+        public bool IsAuthenticatorEnabled { get; set; }
     }
 }

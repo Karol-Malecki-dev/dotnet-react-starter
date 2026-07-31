@@ -6,6 +6,9 @@ public class TwoFactorChallengeResponseDto
     /// <summary>Always true for this response and indicates that JWT tokens have not been issued yet.</summary>
     public bool RequiresTwoFactor { get; set; } = true;
 
+    /// <summary>Verification method expected for this challenge: <c>email</c> or <c>authenticator</c>.</summary>
+    public string Method { get; set; } = "email";
+
     /// <summary>Identifier submitted with the subsequent 2FA verification request.</summary>
     public Guid ChallengeId { get; set; }
 

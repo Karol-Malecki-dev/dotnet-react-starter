@@ -22,11 +22,16 @@ public class ApplicationDbContext : DbContext
     public DbSet<EmailConfirmationToken> EmailConfirmationTokens => Set<EmailConfirmationToken>();
 
     public DbSet<EmailTwoFactorChallenge> EmailTwoFactorChallenges => Set<EmailTwoFactorChallenge>();
+    public DbSet<AuthenticatorLoginChallenge> AuthenticatorLoginChallenges => Set<AuthenticatorLoginChallenge>();
+    public DbSet<AuthenticatorRecoveryCode> AuthenticatorRecoveryCodes => Set<AuthenticatorRecoveryCode>();
     public DbSet<PasswordResetRequest> PasswordResetRequests => Set<PasswordResetRequest>();
 
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<NotificationEmailPreference> NotificationEmailPreferences => Set<NotificationEmailPreference>();
+    public DbSet<NotificationEmailOutboxMessage> NotificationEmailOutboxMessages => Set<NotificationEmailOutboxMessage>();
 
     public DbSet<Project> Projects => Set<Project>();
+    public DbSet<ProjectActivity> ProjectActivities => Set<ProjectActivity>();
 
     public DbSet<ProjectTask> ProjectTasks => Set<ProjectTask>();
 
