@@ -1,5 +1,5 @@
-using Application.DTOs.Project;
-using Application.Interfaces;
+using API.Contracts.Projects;
+using Application.Features.Projects;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Responses;
@@ -13,75 +13,80 @@ namespace API.Controllers;
 [Authorize]
 public class ProjectTasksController : ControllerBase
 {
-    private readonly IProjectTaskService _projectTaskService;
+    private readonly IProjectTaskApplicationService _projectTaskService;
 
-    public ProjectTasksController(IProjectTaskService projectTaskService)
+    public ProjectTasksController(IProjectTaskApplicationService projectTaskService)
     {
         _projectTaskService = projectTaskService;
     }
 
     [HttpGet]
-    public async Task<ActionResult<ApiResponse<PagedResult<ProjectTaskDto>>>> GetTasks(Guid projectId, [FromQuery] ProjectTaskQueryDto query)
+    public async Task<IActionResult> GetTasks(Guid projectId, [FromQuery] ProjectTaskQueryRequest request)
     {
         if (!TryGetCurrentUserId(out var ownerId))
         {
-            return Unauthorized(ApiResponse<PagedResult<ProjectTaskDto>>.Error(401, "User not authenticated"));
+            return Unauthorized(ApiResponse<PagedProjectTaskResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectTaskService.GetProjectTasksAsync(ownerId, projectId, query);
-        return StatusCode(result.StatusCode, result);
+        var result = await _projectTaskService.GetProjectTasksAsync(new ProjectTaskQuery(
+            ownerId, projectId, request.PageNumber, request.PageSize, request.Search));
+        return ToActionResult(result, page => new PagedProjectTaskResponse(
+            page.Items.Select(MapTask).ToList(), page.PageNumber, page.PageSize, page.TotalCount));
     }
 
     [HttpGet("{taskId:guid}")]
-    public async Task<ActionResult<ApiResponse<ProjectTaskDto>>> GetTask(Guid projectId, Guid taskId)
+    public async Task<IActionResult> GetTask(Guid projectId, Guid taskId)
     {
         if (!TryGetCurrentUserId(out var ownerId))
         {
-            return Unauthorized(ApiResponse<ProjectTaskDto>.Error(401, "User not authenticated"));
+            return Unauthorized(ApiResponse<ProjectTaskResponse>.Error(401, "User not authenticated"));
         }
 
         var result = await _projectTaskService.GetProjectTaskAsync(ownerId, projectId, taskId);
-        return StatusCode(result.StatusCode, result);
+        return ToActionResult(result, MapTask);
     }
 
     [HttpPost]
-    public async Task<ActionResult<ApiResponse<ProjectTaskDto>>> CreateTask(Guid projectId, CreateProjectTaskDto dto)
+    public async Task<IActionResult> CreateTask(Guid projectId, CreateProjectTaskRequest request)
     {
         if (!TryGetCurrentUserId(out var ownerId))
         {
-            return Unauthorized(ApiResponse<ProjectTaskDto>.Error(401, "User not authenticated"));
+            return Unauthorized(ApiResponse<ProjectTaskResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectTaskService.CreateProjectTaskAsync(ownerId, projectId, dto);
-        return StatusCode(result.StatusCode, result);
+        var result = await _projectTaskService.CreateProjectTaskAsync(new CreateProjectTaskCommand(
+            ownerId, projectId, request.Title, request.Description, request.Priority, request.DueDate, request.AssignedUserId));
+        return ToActionResult(result, MapTask);
     }
 
     [HttpPut("{taskId:guid}")]
-    public async Task<ActionResult<ApiResponse<ProjectTaskDto>>> UpdateTask(Guid projectId, Guid taskId, UpdateProjectTaskDto dto)
+    public async Task<IActionResult> UpdateTask(Guid projectId, Guid taskId, UpdateProjectTaskRequest request)
     {
         if (!TryGetCurrentUserId(out var ownerId))
         {
-            return Unauthorized(ApiResponse<ProjectTaskDto>.Error(401, "User not authenticated"));
+            return Unauthorized(ApiResponse<ProjectTaskResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectTaskService.UpdateProjectTaskAsync(ownerId, projectId, taskId, dto);
-        return StatusCode(result.StatusCode, result);
+        var result = await _projectTaskService.UpdateProjectTaskAsync(new UpdateProjectTaskCommand(
+            ownerId, projectId, taskId, request.Title, request.Description, request.Priority, request.DueDate, request.AssignedUserId));
+        return ToActionResult(result, MapTask);
     }
 
     [HttpPatch("{taskId:guid}/status")]
-    public async Task<ActionResult<ApiResponse<ProjectTaskDto>>> UpdateTaskStatus(Guid projectId, Guid taskId, UpdateProjectTaskStatusDto dto)
+    public async Task<IActionResult> UpdateTaskStatus(Guid projectId, Guid taskId, UpdateProjectTaskStatusRequest request)
     {
         if (!TryGetCurrentUserId(out var ownerId))
         {
-            return Unauthorized(ApiResponse<ProjectTaskDto>.Error(401, "User not authenticated"));
+            return Unauthorized(ApiResponse<ProjectTaskResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectTaskService.UpdateProjectTaskStatusAsync(ownerId, projectId, taskId, dto);
-        return StatusCode(result.StatusCode, result);
+        var result = await _projectTaskService.UpdateProjectTaskStatusAsync(new UpdateProjectTaskStatusCommand(
+            ownerId, projectId, taskId, request.Status));
+        return ToActionResult(result, MapTask);
     }
 
     [HttpDelete("{taskId:guid}")]
-    public async Task<ActionResult<ApiResponse<bool>>> DeleteTask(Guid projectId, Guid taskId)
+    public async Task<IActionResult> DeleteTask(Guid projectId, Guid taskId)
     {
         if (!TryGetCurrentUserId(out var ownerId))
         {
@@ -89,8 +94,44 @@ public class ProjectTasksController : ControllerBase
         }
 
         var result = await _projectTaskService.DeleteProjectTaskAsync(ownerId, projectId, taskId);
-        return StatusCode(result.StatusCode, result);
+        return ToActionResult(result, value => value);
     }
+
+    private IActionResult ToActionResult<TValue, TResponse>(
+        ProjectOperationResult<TValue> result,
+        Func<TValue, TResponse> map)
+    {
+        if (!result.IsSuccess)
+        {
+            var statusCode = MapStatusCode(result.Status);
+            return StatusCode(statusCode, ApiResponse<TResponse>.Error(statusCode, result.Message));
+        }
+
+        return StatusCode(result.CreatedStatusCode,
+            ApiResponse<TResponse>.Success(map(result.Value!), result.Message, result.CreatedStatusCode));
+    }
+
+    private static ProjectTaskResponse MapTask(ProjectTaskView task) => new(
+        task.Id,
+        task.ProjectId,
+        task.Title,
+        task.Description,
+        task.Status,
+        task.Priority,
+        task.DueDate,
+        task.AssignedUserId,
+        task.CreatedByUserId,
+        task.CreatedAt,
+        task.UpdatedAt);
+
+    private static int MapStatusCode(ProjectOperationStatus status) => status switch
+    {
+        ProjectOperationStatus.NotFound => 404,
+        ProjectOperationStatus.ValidationError => 400,
+        ProjectOperationStatus.Conflict => 409,
+        ProjectOperationStatus.Forbidden => 403,
+        _ => 500
+    };
 
     private bool TryGetCurrentUserId(out Guid userId)
     {

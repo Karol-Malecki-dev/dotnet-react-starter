@@ -1,12 +1,12 @@
-using Application.DTOs.Project;
+using API.Contracts.Projects;
 using Domain.Enums;
 using FluentValidation;
 
 namespace API.Validators;
 
-public class UpdateProjectTaskStatusDtoValidator : AbstractValidator<UpdateProjectTaskStatusDto>
+public sealed class UpdateProjectTaskStatusRequestValidator : AbstractValidator<UpdateProjectTaskStatusRequest>
 {
-    public UpdateProjectTaskStatusDtoValidator()
+    public UpdateProjectTaskStatusRequestValidator()
     {
         RuleFor(task => task.Status)
             .IsInEnum()

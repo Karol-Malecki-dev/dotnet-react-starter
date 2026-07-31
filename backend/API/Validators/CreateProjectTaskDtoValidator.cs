@@ -1,11 +1,11 @@
-using Application.DTOs.Project;
+using API.Contracts.Projects;
 using FluentValidation;
 
 namespace API.Validators;
 
-public class CreateProjectTaskDtoValidator : AbstractValidator<CreateProjectTaskDto>
+public sealed class CreateProjectTaskRequestValidator : AbstractValidator<CreateProjectTaskRequest>
 {
-    public CreateProjectTaskDtoValidator()
+    public CreateProjectTaskRequestValidator()
     {
         RuleFor(task => task.Title)
             .NotEmpty()

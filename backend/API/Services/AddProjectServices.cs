@@ -1,5 +1,6 @@
 ﻿using API.Configurations;
 using API.Filters;
+using Application.Features.Projects;
 using Application.Interfaces;
 using Application.Services;
 using FluentValidation;
@@ -147,8 +148,8 @@ namespace API.Services
             services.AddScoped<IAuthService, DatabaseAuthService>();
             services.AddScoped<IUserService, DatabaseUserService>();
             services.AddScoped<IAdminService, DatabaseAdminService>();
-            services.AddScoped<IProjectService, DatabaseProjectService>();
-            services.AddScoped<IProjectTaskService, DatabaseProjectTaskService>();
+            services.AddScoped<IProjectApplicationService, DatabaseProjectService>();
+            services.AddScoped<IProjectTaskApplicationService, DatabaseProjectTaskService>();
 
             services.AddScoped<LoggingAccountEmailSender>();
             services.AddScoped<MailKitAccountEmailSender>();

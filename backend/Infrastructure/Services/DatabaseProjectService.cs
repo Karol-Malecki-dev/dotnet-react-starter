@@ -1,14 +1,13 @@
-using Application.DTOs.Project;
+using Application.Features.Projects;
 using Application.Interfaces;
 using Domain.Entities;
 using Domain.Enums;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using Shared.Responses;
 
 namespace Infrastructure.Services;
 
-public class DatabaseProjectService : IProjectService
+public sealed class DatabaseProjectService : IProjectApplicationService
 {
     private readonly ApplicationDbContext _dbContext;
 
@@ -17,7 +16,7 @@ public class DatabaseProjectService : IProjectService
         _dbContext = dbContext;
     }
 
-    public async Task<ApiResponse<List<ProjectDto>>> GetUserProjectsAsync(Guid ownerId, bool includeArchived = false, string scope = "all")
+    public async Task<ProjectOperationResult<List<ProjectView>>> GetUserProjectsAsync(Guid ownerId, bool includeArchived = false, string scope = "all")
     {
         var projects = await _dbContext.Projects
             .AsNoTracking()
@@ -26,25 +25,23 @@ public class DatabaseProjectService : IProjectService
                 : project.OwnerId == ownerId || project.Members.Any(member => member.UserId == ownerId && member.User.IsActive))
                 && (includeArchived || !project.IsArchived))
             .OrderByDescending(project => project.UpdatedAt)
-            .Select(project => new ProjectDto
-            {
-                Id = project.Id,
-                Name = project.Name,
-                Description = project.Description,
-                OwnerId = project.OwnerId,
-                CreatedAt = project.CreatedAt,
-                UpdatedAt = project.UpdatedAt,
-                IsArchived = project.IsArchived,
-                CurrentUserRole = project.OwnerId == ownerId
+            .Select(project => new ProjectView(
+                project.Id,
+                project.Name,
+                project.Description,
+                project.OwnerId,
+                project.CreatedAt,
+                project.UpdatedAt,
+                project.IsArchived,
+                project.OwnerId == ownerId
                     ? ProjectMemberRole.Owner
-                    : project.Members.Where(member => member.UserId == ownerId).Select(member => member.Role).FirstOrDefault()
-            })
+                    : project.Members.Where(member => member.UserId == ownerId).Select(member => member.Role).FirstOrDefault()))
             .ToListAsync();
 
-        return ApiResponse<List<ProjectDto>>.Success(projects);
+        return ProjectOperationResult<List<ProjectView>>.Success(projects);
     }
 
-    public async Task<ApiResponse<ProjectDto>> GetProjectAsync(Guid ownerId, Guid projectId, bool includeArchived = false)
+    public async Task<ProjectOperationResult<ProjectView>> GetProjectAsync(Guid ownerId, Guid projectId, bool includeArchived = false)
     {
         var project = await _dbContext.Projects
             .AsNoTracking()
@@ -54,105 +51,103 @@ public class DatabaseProjectService : IProjectService
                 && (includeArchived || !project.IsArchived));
 
         return project is null
-            ? ApiResponse<ProjectDto>.Error(404, "Project not found")
-            : ApiResponse<ProjectDto>.Success(MapToDto(project, ownerId));
+                ? ProjectOperationResult<ProjectView>.Failure(ProjectOperationStatus.NotFound, "Project not found")
+                : ProjectOperationResult<ProjectView>.Success(MapToView(project, ownerId));
     }
 
-    public async Task<ApiResponse<ProjectDto>> CreateProjectAsync(Guid ownerId, CreateProjectDto dto)
+            public async Task<ProjectOperationResult<ProjectView>> CreateProjectAsync(CreateProjectCommand command)
     {
         var project = new Project
         {
-            OwnerId = ownerId,
-            Name = dto.Name.Trim(),
-            Description = NormalizeDescription(dto.Description)
+            OwnerId = command.OwnerId,
+            Name = command.Name.Trim(),
+            Description = NormalizeDescription(command.Description)
         };
 
         _dbContext.Projects.Add(project);
         _dbContext.ProjectMembers.Add(new ProjectMember
         {
             ProjectId = project.Id,
-            UserId = ownerId,
+            UserId = command.OwnerId,
             Role = ProjectMemberRole.Owner
         });
         await _dbContext.SaveChangesAsync();
 
-        return ApiResponse<ProjectDto>.Success(MapToDto(project, ownerId), "Project created", 201);
+        return ProjectOperationResult<ProjectView>.Success(MapToView(project, command.OwnerId), "Project created", 201);
     }
 
-    public async Task<ApiResponse<ProjectDto>> UpdateProjectAsync(Guid ownerId, Guid projectId, UpdateProjectDto dto)
+    public async Task<ProjectOperationResult<ProjectView>> UpdateProjectAsync(UpdateProjectCommand command)
     {
         var project = await _dbContext.Projects
-            .FirstOrDefaultAsync(project => project.Id == projectId && project.OwnerId == ownerId);
+            .FirstOrDefaultAsync(project => project.Id == command.ProjectId && project.OwnerId == command.OwnerId);
 
         if (project is null)
         {
-            return ApiResponse<ProjectDto>.Error(404, "Project not found");
+            return ProjectOperationResult<ProjectView>.Failure(ProjectOperationStatus.NotFound, "Project not found");
         }
 
         if (project.IsArchived)
         {
-            return ApiResponse<ProjectDto>.Error(409, "Archived project cannot be updated");
+            return ProjectOperationResult<ProjectView>.Failure(ProjectOperationStatus.Conflict, "Archived project cannot be updated");
         }
 
-        project.Name = dto.Name.Trim();
-        project.Description = NormalizeDescription(dto.Description);
+        project.Name = command.Name.Trim();
+        project.Description = NormalizeDescription(command.Description);
         project.UpdatedAt = DateTime.UtcNow;
         await _dbContext.SaveChangesAsync();
 
-        return ApiResponse<ProjectDto>.Success(MapToDto(project), "Project updated");
+        return ProjectOperationResult<ProjectView>.Success(MapToView(project), "Project updated");
     }
 
-    public async Task<ApiResponse<bool>> ArchiveProjectAsync(Guid ownerId, Guid projectId)
+    public async Task<ProjectOperationResult<bool>> ArchiveProjectAsync(Guid ownerId, Guid projectId)
     {
         var project = await _dbContext.Projects
             .FirstOrDefaultAsync(project => project.Id == projectId && project.OwnerId == ownerId);
 
         if (project is null)
         {
-            return ApiResponse<bool>.Error(404, "Project not found");
+            return ProjectOperationResult<bool>.Failure(ProjectOperationStatus.NotFound, "Project not found");
         }
 
         if (project.IsArchived)
         {
-            return ApiResponse<bool>.Success(true, "Project already archived");
+            return ProjectOperationResult<bool>.Success(true, "Project already archived");
         }
 
         project.IsArchived = true;
         project.UpdatedAt = DateTime.UtcNow;
         await _dbContext.SaveChangesAsync();
 
-        return ApiResponse<bool>.Success(true, "Project archived");
+        return ProjectOperationResult<bool>.Success(true, "Project archived");
     }
 
-    public async Task<ApiResponse<List<ProjectMemberDto>>> GetProjectMembersAsync(Guid ownerId, Guid projectId)
+    public async Task<ProjectOperationResult<List<ProjectMemberView>>> GetProjectMembersAsync(Guid ownerId, Guid projectId)
     {
         if (!await HasProjectAccessAsync(ownerId, projectId))
         {
-            return ApiResponse<List<ProjectMemberDto>>.Error(404, "Project not found");
+            return ProjectOperationResult<List<ProjectMemberView>>.Failure(ProjectOperationStatus.NotFound, "Project not found");
         }
 
         var members = await _dbContext.ProjectMembers
             .AsNoTracking()
             .Where(member => member.ProjectId == projectId && member.User.IsActive)
             .OrderBy(member => member.User.DisplayName)
-            .Select(member => new ProjectMemberDto
-            {
-                UserId = member.UserId,
-                DisplayName = member.User.DisplayName,
-                Email = member.User.Email,
-                Role = member.Role,
-                AddedAt = member.AddedAt
-            })
+            .Select(member => new ProjectMemberView(
+                member.UserId,
+                member.User.DisplayName,
+                member.User.Email,
+                member.Role,
+                member.AddedAt))
             .ToListAsync();
 
-        return ApiResponse<List<ProjectMemberDto>>.Success(members);
+        return ProjectOperationResult<List<ProjectMemberView>>.Success(members);
     }
 
-    public async Task<ApiResponse<List<ProjectMemberUserDto>>> GetAvailableProjectMembersAsync(Guid ownerId, Guid projectId)
+    public async Task<ProjectOperationResult<List<ProjectMemberUserView>>> GetAvailableProjectMembersAsync(Guid ownerId, Guid projectId)
     {
         if (!await OwnedProjectExistsAsync(ownerId, projectId))
         {
-            return ApiResponse<List<ProjectMemberUserDto>>.Error(404, "Project not found");
+            return ProjectOperationResult<List<ProjectMemberUserView>>.Failure(ProjectOperationStatus.NotFound, "Project not found");
         }
 
         var memberIds = _dbContext.ProjectMembers
@@ -163,64 +158,57 @@ public class DatabaseProjectService : IProjectService
             .AsNoTracking()
             .Where(user => user.IsActive && !memberIds.Contains(user.Id))
             .OrderBy(user => user.DisplayName)
-            .Select(user => new ProjectMemberUserDto
-            {
-                Id = user.Id,
-                DisplayName = user.DisplayName,
-                Email = user.Email
-            })
+            .Select(user => new ProjectMemberUserView(user.Id, user.DisplayName, user.Email))
             .ToListAsync();
 
-        return ApiResponse<List<ProjectMemberUserDto>>.Success(users);
+        return ProjectOperationResult<List<ProjectMemberUserView>>.Success(users);
     }
 
-    public async Task<ApiResponse<ProjectMemberDto>> AddProjectMemberAsync(Guid ownerId, Guid projectId, Guid userId)
+    public async Task<ProjectOperationResult<ProjectMemberView>> AddProjectMemberAsync(Guid ownerId, Guid projectId, Guid userId)
     {
         if (!await OwnedProjectExistsAsync(ownerId, projectId))
         {
-            return ApiResponse<ProjectMemberDto>.Error(404, "Project not found");
+            return ProjectOperationResult<ProjectMemberView>.Failure(ProjectOperationStatus.NotFound, "Project not found");
         }
 
         var user = await _dbContext.Users.FirstOrDefaultAsync(candidate => candidate.Id == userId && candidate.IsActive);
         if (user is null)
         {
-            return ApiResponse<ProjectMemberDto>.Error(404, "User not found or inactive");
+            return ProjectOperationResult<ProjectMemberView>.Failure(ProjectOperationStatus.NotFound, "User not found or inactive");
         }
 
         if (await _dbContext.ProjectMembers.AnyAsync(member => member.ProjectId == projectId && member.UserId == userId))
         {
-            return ApiResponse<ProjectMemberDto>.Error(409, "User is already a project member");
+            return ProjectOperationResult<ProjectMemberView>.Failure(ProjectOperationStatus.Conflict, "User is already a project member");
         }
 
         var member = new ProjectMember { ProjectId = projectId, UserId = userId };
         _dbContext.ProjectMembers.Add(member);
         await _dbContext.SaveChangesAsync();
 
-        return ApiResponse<ProjectMemberDto>.Success(new ProjectMemberDto
-        {
-            UserId = user.Id,
-            DisplayName = user.DisplayName,
-            Email = user.Email,
-            Role = member.Role,
-            AddedAt = member.AddedAt
-        }, "Project member added", 201);
+        return ProjectOperationResult<ProjectMemberView>.Success(new ProjectMemberView(
+            user.Id,
+            user.DisplayName,
+            user.Email,
+            member.Role,
+            member.AddedAt), "Project member added", 201);
     }
 
-    public async Task<ApiResponse<ProjectMemberDto>> UpdateProjectMemberRoleAsync(Guid ownerId, Guid projectId, Guid userId, ProjectMemberRole role)
+    public async Task<ProjectOperationResult<ProjectMemberView>> UpdateProjectMemberRoleAsync(Guid ownerId, Guid projectId, Guid userId, ProjectMemberRole role)
     {
         if (!await OwnedProjectExistsAsync(ownerId, projectId))
         {
-            return ApiResponse<ProjectMemberDto>.Error(404, "Project not found");
+            return ProjectOperationResult<ProjectMemberView>.Failure(ProjectOperationStatus.NotFound, "Project not found");
         }
 
         if (userId == ownerId || role == ProjectMemberRole.Owner)
         {
-            return ApiResponse<ProjectMemberDto>.Error(409, "The project owner role cannot be changed");
+            return ProjectOperationResult<ProjectMemberView>.Failure(ProjectOperationStatus.Conflict, "The project owner role cannot be changed");
         }
 
         if (role is not ProjectMemberRole.Member and not ProjectMemberRole.Viewer)
         {
-            return ApiResponse<ProjectMemberDto>.Error(400, "Invalid project member role");
+            return ProjectOperationResult<ProjectMemberView>.Failure(ProjectOperationStatus.ValidationError, "Invalid project member role");
         }
 
         var member = await _dbContext.ProjectMembers
@@ -228,38 +216,36 @@ public class DatabaseProjectService : IProjectService
             .FirstOrDefaultAsync(candidate => candidate.ProjectId == projectId && candidate.UserId == userId);
         if (member is null)
         {
-            return ApiResponse<ProjectMemberDto>.Error(404, "Project member not found");
+            return ProjectOperationResult<ProjectMemberView>.Failure(ProjectOperationStatus.NotFound, "Project member not found");
         }
 
         member.Role = role;
         await _dbContext.SaveChangesAsync();
-        return ApiResponse<ProjectMemberDto>.Success(new ProjectMemberDto
-        {
-            UserId = member.UserId,
-            DisplayName = member.User.DisplayName,
-            Email = member.User.Email,
-            Role = member.Role,
-            AddedAt = member.AddedAt
-        }, "Project member role updated");
+        return ProjectOperationResult<ProjectMemberView>.Success(new ProjectMemberView(
+            member.UserId,
+            member.User.DisplayName,
+            member.User.Email,
+            member.Role,
+            member.AddedAt), "Project member role updated");
     }
 
-    public async Task<ApiResponse<bool>> RemoveProjectMemberAsync(Guid ownerId, Guid projectId, Guid userId)
+    public async Task<ProjectOperationResult<bool>> RemoveProjectMemberAsync(Guid ownerId, Guid projectId, Guid userId)
     {
         if (!await OwnedProjectExistsAsync(ownerId, projectId))
         {
-            return ApiResponse<bool>.Error(404, "Project not found");
+            return ProjectOperationResult<bool>.Failure(ProjectOperationStatus.NotFound, "Project not found");
         }
 
         if (userId == ownerId)
         {
-            return ApiResponse<bool>.Error(409, "Project owner cannot be removed");
+            return ProjectOperationResult<bool>.Failure(ProjectOperationStatus.Conflict, "Project owner cannot be removed");
         }
 
         var member = await _dbContext.ProjectMembers
             .FirstOrDefaultAsync(candidate => candidate.ProjectId == projectId && candidate.UserId == userId);
         if (member is null)
         {
-            return ApiResponse<bool>.Error(404, "Project member not found");
+            return ProjectOperationResult<bool>.Failure(ProjectOperationStatus.NotFound, "Project member not found");
         }
 
         var assignedTasks = await _dbContext.ProjectTasks
@@ -275,7 +261,7 @@ public class DatabaseProjectService : IProjectService
         _dbContext.ProjectMembers.Remove(member);
         await _dbContext.SaveChangesAsync();
 
-        return ApiResponse<bool>.Success(true, "Project member removed");
+        return ProjectOperationResult<bool>.Success(true, "Project member removed");
     }
 
     private Task<bool> OwnedProjectExistsAsync(Guid ownerId, Guid projectId)
@@ -285,19 +271,17 @@ public class DatabaseProjectService : IProjectService
         => _dbContext.Projects.AnyAsync(project => project.Id == projectId
             && (project.OwnerId == userId || project.Members.Any(member => member.UserId == userId && member.User.IsActive)));
 
-    private static ProjectDto MapToDto(Project project, Guid? currentUserId = null) => new()
-    {
-        Id = project.Id,
-        Name = project.Name,
-        Description = project.Description,
-        OwnerId = project.OwnerId,
-        CreatedAt = project.CreatedAt,
-        UpdatedAt = project.UpdatedAt,
-        IsArchived = project.IsArchived,
-        CurrentUserRole = project.OwnerId == currentUserId
+    private static ProjectView MapToView(Project project, Guid? currentUserId = null) => new(
+        project.Id,
+        project.Name,
+        project.Description,
+        project.OwnerId,
+        project.CreatedAt,
+        project.UpdatedAt,
+        project.IsArchived,
+        project.OwnerId == currentUserId
             ? ProjectMemberRole.Owner
-            : project.Members.FirstOrDefault(member => member.UserId == currentUserId)?.Role ?? ProjectMemberRole.Viewer
-    };
+            : project.Members.FirstOrDefault(member => member.UserId == currentUserId)?.Role ?? ProjectMemberRole.Viewer);
 
     private static string? NormalizeDescription(string? description)
         => string.IsNullOrWhiteSpace(description) ? null : description.Trim();
