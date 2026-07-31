@@ -139,16 +139,22 @@ public class DatabaseAuthService : IAuthService
     /// <inheritdoc />
     public async Task<bool> SendPasswordResetEmailAsync(string email)
     {
+        return await GeneratePasswordResetTokenAsync(email) is not null;
+    }
+
+    /// <inheritdoc />
+    public async Task<string?> GeneratePasswordResetTokenAsync(string email)
+    {
         var normalizedEmail = NormalizeEmail(email);
         if (string.IsNullOrWhiteSpace(normalizedEmail))
         {
-            return false;
+            return null;
         }
 
         var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Email == normalizedEmail);
         if (user is null)
         {
-            return false;
+            return null;
         }
 
         var now = DateTime.UtcNow;
@@ -179,12 +185,8 @@ public class DatabaseAuthService : IAuthService
         await _dbContext.SaveChangesAsync();
 
         _logger.LogInformation("Password reset request created for user {UserId} ({Email})", user.Id, user.Email);
-        return true;
+        return rawToken;
     }
-
-    /// <inheritdoc />
-    public Task<string?> GeneratePasswordResetTokenAsync(string email)
-        => Task.FromResult<string?>(null);
 
     /// <inheritdoc />
     public async Task<bool> ResetPasswordAsync(string email, string resetToken, string newPassword)

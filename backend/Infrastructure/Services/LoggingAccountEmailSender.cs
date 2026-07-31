@@ -29,6 +29,18 @@ public class LoggingAccountEmailSender : IAccountEmailSender
     }
 
     /// <inheritdoc />
+    public Task SendPasswordResetLinkAsync(string email, string displayName, string resetLink)
+    {
+        _logger.LogInformation(
+            "Prepared password reset email for {Email} ({DisplayName}). Reset link: {ResetLink}",
+            email,
+            displayName,
+            resetLink);
+
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
     public Task SendTwoFactorCodeAsync(string email, string displayName, string code, DateTime expiresAt)
     {
         _logger.LogInformation(

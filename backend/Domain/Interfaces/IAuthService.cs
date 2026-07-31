@@ -84,6 +84,9 @@ namespace Domain.Interfaces
         /// </remarks>
         Task<bool> SendPasswordResetEmailAsync(string email);
 
+        /// <summary>Creates a single-use password reset request and returns its raw token for email delivery.</summary>
+        Task<string?> GeneratePasswordResetTokenAsync(string email);
+
         /// <summary>
         /// Resets a user's password by consuming a previously issued link token.
         /// </summary>

@@ -41,6 +41,21 @@ public class MailKitAccountEmailSender : IAccountEmailSender
     }
 
     /// <inheritdoc />
+    public Task SendPasswordResetLinkAsync(string email, string displayName, string resetLink)
+    {
+        var subject = "Reset your password";
+        var htmlBody = $"""
+            <p>Hello {Escape(displayName)},</p>
+            <p>Reset your password by clicking the link below:</p>
+            <p><a href=\"{resetLink}\">Reset password</a></p>
+            <p>If you did not request this, you can ignore this email.</p>
+            """;
+        var textBody = $"Hello {displayName},\n\nReset your password by visiting: {resetLink}\n\nIf you did not request this, you can ignore this email.";
+
+        return SendAsync(email, displayName, subject, htmlBody, textBody);
+    }
+
+    /// <inheritdoc />
     public Task SendTwoFactorCodeAsync(string email, string displayName, string code, DateTime expiresAt)
     {
         var subject = "Your verification code";

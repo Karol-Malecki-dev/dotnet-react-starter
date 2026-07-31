@@ -440,8 +440,8 @@ public class AuthControllerTests
             ResetType = ResetType.Link
         };
 
-        _authServiceMock.Setup(x => x.SendPasswordResetEmailAsync(request.Email))
-            .ReturnsAsync(false);
+        _authServiceMock.Setup(x => x.GeneratePasswordResetTokenAsync(request.Email))
+            .ReturnsAsync((string?)null);
 
         var actionResult = await _controller.ForgotPassword(request);
 
@@ -450,7 +450,7 @@ public class AuthControllerTests
 
         Assert.Equal(200, okResult.StatusCode);
         Assert.Equal("If the account exists, a password reset message has been sent.", response.Message);
-        _authServiceMock.Verify(x => x.SendPasswordResetEmailAsync(request.Email), Times.Once);
+        _authServiceMock.Verify(x => x.GeneratePasswordResetTokenAsync(request.Email), Times.Once);
     }
 
     [Fact]
@@ -462,8 +462,16 @@ public class AuthControllerTests
             ResetType = ResetType.Link
         };
 
-        _authServiceMock.Setup(x => x.SendPasswordResetEmailAsync(request.Email))
-            .ReturnsAsync(true);
+        var user = new UserDto
+        {
+            Email = request.Email,
+            DisplayName = "Known User"
+        };
+
+        _authServiceMock.Setup(x => x.GeneratePasswordResetTokenAsync(request.Email))
+            .ReturnsAsync("reset-token");
+        _userServiceMock.Setup(x => x.GetUserByEmailAsync(request.Email))
+            .ReturnsAsync(ApiResponse<UserDto>.Success(user));
 
         var actionResult = await _controller.ForgotPassword(request);
 
@@ -471,8 +479,11 @@ public class AuthControllerTests
         var response = Assert.IsType<ApiResponse<object>>(okResult.Value);
 
         Assert.Equal(200, okResult.StatusCode);
-        Assert.Equal("Password reset email sent", response.Message);
-        _authServiceMock.Verify(x => x.SendPasswordResetEmailAsync(request.Email), Times.Once);
+        Assert.Equal("If the account exists, a password reset message has been sent.", response.Message);
+        _authServiceMock.Verify(x => x.GeneratePasswordResetTokenAsync(request.Email), Times.Once);
+        _accountEmailSenderMock.Verify(
+            x => x.SendPasswordResetLinkAsync(request.Email, "Known User", It.Is<string>(link => link.Contains("reset-token"))),
+            Times.Once);
     }
 
     [Fact]
@@ -491,7 +502,7 @@ public class AuthControllerTests
 
         Assert.Equal(400, badRequestResult.StatusCode);
         Assert.Equal("Only link-based password reset is currently supported", response.Message);
-        _authServiceMock.Verify(x => x.SendPasswordResetEmailAsync(It.IsAny<string>()), Times.Never);
+        _authServiceMock.Verify(x => x.GeneratePasswordResetTokenAsync(It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
