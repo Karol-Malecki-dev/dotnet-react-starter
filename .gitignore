@@ -20,6 +20,7 @@
 /frontend/.env.development
 /frontend/.env.production
 /backend/API/appsettings.Local.json
+/backend/API/uploads/
 
 # Mono auto generated files
 mono_crash.*

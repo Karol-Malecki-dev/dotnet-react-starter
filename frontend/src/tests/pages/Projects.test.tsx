@@ -74,6 +74,8 @@ function createContextValue(overrides = {}) {
     dashboardLoading: false,
     taskComments: {},
     commentsLoadingTaskId: null,
+    taskAttachments: {},
+    attachmentsLoadingTaskId: null,
     projectInvitations: [],
     invitationsLoading: false,
     includeArchived: false,
@@ -90,6 +92,10 @@ function createContextValue(overrides = {}) {
     loadTaskComments: jest.fn().mockResolvedValue(undefined),
     createTaskComment: jest.fn().mockResolvedValue(undefined),
     deleteTaskComment: jest.fn().mockResolvedValue(undefined),
+    loadTaskAttachments: jest.fn().mockResolvedValue(undefined),
+    uploadTaskAttachment: jest.fn().mockResolvedValue(undefined),
+    downloadTaskAttachment: jest.fn().mockResolvedValue(new Blob()),
+    deleteTaskAttachment: jest.fn().mockResolvedValue(undefined),
     loadProjectInvitations: jest.fn().mockResolvedValue(undefined),
     createProjectInvitation: jest.fn().mockResolvedValue(undefined),
     acceptProjectInvitation: jest.fn().mockResolvedValue(undefined),
@@ -187,6 +193,49 @@ describe('Projects page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Post comment' }));
 
     await waitFor(() => expect(createTaskComment).toHaveBeenCalledWith(task.id, 'I will review this.'));
+  });
+
+  it('lazy-loads task attachments and uploads the selected file', async () => {
+    const loadTaskAttachments = jest.fn().mockResolvedValue(undefined);
+    const uploadTaskAttachment = jest.fn().mockResolvedValue(undefined);
+    mockedUseProjects.mockReturnValue(createContextValue({ loadTaskAttachments, uploadTaskAttachment }));
+    render(<Projects />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Attachments' }));
+    expect(loadTaskAttachments).toHaveBeenCalledWith(task.id);
+
+    const file = new File(['plain text'], 'notes.txt', { type: 'text/plain' });
+    fireEvent.change(screen.getByLabelText('Choose a file'), { target: { files: [file] } });
+    fireEvent.click(screen.getByRole('button', { name: 'Upload attachment' }));
+
+    await waitFor(() => expect(uploadTaskAttachment).toHaveBeenCalledWith(task.id, file));
+  });
+
+  it('lets viewers download attachments but hides upload and delete controls', () => {
+    mockedUseAuth.mockReturnValue({ user: { id: 'viewer-1', displayName: 'Viewer', role: 'User' } } as any);
+    mockedUseProjects.mockReturnValue(createContextValue({
+      selectedProject: { ...project, currentUserRole: ProjectMemberRole.Viewer },
+      taskAttachments: {
+        [task.id]: [{
+          id: 'attachment-1',
+          projectTaskId: task.id,
+          uploadedByUserId: 'owner-1',
+          uploaderDisplayName: 'Owner',
+          originalFileName: 'release-notes.txt',
+          contentType: 'text/plain',
+          sizeBytes: 12,
+          createdAt: '2026-07-25T10:00:00Z',
+        }],
+      },
+    }));
+    render(<Projects />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Attachments' }));
+
+    expect(screen.getByText('release-notes.txt')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Download' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Upload attachment' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
   });
 
   it('creates a project invitation through the projects context', async () => {

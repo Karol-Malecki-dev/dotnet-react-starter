@@ -13,6 +13,8 @@ import type {
   ProjectTaskResponse,
   ProjectTaskCommentResponse,
   ProjectTaskCommentsResponse,
+  ProjectTaskAttachmentResponse,
+  ProjectTaskAttachmentsResponse,
   ProjectInvitationsResponse,
   CreatedProjectInvitationResponse,
   ProjectInvitationResponse,
@@ -85,6 +87,29 @@ export class ProjectApi {
 
   deleteTaskComment(projectId: string, taskId: string, commentId: string): Promise<ProjectOperationResponse> {
     return this.client.delete<ProjectOperationResponse>(`/projects/${projectId}/tasks/${taskId}/comments/${commentId}`);
+  }
+
+  getTaskAttachments(projectId: string, taskId: string): Promise<ProjectTaskAttachmentsResponse> {
+    return this.client.get<ProjectTaskAttachmentsResponse>(`/projects/${projectId}/tasks/${taskId}/attachments`);
+  }
+
+  uploadTaskAttachment(projectId: string, taskId: string, file: File): Promise<ProjectTaskAttachmentResponse> {
+    const form = new FormData();
+    form.append('file', file);
+    return this.client.post<ProjectTaskAttachmentResponse, FormData>(
+      `/projects/${projectId}/tasks/${taskId}/attachments`,
+      form,
+    );
+  }
+
+  downloadTaskAttachment(projectId: string, taskId: string, attachmentId: string): Promise<Blob> {
+    return this.client.getBlob(`/projects/${projectId}/tasks/${taskId}/attachments/${attachmentId}/download`);
+  }
+
+  deleteTaskAttachment(projectId: string, taskId: string, attachmentId: string): Promise<ProjectOperationResponse> {
+    return this.client.delete<ProjectOperationResponse>(
+      `/projects/${projectId}/tasks/${taskId}/attachments/${attachmentId}`,
+    );
   }
 
   getMembers(projectId: string): Promise<ProjectMembersResponse> {
