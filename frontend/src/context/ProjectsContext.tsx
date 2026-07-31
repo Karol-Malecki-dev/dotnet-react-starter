@@ -11,6 +11,7 @@ import type {
   ProjectMemberRole,
   ProjectActivityDto,
   ProjectDashboardDto,
+  ProjectTaskCommentDto,
   UpdateProjectRequest,
   UpdateProjectTaskRequest,
 } from '../types';
@@ -28,6 +29,8 @@ interface ProjectsContextValue {
   activitiesLoading: boolean;
   dashboard: ProjectDashboardDto | null;
   dashboardLoading: boolean;
+  taskComments: Record<string, ProjectTaskCommentDto[]>;
+  commentsLoadingTaskId: string | null;
   includeArchived: boolean;
   setIncludeArchived: (includeArchived: boolean) => Promise<void>;
   projectScope?: 'all' | 'owned' | 'member';
@@ -41,6 +44,9 @@ interface ProjectsContextValue {
   updateTask: (taskId: string, request: UpdateProjectTaskRequest) => Promise<ProjectTaskDto>;
   updateTaskStatus: (taskId: string, status: ProjectTaskStatus) => Promise<ProjectTaskDto>;
   deleteTask: (taskId: string) => Promise<void>;
+  loadTaskComments: (taskId: string) => Promise<void>;
+  createTaskComment: (taskId: string, content: string) => Promise<ProjectTaskCommentDto>;
+  deleteTaskComment: (taskId: string, commentId: string) => Promise<void>;
   addMember: (userId: string) => Promise<void>;
   removeMember: (userId: string) => Promise<void>;
   updateMemberRole?: (userId: string, role: ProjectMemberRole) => Promise<void>;
@@ -67,6 +73,8 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [dashboard, setDashboard] = useState<ProjectDashboardDto | null>(null);
   const [dashboardLoading, setDashboardLoading] = useState(false);
+  const [taskComments, setTaskComments] = useState<Record<string, ProjectTaskCommentDto[]>>({});
+  const [commentsLoadingTaskId, setCommentsLoadingTaskId] = useState<string | null>(null);
   const [includeArchived, setIncludeArchivedState] = useState(false);
   const [projectScope, setProjectScopeState] = useState<'all' | 'owned' | 'member'>('all');
   const [taskPage, setTaskPage] = useState(1);
@@ -150,6 +158,20 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const loadTaskComments = useCallback(async (taskId: string) => {
+    if (!selectedProjectId) return;
+
+    setCommentsLoadingTaskId(taskId);
+    try {
+      const response = await projectApi.getTaskComments(selectedProjectId, taskId);
+      setTaskComments((currentComments) => ({ ...currentComments, [taskId]: response.data ?? [] }));
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Unable to load task comments');
+    } finally {
+      setCommentsLoadingTaskId((currentTaskId) => currentTaskId === taskId ? null : currentTaskId);
+    }
+  }, [selectedProjectId]);
+
   useEffect(() => {
     void loadProjects();
   }, [loadProjects]);
@@ -166,6 +188,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
       setAvailableMembers([]);
       setActivities([]);
       setDashboard(null);
+      setTaskComments({});
     }
   }, [loadActivities, loadDashboard, loadMembers, loadTasks, selectedProjectId]);
 
@@ -217,6 +240,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     setProjects((currentProjects) => currentProjects.filter((project) => project.id !== projectId));
     setSelectedProjectId((currentId) => (currentId === projectId ? null : currentId));
     setTasks([]);
+    setTaskComments({});
   }, []);
 
   const createTask = useCallback(async (request: CreateProjectTaskRequest) => {
@@ -278,9 +302,46 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     setError(null);
     await projectApi.deleteTask(selectedProjectId, taskId);
     setTasks((currentTasks) => currentTasks.filter((task) => task.id !== taskId));
+    setTaskComments((currentComments) => {
+      const { [taskId]: _, ...remainingComments } = currentComments;
+      return remainingComments;
+    });
     void loadActivities(selectedProjectId);
     void loadDashboard(selectedProjectId);
   }, [loadActivities, loadDashboard, selectedProjectId]);
+
+  const createTaskComment = useCallback(async (taskId: string, content: string) => {
+    if (!selectedProjectId) {
+      throw new Error('Select a project first');
+    }
+
+    setError(null);
+    const response = await projectApi.createTaskComment(selectedProjectId, taskId, { content });
+    if (!response.data) {
+      throw new Error(response.message || 'Task comment was not created');
+    }
+
+    setTaskComments((currentComments) => ({
+      ...currentComments,
+      [taskId]: [...(currentComments[taskId] ?? []), response.data!],
+    }));
+    void loadActivities(selectedProjectId);
+    void loadDashboard(selectedProjectId);
+    return response.data;
+  }, [loadActivities, loadDashboard, selectedProjectId]);
+
+  const deleteTaskComment = useCallback(async (taskId: string, commentId: string) => {
+    if (!selectedProjectId) {
+      throw new Error('Select a project first');
+    }
+
+    setError(null);
+    await projectApi.deleteTaskComment(selectedProjectId, taskId, commentId);
+    setTaskComments((currentComments) => ({
+      ...currentComments,
+      [taskId]: (currentComments[taskId] ?? []).filter((comment) => comment.id !== commentId),
+    }));
+  }, [selectedProjectId]);
 
   const addMember = useCallback(async (userId: string) => {
     if (!selectedProjectId) {
@@ -343,6 +404,8 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     activitiesLoading,
     dashboard,
     dashboardLoading,
+    taskComments,
+    commentsLoadingTaskId,
     includeArchived,
     setIncludeArchived,
     projectScope,
@@ -356,6 +419,9 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     updateTask,
     updateTaskStatus,
     deleteTask,
+    loadTaskComments,
+    createTaskComment,
+    deleteTaskComment,
     addMember,
     removeMember,
     updateMemberRole,
@@ -378,6 +444,8 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     activitiesLoading,
     dashboard,
     dashboardLoading,
+    taskComments,
+    commentsLoadingTaskId,
     includeArchived,
     projectScope,
     setIncludeArchived,
@@ -391,6 +459,9 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     updateTask,
     updateTaskStatus,
     deleteTask,
+    loadTaskComments,
+    createTaskComment,
+    deleteTaskComment,
     addMember,
     removeMember,
     updateMemberRole,

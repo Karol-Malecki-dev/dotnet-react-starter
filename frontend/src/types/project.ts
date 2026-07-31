@@ -43,6 +43,15 @@ export interface ProjectTaskDto {
   updatedAt: string;
 }
 
+export interface ProjectTaskCommentDto {
+  id: string;
+  projectTaskId: string;
+  authorUserId: string;
+  authorDisplayName: string;
+  content: string;
+  createdAt: string;
+}
+
 export interface ProjectMemberDto {
   userId: string;
   displayName: string;
@@ -104,6 +113,10 @@ export interface UpdateProjectTaskStatusRequest {
   status: ProjectTaskStatus;
 }
 
+export interface CreateProjectTaskCommentRequest {
+  content: string;
+}
+
 export type ProjectsResponse = ApiResponse<ProjectDto[]>;
 export type ProjectResponse = ApiResponse<ProjectDto>;
 export interface PagedResult<T> {
@@ -116,6 +129,8 @@ export interface PagedResult<T> {
 
 export type ProjectTasksResponse = ApiResponse<PagedResult<ProjectTaskDto>>;
 export type ProjectTaskResponse = ApiResponse<ProjectTaskDto>;
+export type ProjectTaskCommentsResponse = ApiResponse<ProjectTaskCommentDto[]>;
+export type ProjectTaskCommentResponse = ApiResponse<ProjectTaskCommentDto>;
 export type ProjectOperationResponse = ApiResponse<boolean>;
 export type ProjectMembersResponse = ApiResponse<ProjectMemberDto[]>;
 export type ProjectMemberUsersResponse = ApiResponse<ProjectMemberUserDto[]>;

@@ -210,6 +210,70 @@ public class ProjectTasksApiIntegrationTests
         Assert.Null(task.AssignedUserId);
     }
 
+    [Fact]
+    public async Task Members_can_discuss_tasks_while_viewers_and_outsiders_cannot_modify_comments()
+    {
+        var ownerId = await SeedUserAsync("comments.owner@example.com", "password123", "Comments Owner");
+        var memberId = await SeedUserAsync("comments.member@example.com", "password123", "Comments Member");
+        var viewerId = await SeedUserAsync("comments.viewer@example.com", "password123", "Comments Viewer");
+        await SeedUserAsync("comments.outsider@example.com", "password123", "Comments Outsider");
+        var projectId = await SeedProjectAsync(ownerId, "Comments project");
+        await SeedProjectMemberAsync(projectId, memberId);
+        await SeedProjectMemberAsync(projectId, viewerId, ProjectMemberRole.Viewer);
+
+        var ownerTokens = await LoginAsync("comments.owner@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerTokens.AccessToken);
+        var taskResponse = await _client.PostAsJsonAsync($"/api/projects/{projectId}/tasks", new { Title = "Discuss scope" });
+        taskResponse.EnsureSuccessStatusCode();
+        var task = await taskResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskResponse>>();
+        Assert.NotNull(task?.Data);
+
+        var memberTokens = await LoginAsync("comments.member@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", memberTokens.AccessToken);
+        var createResponse = await _client.PostAsJsonAsync(
+            $"/api/projects/{projectId}/tasks/{task.Data.Id}/comments",
+            new { Content = "  I can take this part.  " });
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        var created = await createResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskCommentResponse>>();
+        Assert.NotNull(created?.Data);
+        Assert.Equal(memberId, created.Data.AuthorUserId);
+        Assert.Equal("I can take this part.", created.Data.Content);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerTokens.AccessToken);
+        var listResponse = await _client.GetAsync($"/api/projects/{projectId}/tasks/{task.Data.Id}/comments");
+        listResponse.EnsureSuccessStatusCode();
+        var comments = await listResponse.Content.ReadFromJsonAsync<ApiResponse<List<ProjectTaskCommentResponse>>>();
+        Assert.NotNull(comments?.Data);
+        Assert.Single(comments.Data);
+
+        var viewerTokens = await LoginAsync("comments.viewer@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", viewerTokens.AccessToken);
+        var viewerCreateResponse = await _client.PostAsJsonAsync(
+            $"/api/projects/{projectId}/tasks/{task.Data.Id}/comments",
+            new { Content = "Viewer comment" });
+        Assert.Equal(HttpStatusCode.Forbidden, viewerCreateResponse.StatusCode);
+
+        var outsiderTokens = await LoginAsync("comments.outsider@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", outsiderTokens.AccessToken);
+        var outsiderResponse = await _client.GetAsync($"/api/projects/{projectId}/tasks/{task.Data.Id}/comments");
+        Assert.Equal(HttpStatusCode.NotFound, outsiderResponse.StatusCode);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerTokens.AccessToken);
+        var ownerCommentResponse = await _client.PostAsJsonAsync(
+            $"/api/projects/{projectId}/tasks/{task.Data.Id}/comments",
+            new { Content = "Owner comment" });
+        ownerCommentResponse.EnsureSuccessStatusCode();
+        var ownerComment = await ownerCommentResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskCommentResponse>>();
+        Assert.NotNull(ownerComment?.Data);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", memberTokens.AccessToken);
+        var forbiddenDeleteResponse = await _client.DeleteAsync($"/api/projects/{projectId}/tasks/{task.Data.Id}/comments/{ownerComment.Data.Id}");
+        Assert.Equal(HttpStatusCode.Forbidden, forbiddenDeleteResponse.StatusCode);
+
+        var ownDeleteResponse = await _client.DeleteAsync($"/api/projects/{projectId}/tasks/{task.Data.Id}/comments/{created.Data.Id}");
+        ownDeleteResponse.EnsureSuccessStatusCode();
+    }
+
     private async Task<AuthTokenResponse> LoginAsync(string email, string password)
     {
         var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new { Email = email, Password = password });
@@ -262,14 +326,15 @@ public class ProjectTasksApiIntegrationTests
         return project.Id;
     }
 
-    private async Task SeedProjectMemberAsync(Guid projectId, Guid userId)
+    private async Task SeedProjectMemberAsync(Guid projectId, Guid userId, ProjectMemberRole role = ProjectMemberRole.Member)
     {
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         dbContext.ProjectMembers.Add(new ProjectMember
         {
             ProjectId = projectId,
-            UserId = userId
+            UserId = userId,
+            Role = role
         });
         await dbContext.SaveChangesAsync();
     }

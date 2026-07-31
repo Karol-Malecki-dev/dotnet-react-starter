@@ -161,6 +161,7 @@ namespace API.Services
             services.AddScoped<IAdminService, DatabaseAdminService>();
             services.AddScoped<IProjectApplicationService, DatabaseProjectService>();
             services.AddScoped<IProjectTaskApplicationService, DatabaseProjectTaskService>();
+            services.AddScoped<IProjectTaskCommentApplicationService, DatabaseProjectTaskCommentService>();
 
             services.AddScoped<LoggingAccountEmailSender>();
             services.AddScoped<MailKitAccountEmailSender>();
