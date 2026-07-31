@@ -59,6 +59,17 @@ export interface ProjectTaskCommentDto {
   createdAt: string;
 }
 
+export interface ProjectTaskAttachmentDto {
+  id: string;
+  projectTaskId: string;
+  uploadedByUserId: string;
+  uploaderDisplayName: string;
+  originalFileName: string;
+  contentType: string;
+  sizeBytes: number;
+  createdAt: string;
+}
+
 export interface ProjectMemberDto {
   userId: string;
   displayName: string;
@@ -162,6 +173,8 @@ export type ProjectTasksResponse = ApiResponse<PagedResult<ProjectTaskDto>>;
 export type ProjectTaskResponse = ApiResponse<ProjectTaskDto>;
 export type ProjectTaskCommentsResponse = ApiResponse<ProjectTaskCommentDto[]>;
 export type ProjectTaskCommentResponse = ApiResponse<ProjectTaskCommentDto>;
+export type ProjectTaskAttachmentsResponse = ApiResponse<ProjectTaskAttachmentDto[]>;
+export type ProjectTaskAttachmentResponse = ApiResponse<ProjectTaskAttachmentDto>;
 export type ProjectOperationResponse = ApiResponse<boolean>;
 export type ProjectMembersResponse = ApiResponse<ProjectMemberDto[]>;
 export type ProjectMemberUsersResponse = ApiResponse<ProjectMemberUserDto[]>;

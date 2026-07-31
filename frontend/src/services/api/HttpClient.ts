@@ -44,6 +44,10 @@ export class HttpClient {
     return this.request<TResponse, never>('GET', path, options);
   }
 
+  async getBlob(path: string, options: Omit<RequestOptions<never>, 'body'> = {}): Promise<Blob> {
+    return this.requestBlob(path, options);
+  }
+
   async post<TResponse, TBody = unknown>(path: string, body?: TBody, options: Omit<RequestOptions<TBody>, 'body'> = {}): Promise<TResponse> {
     return this.request<TResponse, TBody>('POST', path, { ...options, body });
   }
@@ -72,8 +76,9 @@ export class HttpClient {
   ): Promise<TResponse> {
     const url = `${this.baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
     const headers = new Headers(options.headers);
+    const isFormDataBody = typeof FormData !== 'undefined' && options.body instanceof FormData;
     headers.set('Accept', 'application/json');
-    if (options.body) {
+    if (options.body && !isFormDataBody) {
       headers.set('Content-Type', 'application/json');
     }
 
@@ -89,7 +94,7 @@ export class HttpClient {
       headers,
       credentials: 'include',
       signal: options.signal,
-      body: options.body ? JSON.stringify(options.body) : undefined,
+      body: options.body ? isFormDataBody ? options.body as BodyInit : JSON.stringify(options.body) : undefined,
     });
 
     const parsed = await this.parseResponse<TResponse>(response);
@@ -120,6 +125,53 @@ export class HttpClient {
         code: 'forbidden',
         message: message || 'You do not have permission to perform this action.',
       });
+    }
+
+    throw new HttpError(response.status, message, apiError);
+  }
+
+  private async requestBlob(
+    path: string,
+    options: Omit<RequestOptions<never>, 'body'> = {},
+    retried = false,
+  ): Promise<Blob> {
+    const url = `${this.baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
+    const headers = new Headers(options.headers);
+    headers.set('Accept', 'application/octet-stream');
+
+    if (!options.skipAuth) {
+      const accessToken = tokenManager.getAccessToken();
+      if (accessToken) {
+        headers.set('Authorization', `Bearer ${accessToken}`);
+      }
+    }
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers,
+      credentials: 'include',
+      signal: options.signal,
+    });
+
+    if (response.ok) {
+      return response.blob();
+    }
+
+    const parsed = await this.parseResponse<unknown>(response);
+    if (response.status === 401 && this.onUnauthorized && !retried) {
+      const refreshed = await this.onUnauthorized();
+      if (refreshed) {
+        return this.requestBlob(path, options, true);
+      }
+    }
+
+    const apiError = parsed as ApiResponse<unknown> | ApiError | null;
+    const message = this.resolveErrorMessage(apiError, response.statusText);
+    if (!options.skipAuth && response.status === 401) {
+      emitApiNotice({ code: 'session-expired', message: 'Your session expired. Please sign in again.' });
+    }
+    if (!options.skipAuth && response.status === 403) {
+      emitApiNotice({ code: 'forbidden', message: message || 'You do not have permission to perform this action.' });
     }
 
     throw new HttpError(response.status, message, apiError);

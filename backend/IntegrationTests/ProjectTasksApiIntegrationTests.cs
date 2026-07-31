@@ -9,6 +9,7 @@ using Shared.Responses;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 
 namespace IntegrationTests;
 
@@ -272,6 +273,153 @@ public class ProjectTasksApiIntegrationTests
 
         var ownDeleteResponse = await _client.DeleteAsync($"/api/projects/{projectId}/tasks/{task.Data.Id}/comments/{created.Data.Id}");
         ownDeleteResponse.EnsureSuccessStatusCode();
+    }
+
+    [Fact]
+    public async Task Owner_can_upload_list_download_and_delete_task_attachment()
+    {
+        var ownerId = await SeedUserAsync("attachments.owner@example.com", "password123", "Attachments Owner");
+        var projectId = await SeedProjectAsync(ownerId, "Attachments project");
+        var tokens = await LoginAsync("attachments.owner@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+
+        var taskResponse = await _client.PostAsJsonAsync($"/api/projects/{projectId}/tasks", new { Title = "Attach release notes" });
+        taskResponse.EnsureSuccessStatusCode();
+        var task = await taskResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskResponse>>();
+        Assert.NotNull(task?.Data);
+
+        var bytes = Encoding.UTF8.GetBytes("release notes");
+        var uploadResponse = await UploadAttachmentAsync(projectId, task.Data.Id, bytes, "release-notes.txt", "text/plain");
+
+        Assert.Equal(HttpStatusCode.Created, uploadResponse.StatusCode);
+        var uploaded = await uploadResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskAttachmentResponse>>();
+        Assert.NotNull(uploaded?.Data);
+        Assert.Equal("release-notes.txt", uploaded.Data.OriginalFileName);
+        Assert.Equal(ownerId, uploaded.Data.UploadedByUserId);
+        Assert.Equal(bytes.Length, uploaded.Data.SizeBytes);
+
+        var listResponse = await _client.GetAsync($"/api/projects/{projectId}/tasks/{task.Data.Id}/attachments");
+        listResponse.EnsureSuccessStatusCode();
+        var listed = await listResponse.Content.ReadFromJsonAsync<ApiResponse<List<ProjectTaskAttachmentResponse>>>();
+        Assert.NotNull(listed?.Data);
+        Assert.Single(listed.Data);
+        Assert.Equal(uploaded.Data.Id, listed.Data[0].Id);
+
+        var downloadResponse = await _client.GetAsync(
+            $"/api/projects/{projectId}/tasks/{task.Data.Id}/attachments/{uploaded.Data.Id}/download");
+        downloadResponse.EnsureSuccessStatusCode();
+        Assert.Equal("text/plain", downloadResponse.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(bytes, await downloadResponse.Content.ReadAsByteArrayAsync());
+
+        var deleteResponse = await _client.DeleteAsync(
+            $"/api/projects/{projectId}/tasks/{task.Data.Id}/attachments/{uploaded.Data.Id}");
+        deleteResponse.EnsureSuccessStatusCode();
+
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.DoesNotContain(dbContext.ProjectTaskAttachments, attachment => attachment.Id == uploaded.Data.Id);
+        Assert.Contains(dbContext.ProjectActivities, activity => activity.Type == "task.attachment-added");
+        Assert.Contains(dbContext.ProjectActivities, activity => activity.Type == "task.attachment-removed");
+    }
+
+    [Fact]
+    public async Task Attachment_upload_rejects_invalid_extension_content_type_and_size()
+    {
+        var ownerId = await SeedUserAsync("attachments.validation@example.com", "password123", "Attachments Validation");
+        var projectId = await SeedProjectAsync(ownerId, "Attachment validation project");
+        var tokens = await LoginAsync("attachments.validation@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+
+        var taskResponse = await _client.PostAsJsonAsync($"/api/projects/{projectId}/tasks", new { Title = "Validate attachments" });
+        taskResponse.EnsureSuccessStatusCode();
+        var task = await taskResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskResponse>>();
+        Assert.NotNull(task?.Data);
+
+        var invalidExtension = await UploadAttachmentAsync(
+            projectId, task.Data.Id, Encoding.UTF8.GetBytes("not an image"), "payload.exe", "application/octet-stream");
+        Assert.Equal(HttpStatusCode.BadRequest, invalidExtension.StatusCode);
+
+        var invalidContentType = await UploadAttachmentAsync(
+            projectId, task.Data.Id, Encoding.UTF8.GetBytes("plain text"), "payload.txt", "application/pdf");
+        Assert.Equal(HttpStatusCode.BadRequest, invalidContentType.StatusCode);
+
+        var tooLarge = await UploadAttachmentAsync(
+            projectId, task.Data.Id, new byte[10 * 1024 * 1024 + 1], "large.txt", "text/plain");
+        Assert.Equal(HttpStatusCode.BadRequest, tooLarge.StatusCode);
+    }
+
+    [Fact]
+    public async Task Members_can_upload_and_delete_own_attachment_but_viewers_and_outsiders_are_restricted()
+    {
+        var ownerId = await SeedUserAsync("attachments.roles-owner@example.com", "password123", "Attachments Roles Owner");
+        var memberId = await SeedUserAsync("attachments.roles-member@example.com", "password123", "Attachments Roles Member");
+        var viewerId = await SeedUserAsync("attachments.roles-viewer@example.com", "password123", "Attachments Roles Viewer");
+        await SeedUserAsync("attachments.roles-outsider@example.com", "password123", "Attachments Roles Outsider");
+        var projectId = await SeedProjectAsync(ownerId, "Attachment roles project");
+        await SeedProjectMemberAsync(projectId, memberId);
+        await SeedProjectMemberAsync(projectId, viewerId, ProjectMemberRole.Viewer);
+
+        var ownerTokens = await LoginAsync("attachments.roles-owner@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerTokens.AccessToken);
+        var taskResponse = await _client.PostAsJsonAsync($"/api/projects/{projectId}/tasks", new { Title = "Check attachment roles" });
+        taskResponse.EnsureSuccessStatusCode();
+        var task = await taskResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskResponse>>();
+        Assert.NotNull(task?.Data);
+
+        var memberTokens = await LoginAsync("attachments.roles-member@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", memberTokens.AccessToken);
+        var memberUpload = await UploadAttachmentAsync(
+            projectId, task.Data.Id, Encoding.UTF8.GetBytes("member attachment"), "member.txt", "text/plain");
+        Assert.Equal(HttpStatusCode.Created, memberUpload.StatusCode);
+        var memberAttachment = await memberUpload.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskAttachmentResponse>>();
+        Assert.NotNull(memberAttachment?.Data);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerTokens.AccessToken);
+        var ownerUpload = await UploadAttachmentAsync(
+            projectId, task.Data.Id, Encoding.UTF8.GetBytes("owner attachment"), "owner.txt", "text/plain");
+        ownerUpload.EnsureSuccessStatusCode();
+        var ownerAttachment = await ownerUpload.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskAttachmentResponse>>();
+        Assert.NotNull(ownerAttachment?.Data);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", memberTokens.AccessToken);
+        var memberCannotDeleteOwnerAttachment = await _client.DeleteAsync(
+            $"/api/projects/{projectId}/tasks/{task.Data.Id}/attachments/{ownerAttachment.Data.Id}");
+        Assert.Equal(HttpStatusCode.Forbidden, memberCannotDeleteOwnerAttachment.StatusCode);
+
+        var memberDelete = await _client.DeleteAsync(
+            $"/api/projects/{projectId}/tasks/{task.Data.Id}/attachments/{memberAttachment.Data.Id}");
+        memberDelete.EnsureSuccessStatusCode();
+
+        var viewerTokens = await LoginAsync("attachments.roles-viewer@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", viewerTokens.AccessToken);
+        var viewerDownload = await _client.GetAsync(
+            $"/api/projects/{projectId}/tasks/{task.Data.Id}/attachments/{ownerAttachment.Data.Id}/download");
+        viewerDownload.EnsureSuccessStatusCode();
+        var viewerUpload = await UploadAttachmentAsync(
+            projectId, task.Data.Id, Encoding.UTF8.GetBytes("viewer attachment"), "viewer.txt", "text/plain");
+        Assert.Equal(HttpStatusCode.Forbidden, viewerUpload.StatusCode);
+
+        var outsiderTokens = await LoginAsync("attachments.roles-outsider@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", outsiderTokens.AccessToken);
+        var outsiderList = await _client.GetAsync($"/api/projects/{projectId}/tasks/{task.Data.Id}/attachments");
+        Assert.Equal(HttpStatusCode.NotFound, outsiderList.StatusCode);
+        var outsiderDownload = await _client.GetAsync(
+            $"/api/projects/{projectId}/tasks/{task.Data.Id}/attachments/{ownerAttachment.Data.Id}/download");
+        Assert.Equal(HttpStatusCode.NotFound, outsiderDownload.StatusCode);
+    }
+
+    private async Task<HttpResponseMessage> UploadAttachmentAsync(
+        Guid projectId,
+        Guid taskId,
+        byte[] bytes,
+        string fileName,
+        string contentType)
+    {
+        using var form = new MultipartFormDataContent();
+        using var fileContent = new ByteArrayContent(bytes);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+        form.Add(fileContent, "file", fileName);
+        return await _client.PostAsync($"/api/projects/{projectId}/tasks/{taskId}/attachments", form);
     }
 
     private async Task<AuthTokenResponse> LoginAsync(string email, string password)

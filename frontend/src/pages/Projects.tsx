@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ProjectTaskPriority,
   ProjectTaskStatus,
@@ -8,6 +8,7 @@ import {
   type ProjectDto,
   type ProjectMemberDto,
   type ProjectTaskDto,
+  type ProjectTaskAttachmentDto,
 } from '../types';
 import { useProjects } from '../context/ProjectsContext';
 import { useFeatureAvailability } from '../hooks/useFeatureAvailability';
@@ -172,7 +173,7 @@ function InvitationPanel({ projectId, invitations, loading, onLoad, onCreate }: 
   );
 }
 
-function TaskItem({ task, canManage, discussionOpen, onToggleDiscussion, onStatusChange, onDelete, onEdit }: { task: ProjectTaskDto; canManage: boolean; discussionOpen: boolean; onToggleDiscussion: () => void; onStatusChange: (status: ProjectTaskStatus) => Promise<void>; onDelete: () => Promise<void>; onEdit: () => void }) {
+function TaskItem({ task, canManage, discussionOpen, attachmentsOpen, onToggleDiscussion, onToggleAttachments, onStatusChange, onDelete, onEdit }: { task: ProjectTaskDto; canManage: boolean; discussionOpen: boolean; attachmentsOpen: boolean; onToggleDiscussion: () => void; onToggleAttachments: () => void; onStatusChange: (status: ProjectTaskStatus) => Promise<void>; onDelete: () => Promise<void>; onEdit: () => void }) {
   const [deleting, setDeleting] = useState(false);
   return (
     <article className="task-item">
@@ -181,6 +182,7 @@ function TaskItem({ task, canManage, discussionOpen, onToggleDiscussion, onStatu
         <select aria-label={`Status for ${task.title}`} value={task.status} disabled={!canManage} onChange={(event) => void onStatusChange(Number(event.target.value) as ProjectTaskStatus)}>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
         <span className={`priority priority--${priorityLabels[task.priority].toLowerCase()}`}>{priorityLabels[task.priority]}</span>
         <button className="button button--ghost" type="button" aria-expanded={discussionOpen} onClick={onToggleDiscussion}>Discussion</button>
+        <button className="button button--ghost" type="button" aria-expanded={attachmentsOpen} onClick={onToggleAttachments}>Attachments</button>
         {canManage ? <><button className="button button--ghost" type="button" onClick={onEdit}>Edit</button><button className="button button--danger" type="button" disabled={deleting} onClick={async () => { setDeleting(true); try { await onDelete(); } finally { setDeleting(false); } }}>Delete</button></> : null}
       </div>
     </article>
@@ -212,15 +214,82 @@ function TaskDiscussion({ taskId, comments, loading, canComment, canDeleteCommen
   );
 }
 
+function formatAttachmentSize(sizeBytes: number) {
+  if (sizeBytes < 1024) return `${sizeBytes} B`;
+  if (sizeBytes < 1024 * 1024) return `${(sizeBytes / 1024).toFixed(1)} KB`;
+  return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function TaskAttachments({ taskId, attachments, loading, canUpload, canDelete, onUpload, onDownload, onDelete }: { taskId: string; attachments?: ProjectTaskAttachmentDto[]; loading: boolean; canUpload: boolean; canDelete: (uploadedByUserId: string) => boolean; onUpload: (file: File) => Promise<unknown>; onDownload: (attachmentId: string) => Promise<Blob>; onDelete: (attachmentId: string) => Promise<void> }) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selectedFile) return;
+    if (selectedFile.size > 10 * 1024 * 1024) {
+      setValidationError('Attachments must be 10 MB or smaller.');
+      return;
+    }
+
+    setSaving(true);
+    setValidationError(null);
+    try {
+      await onUpload(selectedFile);
+      setSelectedFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const download = async (attachment: ProjectTaskAttachmentDto) => {
+    setDownloadingId(attachment.id);
+    try {
+      const blob = await onDownload(attachment.id);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = attachment.originalFileName;
+      link.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const remove = async (attachmentId: string) => {
+    setDeletingId(attachmentId);
+    try {
+      await onDelete(attachmentId);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  return (
+    <section className="task-attachments" aria-label="Task attachments">
+      <h3>Attachments</h3>
+      {loading ? <p className="page-note">Loading attachments...</p> : attachments?.length ? <div className="task-attachments__list">{attachments.map((attachment) => <article className="task-attachments__item" key={attachment.id}><div><strong>{attachment.originalFileName}</strong><small>{attachment.uploaderDisplayName} · {new Date(attachment.createdAt).toLocaleString()} · {formatAttachmentSize(attachment.sizeBytes)}</small></div><div className="task-attachments__actions"><button className="button button--ghost" type="button" disabled={downloadingId === attachment.id} onClick={() => void download(attachment)}>{downloadingId === attachment.id ? 'Downloading...' : 'Download'}</button>{canDelete(attachment.uploadedByUserId) ? <button className="button button--danger" type="button" disabled={deletingId === attachment.id} onClick={() => void remove(attachment.id)}>{deletingId === attachment.id ? 'Deleting...' : 'Delete'}</button> : null}</div></article>)}</div> : <p className="page-note">No attachments yet.</p>}
+      {canUpload ? <form className="task-attachments__form" onSubmit={submit}><label className="field__label" htmlFor={`task-attachment-${taskId}`}>Choose a file</label><input ref={fileInputRef} id={`task-attachment-${taskId}`} type="file" accept=".pdf,.png,.jpg,.jpeg,.docx,.xlsx,.txt" onChange={(event) => { setSelectedFile(event.target.files?.[0] ?? null); setValidationError(null); }} /><button className="button" type="submit" disabled={!selectedFile || saving}>{saving ? 'Uploading...' : 'Upload attachment'}</button>{validationError ? <p className="field__error" role="alert">{validationError}</p> : null}</form> : <p className="page-note">Viewers can download attachments but cannot upload them.</p>}
+    </section>
+  );
+}
+
 export default function Projects() {
   const { projectArchiveEnabled, projectTaskAssignmentEnabled } = useFeatureAvailability();
   const { user } = useAuth();
-  const { projects, selectedProject, tasks, loading, tasksLoading, error, members, availableMembers, activities, activitiesLoading, dashboard, dashboardLoading, taskComments, commentsLoadingTaskId, projectInvitations, invitationsLoading, includeArchived, setIncludeArchived, projectScope, setProjectScope, selectProject, createProject, updateProject, archiveProject, createTask, updateTask, updateTaskStatus, deleteTask, loadTaskComments, createTaskComment, deleteTaskComment, loadProjectInvitations, createProjectInvitation, addMember, removeMember, updateMemberRole, clearError, taskPage, taskSearch, taskTotalPages, setTaskPage, setTaskSearch } = useProjects();
+  const { projects, selectedProject, tasks, loading, tasksLoading, error, members, availableMembers, activities, activitiesLoading, dashboard, dashboardLoading, taskComments, commentsLoadingTaskId, taskAttachments, attachmentsLoadingTaskId, projectInvitations, invitationsLoading, includeArchived, setIncludeArchived, projectScope, setProjectScope, selectProject, createProject, updateProject, archiveProject, createTask, updateTask, updateTaskStatus, deleteTask, loadTaskComments, createTaskComment, deleteTaskComment, loadTaskAttachments, uploadTaskAttachment, downloadTaskAttachment, deleteTaskAttachment, loadProjectInvitations, createProjectInvitation, addMember, removeMember, updateMemberRole, clearError, taskPage, taskSearch, taskTotalPages, setTaskPage, setTaskSearch } = useProjects();
   const [editing, setEditing] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | ProjectTaskStatus>('all');
   const [priorityFilter, setPriorityFilter] = useState<'all' | ProjectTaskPriority>('all');
   const [openDiscussionTaskId, setOpenDiscussionTaskId] = useState<string | null>(null);
+  const [openAttachmentsTaskId, setOpenAttachmentsTaskId] = useState<string | null>(null);
   const visibleTasks = useMemo(() => tasks.filter((task) => (statusFilter === 'all' || task.status === statusFilter) && (priorityFilter === 'all' || task.priority === priorityFilter)), [priorityFilter, statusFilter, tasks]);
   const isProjectOwner = selectedProject ? selectedProject.currentUserRole === ProjectMemberRole.Owner || selectedProject.ownerId === user?.id : false;
 
@@ -276,7 +345,8 @@ export default function Projects() {
                     const canManage = isProjectOwner || (selectedProject.currentUserRole === ProjectMemberRole.Member && task.createdByUserId === user?.id);
                     if (editingTaskId === task.id) return <div className="card" key={task.id}><TaskForm initialTask={task} members={members} assignmentEnabled={projectTaskAssignmentEnabled} onSubmit={async (request) => { await updateTask(task.id, request); setEditingTaskId(null); }} /><button className="button button--ghost" type="button" onClick={() => setEditingTaskId(null)}>Cancel</button></div>;
                     const discussionOpen = openDiscussionTaskId === task.id;
-                    return <div key={task.id}><TaskItem task={task} canManage={canManage} discussionOpen={discussionOpen} onToggleDiscussion={() => { const opening = !discussionOpen; setOpenDiscussionTaskId(opening ? task.id : null); if (opening && !taskComments[task.id]) void loadTaskComments(task.id); }} onEdit={() => setEditingTaskId(task.id)} onStatusChange={(status) => updateTaskStatus(task.id, status).then(() => undefined)} onDelete={() => deleteTask(task.id)} />{discussionOpen ? <TaskDiscussion taskId={task.id} comments={taskComments[task.id]} loading={commentsLoadingTaskId === task.id} canComment={!selectedProject.isArchived && selectedProject.currentUserRole !== ProjectMemberRole.Viewer} canDeleteComment={(authorUserId) => isProjectOwner || authorUserId === user?.id} onCreate={(content) => createTaskComment(task.id, content)} onDelete={(commentId) => deleteTaskComment(task.id, commentId)} /> : null}</div>;
+                    const attachmentsOpen = openAttachmentsTaskId === task.id;
+                    return <div key={task.id}><TaskItem task={task} canManage={canManage} discussionOpen={discussionOpen} attachmentsOpen={attachmentsOpen} onToggleDiscussion={() => { const opening = !discussionOpen; setOpenDiscussionTaskId(opening ? task.id : null); if (opening && !taskComments[task.id]) void loadTaskComments(task.id); }} onToggleAttachments={() => { const opening = !attachmentsOpen; setOpenAttachmentsTaskId(opening ? task.id : null); if (opening && !taskAttachments[task.id]) void loadTaskAttachments(task.id); }} onEdit={() => setEditingTaskId(task.id)} onStatusChange={(status) => updateTaskStatus(task.id, status).then(() => undefined)} onDelete={() => deleteTask(task.id)} />{discussionOpen ? <TaskDiscussion taskId={task.id} comments={taskComments[task.id]} loading={commentsLoadingTaskId === task.id} canComment={!selectedProject.isArchived && selectedProject.currentUserRole !== ProjectMemberRole.Viewer} canDeleteComment={(authorUserId) => isProjectOwner || authorUserId === user?.id} onCreate={(content) => createTaskComment(task.id, content)} onDelete={(commentId) => deleteTaskComment(task.id, commentId)} /> : null}{attachmentsOpen ? <TaskAttachments taskId={task.id} attachments={taskAttachments[task.id]} loading={attachmentsLoadingTaskId === task.id} canUpload={!selectedProject.isArchived && selectedProject.currentUserRole !== ProjectMemberRole.Viewer} canDelete={(uploadedByUserId) => isProjectOwner || uploadedByUserId === user?.id} onUpload={(file) => uploadTaskAttachment(task.id, file)} onDownload={(attachmentId) => downloadTaskAttachment(task.id, attachmentId)} onDelete={(attachmentId) => deleteTaskAttachment(task.id, attachmentId)} /> : null}</div>;
                   })}
                 </div>
               )}

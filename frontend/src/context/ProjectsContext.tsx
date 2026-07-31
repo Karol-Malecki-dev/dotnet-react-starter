@@ -12,6 +12,7 @@ import type {
   ProjectActivityDto,
   ProjectDashboardDto,
   ProjectTaskCommentDto,
+  ProjectTaskAttachmentDto,
   ProjectInvitationDto,
   CreatedProjectInvitationDto,
   CreateProjectInvitationRequest,
@@ -34,6 +35,8 @@ interface ProjectsContextValue {
   dashboardLoading: boolean;
   taskComments: Record<string, ProjectTaskCommentDto[]>;
   commentsLoadingTaskId: string | null;
+  taskAttachments: Record<string, ProjectTaskAttachmentDto[]>;
+  attachmentsLoadingTaskId: string | null;
   projectInvitations: ProjectInvitationDto[];
   invitationsLoading: boolean;
   includeArchived: boolean;
@@ -52,6 +55,10 @@ interface ProjectsContextValue {
   loadTaskComments: (taskId: string) => Promise<void>;
   createTaskComment: (taskId: string, content: string) => Promise<ProjectTaskCommentDto>;
   deleteTaskComment: (taskId: string, commentId: string) => Promise<void>;
+  loadTaskAttachments: (taskId: string) => Promise<void>;
+  uploadTaskAttachment: (taskId: string, file: File) => Promise<ProjectTaskAttachmentDto>;
+  downloadTaskAttachment: (taskId: string, attachmentId: string) => Promise<Blob>;
+  deleteTaskAttachment: (taskId: string, attachmentId: string) => Promise<void>;
   loadProjectInvitations: (projectId: string) => Promise<void>;
   createProjectInvitation: (request: CreateProjectInvitationRequest) => Promise<CreatedProjectInvitationDto>;
   acceptProjectInvitation: (token: string) => Promise<void>;
@@ -84,6 +91,8 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [taskComments, setTaskComments] = useState<Record<string, ProjectTaskCommentDto[]>>({});
   const [commentsLoadingTaskId, setCommentsLoadingTaskId] = useState<string | null>(null);
+  const [taskAttachments, setTaskAttachments] = useState<Record<string, ProjectTaskAttachmentDto[]>>({});
+  const [attachmentsLoadingTaskId, setAttachmentsLoadingTaskId] = useState<string | null>(null);
   const [projectInvitations, setProjectInvitations] = useState<ProjectInvitationDto[]>([]);
   const [invitationsLoading, setInvitationsLoading] = useState(false);
   const [includeArchived, setIncludeArchivedState] = useState(false);
@@ -213,6 +222,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
       setActivities([]);
       setDashboard(null);
       setTaskComments({});
+      setTaskAttachments({});
       setProjectInvitations([]);
     }
   }, [loadActivities, loadDashboard, loadMembers, loadTasks, selectedProjectId]);
@@ -332,6 +342,10 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
       const { [taskId]: _, ...remainingComments } = currentComments;
       return remainingComments;
     });
+    setTaskAttachments((currentAttachments) => {
+      const { [taskId]: _, ...remainingAttachments } = currentAttachments;
+      return remainingAttachments;
+    });
     void loadActivities(selectedProjectId);
     void loadDashboard(selectedProjectId);
   }, [loadActivities, loadDashboard, selectedProjectId]);
@@ -368,6 +382,63 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
       [taskId]: (currentComments[taskId] ?? []).filter((comment) => comment.id !== commentId),
     }));
   }, [selectedProjectId]);
+
+  const loadTaskAttachments = useCallback(async (taskId: string) => {
+    if (!selectedProjectId) return;
+
+    setAttachmentsLoadingTaskId(taskId);
+    try {
+      const response = await projectApi.getTaskAttachments(selectedProjectId, taskId);
+      setTaskAttachments((currentAttachments) => ({ ...currentAttachments, [taskId]: response.data ?? [] }));
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Unable to load task attachments');
+    } finally {
+      setAttachmentsLoadingTaskId((currentTaskId) => currentTaskId === taskId ? null : currentTaskId);
+    }
+  }, [selectedProjectId]);
+
+  const uploadTaskAttachment = useCallback(async (taskId: string, file: File) => {
+    if (!selectedProjectId) {
+      throw new Error('Select a project first');
+    }
+
+    setError(null);
+    const response = await projectApi.uploadTaskAttachment(selectedProjectId, taskId, file);
+    if (!response.data) {
+      throw new Error(response.message || 'Task attachment was not uploaded');
+    }
+
+    setTaskAttachments((currentAttachments) => ({
+      ...currentAttachments,
+      [taskId]: [response.data!, ...(currentAttachments[taskId] ?? [])],
+    }));
+    void loadActivities(selectedProjectId);
+    void loadDashboard(selectedProjectId);
+    return response.data;
+  }, [loadActivities, loadDashboard, selectedProjectId]);
+
+  const downloadTaskAttachment = useCallback(async (taskId: string, attachmentId: string) => {
+    if (!selectedProjectId) {
+      throw new Error('Select a project first');
+    }
+
+    return projectApi.downloadTaskAttachment(selectedProjectId, taskId, attachmentId);
+  }, [selectedProjectId]);
+
+  const deleteTaskAttachment = useCallback(async (taskId: string, attachmentId: string) => {
+    if (!selectedProjectId) {
+      throw new Error('Select a project first');
+    }
+
+    setError(null);
+    await projectApi.deleteTaskAttachment(selectedProjectId, taskId, attachmentId);
+    setTaskAttachments((currentAttachments) => ({
+      ...currentAttachments,
+      [taskId]: (currentAttachments[taskId] ?? []).filter((attachment) => attachment.id !== attachmentId),
+    }));
+    void loadActivities(selectedProjectId);
+    void loadDashboard(selectedProjectId);
+  }, [loadActivities, loadDashboard, selectedProjectId]);
 
   const createProjectInvitation = useCallback(async (request: CreateProjectInvitationRequest) => {
     if (!selectedProjectId) {
@@ -467,6 +538,8 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     dashboardLoading,
     taskComments,
     commentsLoadingTaskId,
+    taskAttachments,
+    attachmentsLoadingTaskId,
     projectInvitations,
     invitationsLoading,
     includeArchived,
@@ -485,6 +558,10 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     loadTaskComments,
     createTaskComment,
     deleteTaskComment,
+    loadTaskAttachments,
+    uploadTaskAttachment,
+    downloadTaskAttachment,
+    deleteTaskAttachment,
     loadProjectInvitations,
     createProjectInvitation,
     acceptProjectInvitation,
@@ -513,6 +590,8 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     dashboardLoading,
     taskComments,
     commentsLoadingTaskId,
+    taskAttachments,
+    attachmentsLoadingTaskId,
     projectInvitations,
     invitationsLoading,
     includeArchived,
@@ -531,6 +610,10 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     loadTaskComments,
     createTaskComment,
     deleteTaskComment,
+    loadTaskAttachments,
+    uploadTaskAttachment,
+    downloadTaskAttachment,
+    deleteTaskAttachment,
     loadProjectInvitations,
     createProjectInvitation,
     acceptProjectInvitation,

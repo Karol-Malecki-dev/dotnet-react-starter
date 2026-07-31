@@ -14,10 +14,14 @@ namespace API.Controllers;
 public class ProjectTasksController : ControllerBase
 {
     private readonly IProjectTaskApplicationService _projectTaskService;
+    private readonly IProjectTaskAttachmentApplicationService _attachmentService;
 
-    public ProjectTasksController(IProjectTaskApplicationService projectTaskService)
+    public ProjectTasksController(
+        IProjectTaskApplicationService projectTaskService,
+        IProjectTaskAttachmentApplicationService attachmentService)
     {
         _projectTaskService = projectTaskService;
+        _attachmentService = attachmentService;
     }
 
     [HttpGet]
@@ -97,6 +101,76 @@ public class ProjectTasksController : ControllerBase
         return ToActionResult(result, value => value);
     }
 
+    [HttpGet("{taskId:guid}/attachments")]
+    public async Task<IActionResult> GetAttachments(Guid projectId, Guid taskId)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return Unauthorized(ApiResponse<IReadOnlyList<ProjectTaskAttachmentResponse>>.Error(401, "User not authenticated"));
+        }
+
+        var result = await _attachmentService.GetProjectTaskAttachmentsAsync(userId, projectId, taskId);
+        return ToActionResult(result, attachments => attachments.Select(MapAttachment).ToList());
+    }
+
+    [HttpPost("{taskId:guid}/attachments")]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(11 * 1024 * 1024)]
+    public async Task<IActionResult> UploadAttachment(Guid projectId, Guid taskId, IFormFile? file)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return Unauthorized(ApiResponse<ProjectTaskAttachmentResponse>.Error(401, "User not authenticated"));
+        }
+
+        if (file is null)
+        {
+            return BadRequest(ApiResponse<ProjectTaskAttachmentResponse>.Error(400, "A file is required"));
+        }
+
+        await using var content = file.OpenReadStream();
+        var result = await _attachmentService.CreateProjectTaskAttachmentAsync(new CreateProjectTaskAttachmentCommand(
+            userId,
+            projectId,
+            taskId,
+            file.FileName,
+            file.ContentType,
+            file.Length,
+            content));
+        return ToActionResult(result, MapAttachment);
+    }
+
+    [HttpGet("{taskId:guid}/attachments/{attachmentId:guid}/download")]
+    public async Task<IActionResult> DownloadAttachment(Guid projectId, Guid taskId, Guid attachmentId)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return Unauthorized(ApiResponse<ProjectTaskAttachmentResponse>.Error(401, "User not authenticated"));
+        }
+
+        var result = await _attachmentService.OpenProjectTaskAttachmentAsync(userId, projectId, taskId, attachmentId);
+        if (!result.IsSuccess)
+        {
+            var statusCode = MapStatusCode(result.Status);
+            return StatusCode(statusCode, ApiResponse<ProjectTaskAttachmentResponse>.Error(statusCode, result.Message));
+        }
+
+        var download = result.Value!;
+        return File(download.Content, download.ContentType, download.OriginalFileName, enableRangeProcessing: true);
+    }
+
+    [HttpDelete("{taskId:guid}/attachments/{attachmentId:guid}")]
+    public async Task<IActionResult> DeleteAttachment(Guid projectId, Guid taskId, Guid attachmentId)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return Unauthorized(ApiResponse<bool>.Error(401, "User not authenticated"));
+        }
+
+        var result = await _attachmentService.DeleteProjectTaskAttachmentAsync(userId, projectId, taskId, attachmentId);
+        return ToActionResult(result, value => value);
+    }
+
     private IActionResult ToActionResult<TValue, TResponse>(
         ProjectOperationResult<TValue> result,
         Func<TValue, TResponse> map)
@@ -123,6 +197,16 @@ public class ProjectTasksController : ControllerBase
         task.CreatedByUserId,
         task.CreatedAt,
         task.UpdatedAt);
+
+    private static ProjectTaskAttachmentResponse MapAttachment(ProjectTaskAttachmentView attachment) => new(
+        attachment.Id,
+        attachment.ProjectTaskId,
+        attachment.UploadedByUserId,
+        attachment.UploaderDisplayName,
+        attachment.OriginalFileName,
+        attachment.ContentType,
+        attachment.SizeBytes,
+        attachment.CreatedAt);
 
     private static int MapStatusCode(ProjectOperationStatus status) => status switch
     {
