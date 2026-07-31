@@ -92,7 +92,10 @@ public sealed class NotificationsController : ControllerBase
             return Unauthorized(ApiResponse<NotificationEmailPreferenceDto>.Error(401, "User not authenticated"));
         }
 
-        var result = await _notificationService.UpdateEmailPreferenceAsync(userId, request.IsEmailEnabled);
+        var result = await _notificationService.UpdateEmailPreferenceAsync(
+            userId,
+            request.IsEmailEnabled,
+            request.IsTaskDeadlineReminderEmailEnabled);
         return StatusCode(result.StatusCode, result);
     }
 

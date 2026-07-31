@@ -32,10 +32,12 @@ export interface NotificationPageDto {
 
 export interface NotificationEmailPreferenceDto {
   isEmailEnabled: boolean;
+  isTaskDeadlineReminderEmailEnabled: boolean;
 }
 
 export interface UpdateNotificationEmailPreferenceRequest {
-  isEmailEnabled: boolean;
+  isEmailEnabled?: boolean;
+  isTaskDeadlineReminderEmailEnabled?: boolean;
 }
 
 export type GetNotificationsResponse = ApiResponse<NotificationPageDto>;

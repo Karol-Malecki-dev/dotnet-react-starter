@@ -45,7 +45,7 @@ describe('Profile page', () => {
     mockedNotificationApi.getEmailPreference.mockResolvedValue({
       statusCode: 200,
       message: 'Notification preference loaded',
-      data: { isEmailEnabled: true },
+      data: { isEmailEnabled: true, isTaskDeadlineReminderEmailEnabled: true },
       errors: null,
       timestamp: new Date().toISOString(),
     });
@@ -203,7 +203,7 @@ describe('Profile page', () => {
     mockedNotificationApi.updateEmailPreference.mockResolvedValue({
       statusCode: 200,
       message: 'Notification preference updated',
-      data: { isEmailEnabled: false },
+      data: { isEmailEnabled: false, isTaskDeadlineReminderEmailEnabled: true },
       errors: null,
       timestamp: new Date().toISOString(),
     });
@@ -229,9 +229,43 @@ describe('Profile page', () => {
     fireEvent.click(emailNotificationsCheckbox);
 
     await waitFor(() => {
-      expect(mockedNotificationApi.updateEmailPreference).toHaveBeenCalledWith({ isEmailEnabled: false });
+      expect(mockedNotificationApi.updateEmailPreference).toHaveBeenCalledWith({
+        isEmailEnabled: false,
+        isTaskDeadlineReminderEmailEnabled: true,
+      });
     });
     expect(emailNotificationsCheckbox).not.toBeChecked();
+  });
+
+  it('updates the task deadline reminder email preference independently', async () => {
+    mockedNotificationApi.updateEmailPreference.mockResolvedValue({
+      statusCode: 200,
+      message: 'Notification preference updated',
+      data: { isEmailEnabled: true, isTaskDeadlineReminderEmailEnabled: false },
+      errors: null,
+      timestamp: new Date().toISOString(),
+    });
+    mockedUseAuth.mockReturnValue({
+      user: { id: 'user-1', email: 'test@example.com', displayName: 'Old Name', role: 'User' },
+      tokens: { accessToken: 'access', expiresIn: 900 },
+      updateProfile: jest.fn(),
+      changePassword: jest.fn(),
+    } as any);
+
+    render(<Profile />);
+
+    const reminderEmailsCheckbox = await screen.findByRole('checkbox', {
+      name: /task deadline reminder emails/i,
+    });
+    fireEvent.click(reminderEmailsCheckbox);
+
+    await waitFor(() => {
+      expect(mockedNotificationApi.updateEmailPreference).toHaveBeenCalledWith({
+        isEmailEnabled: true,
+        isTaskDeadlineReminderEmailEnabled: false,
+      });
+    });
+    expect(reminderEmailsCheckbox).not.toBeChecked();
   });
 
   it('starts authenticator app setup from the security panel', async () => {
