@@ -15,6 +15,7 @@ import type {
   ProjectTaskCommentsResponse,
   ProjectTaskAttachmentResponse,
   ProjectTaskAttachmentsResponse,
+  ProjectTaskQuery,
   ProjectInvitationsResponse,
   CreatedProjectInvitationResponse,
   ProjectInvitationResponse,
@@ -47,9 +48,19 @@ export class ProjectApi {
     return this.client.delete<ProjectOperationResponse>(`/projects/${projectId}`);
   }
 
-  getTasks(projectId: string, pageNumber = 1, pageSize = 20, search = ''): Promise<ProjectTasksResponse> {
-    const query = new URLSearchParams({ pageNumber: String(pageNumber), pageSize: String(pageSize) });
-    if (search.trim()) query.set('search', search.trim());
+  getTasks(projectId: string, request: ProjectTaskQuery = {}): Promise<ProjectTasksResponse> {
+    const query = new URLSearchParams({
+      pageNumber: String(request.pageNumber ?? 1),
+      pageSize: String(request.pageSize ?? 20),
+    });
+    if (request.search?.trim()) query.set('search', request.search.trim());
+    if (request.status !== undefined) query.set('status', String(request.status));
+    if (request.priority !== undefined) query.set('priority', String(request.priority));
+    if (request.assignedUserId) query.set('assignedUserId', request.assignedUserId);
+    if (request.label?.trim()) query.set('label', request.label.trim());
+    if (request.dueBefore) query.set('dueBefore', request.dueBefore);
+    if (request.sortBy) query.set('sortBy', request.sortBy);
+    if (request.sortDirection) query.set('sortDirection', request.sortDirection);
     return this.client.get<ProjectTasksResponse>(`/projects/${projectId}/tasks?${query.toString()}`);
   }
 

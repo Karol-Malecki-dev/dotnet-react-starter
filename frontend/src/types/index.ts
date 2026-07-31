@@ -104,6 +104,8 @@ export { HttpStatusCode } from './api';
 export {
   ProjectTaskStatus,
   ProjectTaskPriority,
+  ProjectTaskSortBy,
+  SortDirection,
   ProjectMemberRole,
   ProjectInvitationStatus,
 } from './project';
@@ -122,6 +124,7 @@ export type {
   CreateProjectTaskRequest,
   UpdateProjectTaskRequest,
   UpdateProjectTaskStatusRequest,
+  ProjectTaskQuery,
   CreateProjectTaskCommentRequest,
   CreateProjectInvitationRequest,
   ProjectsResponse,

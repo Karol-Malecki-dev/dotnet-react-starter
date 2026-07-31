@@ -22,7 +22,32 @@ public sealed record PagedProjectTaskView(
     int PageSize,
     int TotalCount);
 
-public sealed record ProjectTaskQuery(Guid UserId, Guid ProjectId, int PageNumber, int PageSize, string? Search);
+public sealed record ProjectTaskQuery(
+    Guid UserId,
+    Guid ProjectId,
+    int PageNumber,
+    int PageSize,
+    string? Search,
+    ProjectTaskStatus? Status,
+    ProjectTaskPriority? Priority,
+    Guid? AssignedUserId,
+    string? Label,
+    DateTime? DueBefore,
+    ProjectTaskSortBy SortBy,
+    SortDirection SortDirection);
+
+public enum ProjectTaskSortBy
+{
+    DueDate,
+    CreatedAt,
+    Priority
+}
+
+public enum SortDirection
+{
+    Ascending,
+    Descending
+}
 
 public sealed record CreateProjectTaskCommand(
     Guid OwnerId,

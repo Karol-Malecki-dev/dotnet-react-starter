@@ -1,8 +1,19 @@
+using Application.Features.Projects;
 using Domain.Enums;
 
 namespace API.Contracts.Projects;
 
-public sealed record ProjectTaskQueryRequest(int PageNumber = 1, int PageSize = 20, string? Search = null);
+public sealed record ProjectTaskQueryRequest(
+    int PageNumber = 1,
+    int PageSize = 20,
+    string? Search = null,
+    ProjectTaskStatus? Status = null,
+    ProjectTaskPriority? Priority = null,
+    Guid? AssignedUserId = null,
+    string? Label = null,
+    DateTime? DueBefore = null,
+    ProjectTaskSortBy SortBy = ProjectTaskSortBy.DueDate,
+    SortDirection SortDirection = SortDirection.Ascending);
 
 public sealed record CreateProjectTaskRequest(
     string Title,

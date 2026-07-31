@@ -97,6 +97,65 @@ public class ProjectTasksApiIntegrationTests
     }
 
     [Fact]
+    public async Task Owner_can_filter_and_sort_project_tasks()
+    {
+        var ownerId = await SeedUserAsync("task.filter-owner@example.com", "password123", "Filter Owner");
+        var assigneeId = await SeedUserAsync("task.filter-assignee@example.com", "password123", "Filter Assignee");
+        var projectId = await SeedProjectAsync(ownerId, "Filter task project");
+        await SeedProjectMemberAsync(projectId, assigneeId);
+        var now = DateTime.UtcNow;
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            dbContext.ProjectTasks.AddRange(
+                new ProjectTask
+                {
+                    ProjectId = projectId,
+                    Title = "Normal release task",
+                    AssignedUserId = assigneeId,
+                    CreatedByUserId = ownerId,
+                    Priority = ProjectTaskPriority.Normal,
+                    DueDate = now.AddDays(2),
+                    Labels = [new ProjectTaskLabel { Name = "release" }]
+                },
+                new ProjectTask
+                {
+                    ProjectId = projectId,
+                    Title = "High release task",
+                    AssignedUserId = assigneeId,
+                    CreatedByUserId = ownerId,
+                    Priority = ProjectTaskPriority.High,
+                    DueDate = now.AddDays(1),
+                    Labels = [new ProjectTaskLabel { Name = "release" }]
+                },
+                new ProjectTask
+                {
+                    ProjectId = projectId,
+                    Title = "Unrelated task",
+                    AssignedUserId = ownerId,
+                    CreatedByUserId = ownerId,
+                    Priority = ProjectTaskPriority.Low,
+                    DueDate = now.AddDays(5),
+                    Labels = [new ProjectTaskLabel { Name = "design" }]
+                });
+            await dbContext.SaveChangesAsync();
+        }
+
+        var tokens = await LoginAsync("task.filter-owner@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+
+        var response = await _client.GetAsync(
+            $"/api/projects/{projectId}/tasks?status={ProjectTaskStatus.Todo}&assignedUserId={assigneeId}&label=release&dueBefore={now.AddDays(3):O}&sortBy=Priority&sortDirection=Descending");
+
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<ApiResponse<PagedProjectTaskResponse>>();
+        Assert.NotNull(result?.Data);
+        Assert.Equal(2, result.Data.TotalCount);
+        Assert.Equal(["High release task", "Normal release task"], result.Data.Items.Select(task => task.Title));
+    }
+
+    [Fact]
     public async Task User_cannot_access_tasks_in_another_users_project()
     {
         var ownerId = await SeedUserAsync("task.private-owner@example.com", "password123", "Private Task Owner");

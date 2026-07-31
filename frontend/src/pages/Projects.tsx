@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ProjectTaskPriority,
+  ProjectTaskSortBy,
   ProjectTaskStatus,
+  SortDirection,
   ProjectMemberRole,
   ProjectInvitationStatus,
   type CreateProjectTaskRequest,
@@ -288,11 +290,9 @@ function TaskAttachments({ taskId, attachments, loading, canUpload, canDelete, o
 export default function Projects() {
   const { projectArchiveEnabled, projectTaskAssignmentEnabled } = useFeatureAvailability();
   const { user } = useAuth();
-  const { projects, selectedProject, tasks, loading, tasksLoading, error, members, availableMembers, activities, activitiesLoading, dashboard, dashboardLoading, taskComments, commentsLoadingTaskId, taskAttachments, attachmentsLoadingTaskId, projectInvitations, invitationsLoading, includeArchived, setIncludeArchived, projectScope, setProjectScope, selectProject, createProject, updateProject, archiveProject, createTask, updateTask, updateTaskStatus, deleteTask, loadTaskComments, createTaskComment, deleteTaskComment, loadTaskAttachments, uploadTaskAttachment, downloadTaskAttachment, deleteTaskAttachment, loadProjectInvitations, createProjectInvitation, addMember, removeMember, updateMemberRole, clearError, taskPage, taskSearch, taskTotalPages, setTaskPage, setTaskSearch } = useProjects();
+  const { projects, selectedProject, tasks, loading, tasksLoading, error, members, availableMembers, activities, activitiesLoading, dashboard, dashboardLoading, taskComments, commentsLoadingTaskId, taskAttachments, attachmentsLoadingTaskId, projectInvitations, invitationsLoading, includeArchived, setIncludeArchived, projectScope, setProjectScope, selectProject, createProject, updateProject, archiveProject, createTask, updateTask, updateTaskStatus, deleteTask, loadTaskComments, createTaskComment, deleteTaskComment, loadTaskAttachments, uploadTaskAttachment, downloadTaskAttachment, deleteTaskAttachment, loadProjectInvitations, createProjectInvitation, addMember, removeMember, updateMemberRole, clearError, taskPage, taskSearch, taskTotalPages, setTaskPage, setTaskSearch, taskFilters, setTaskFilters } = useProjects();
   const [editing, setEditing] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<'all' | ProjectTaskStatus>('all');
-  const [priorityFilter, setPriorityFilter] = useState<'all' | ProjectTaskPriority>('all');
   const [openDiscussionTaskId, setOpenDiscussionTaskId] = useState<string | null>(null);
   const [openAttachmentsTaskId, setOpenAttachmentsTaskId] = useState<string | null>(null);
   const [requestedTask, setRequestedTask] = useState<ProjectTaskDto | null>(null);
@@ -332,7 +332,7 @@ export default function Projects() {
   const displayedTasks = requestedTask && !tasks.some((task) => task.id === requestedTask.id)
     ? [...tasks, requestedTask]
     : tasks;
-  const visibleTasks = useMemo(() => displayedTasks.filter((task) => (statusFilter === 'all' || task.status === statusFilter) && (priorityFilter === 'all' || task.priority === priorityFilter)), [displayedTasks, priorityFilter, statusFilter]);
+  const visibleTasks = displayedTasks;
 
   return (
     <section className="page-shell projects-page">
@@ -371,13 +371,18 @@ export default function Projects() {
             <div className="card"><label className="field__label" htmlFor="task-search">Search tasks</label><input id="task-search" value={taskSearch ?? ''} onChange={(event) => { setTaskSearch?.(event.target.value); setTaskPage?.(1); }} /><div className="hero__actions"><button className="button button--ghost" type="button" disabled={!taskPage || taskPage <= 1} onClick={() => setTaskPage?.((taskPage ?? 1) - 1)}>Previous</button><span className="role-badge">Page {taskPage ?? 1} of {taskTotalPages ?? 0}</span><button className="button button--ghost" type="button" disabled={!taskTotalPages || (taskPage ?? 1) >= taskTotalPages} onClick={() => setTaskPage?.((taskPage ?? 1) + 1)}>Next</button></div></div>
             <div className="card">
               <div className="page-shell__header">
-                <div><h2>Tasks</h2><p className="page-note">Filter the current project without another request.</p></div>
+                <div><h2>Tasks</h2><p className="page-note">Filter and sort tasks in this project.</p></div>
                 <span className="role-badge">{visibleTasks.length} of {tasks.length}</span>
               </div>
               <div className="toolbar">
                 <div className="toolbar__group">
-                  <label>Status<select className="toolbar__select" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value === 'all' ? 'all' : Number(event.target.value) as ProjectTaskStatus)}><option value="all">All statuses</option>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-                  <label>Priority<select className="toolbar__select" value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value === 'all' ? 'all' : Number(event.target.value) as ProjectTaskPriority)}><option value="all">All priorities</option>{Object.entries(priorityLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+                  <label>Status<select className="toolbar__select" value={taskFilters?.status ?? 'all'} onChange={(event) => setTaskFilters?.({ status: event.target.value === 'all' ? undefined : Number(event.target.value) as ProjectTaskStatus })}><option value="all">All statuses</option>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+                  <label>Priority<select className="toolbar__select" value={taskFilters?.priority ?? 'all'} onChange={(event) => setTaskFilters?.({ priority: event.target.value === 'all' ? undefined : Number(event.target.value) as ProjectTaskPriority })}><option value="all">All priorities</option>{Object.entries(priorityLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+                  <label>Assignee<select className="toolbar__select" value={taskFilters?.assignedUserId ?? ''} onChange={(event) => setTaskFilters?.({ assignedUserId: event.target.value || undefined })}><option value="">All assignees</option>{members.map((member) => <option key={member.userId} value={member.userId}>{member.displayName}</option>)}</select></label>
+                  <label>Label<input className="toolbar__select" value={taskFilters?.label ?? ''} onChange={(event) => setTaskFilters?.({ label: event.target.value || undefined })} /></label>
+                  <label>Due before<input className="toolbar__select" type="date" value={taskFilters?.dueBefore ?? ''} onChange={(event) => setTaskFilters?.({ dueBefore: event.target.value || undefined })} /></label>
+                  <label>Sort by<select className="toolbar__select" value={taskFilters?.sortBy ?? ProjectTaskSortBy.DueDate} onChange={(event) => setTaskFilters?.({ sortBy: event.target.value as ProjectTaskSortBy })}><option value={ProjectTaskSortBy.DueDate}>Due date</option><option value={ProjectTaskSortBy.CreatedAt}>Created date</option><option value={ProjectTaskSortBy.Priority}>Priority</option></select></label>
+                  <label>Order<select className="toolbar__select" value={taskFilters?.sortDirection ?? SortDirection.Ascending} onChange={(event) => setTaskFilters?.({ sortDirection: event.target.value as SortDirection })}><option value={SortDirection.Ascending}>Ascending</option><option value={SortDirection.Descending}>Descending</option></select></label>
                 </div>
               </div>
               {tasksLoading ? <p className="page-note">Loading tasks...</p> : visibleTasks.length === 0 ? <p className="page-note">No tasks match the current filters.</p> : (
