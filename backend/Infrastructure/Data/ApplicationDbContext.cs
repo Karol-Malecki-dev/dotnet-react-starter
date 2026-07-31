@@ -24,6 +24,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<EmailTwoFactorChallenge> EmailTwoFactorChallenges => Set<EmailTwoFactorChallenge>();
     public DbSet<PasswordResetRequest> PasswordResetRequests => Set<PasswordResetRequest>();
 
+    public DbSet<Notification> Notifications => Set<Notification>();
+
     public DbSet<Project> Projects => Set<Project>();
 
     public DbSet<ProjectTask> ProjectTasks => Set<ProjectTask>();

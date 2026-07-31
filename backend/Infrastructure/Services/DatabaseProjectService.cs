@@ -10,10 +10,12 @@ namespace Infrastructure.Services;
 public sealed class DatabaseProjectService : IProjectApplicationService
 {
     private readonly ApplicationDbContext _dbContext;
+    private readonly INotificationService _notificationService;
 
-    public DatabaseProjectService(ApplicationDbContext dbContext)
+    public DatabaseProjectService(ApplicationDbContext dbContext, INotificationService notificationService)
     {
         _dbContext = dbContext;
+        _notificationService = notificationService;
     }
 
     public async Task<ProjectOperationResult<List<ProjectView>>> GetUserProjectsAsync(Guid ownerId, bool includeArchived = false, string scope = "all")
@@ -55,7 +57,7 @@ public sealed class DatabaseProjectService : IProjectApplicationService
                 : ProjectOperationResult<ProjectView>.Success(MapToView(project, ownerId));
     }
 
-            public async Task<ProjectOperationResult<ProjectView>> CreateProjectAsync(CreateProjectCommand command)
+    public async Task<ProjectOperationResult<ProjectView>> CreateProjectAsync(CreateProjectCommand command)
     {
         var project = new Project
         {
@@ -185,6 +187,18 @@ public sealed class DatabaseProjectService : IProjectApplicationService
         var member = new ProjectMember { ProjectId = projectId, UserId = userId };
         _dbContext.ProjectMembers.Add(member);
         await _dbContext.SaveChangesAsync();
+
+        var projectName = await _dbContext.Projects
+            .Where(project => project.Id == projectId)
+            .Select(project => project.Name)
+            .FirstAsync();
+        await _notificationService.CreateAsync(
+            user.Id,
+            NotificationType.ProjectInvitation,
+            "You joined a project",
+            $"You were added to the project '{projectName}'.",
+            "Project",
+            projectId);
 
         return ProjectOperationResult<ProjectMemberView>.Success(new ProjectMemberView(
             user.Id,

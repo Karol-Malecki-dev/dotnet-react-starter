@@ -122,3 +122,15 @@ export type {
   ProjectMemberResponse,
 } from './project';
 
+// Notification types
+export { NotificationType } from './notifications';
+
+export type {
+  NotificationDto,
+  NotificationPageDto,
+  GetNotificationsResponse,
+  GetUnreadCountResponse,
+  MarkNotificationReadResponse,
+  MarkAllNotificationsReadResponse,
+} from './notifications';
+

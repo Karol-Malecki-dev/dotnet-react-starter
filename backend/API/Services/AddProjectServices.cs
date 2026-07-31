@@ -147,6 +147,7 @@ namespace API.Services
             services.AddScoped<IJwtTokenService, JwtTokenService>();
             services.AddScoped<IAuthService, DatabaseAuthService>();
             services.AddScoped<IUserService, DatabaseUserService>();
+            services.AddScoped<INotificationService, DatabaseNotificationService>();
             services.AddScoped<IAdminService, DatabaseAdminService>();
             services.AddScoped<IProjectApplicationService, DatabaseProjectService>();
             services.AddScoped<IProjectTaskApplicationService, DatabaseProjectTaskService>();
