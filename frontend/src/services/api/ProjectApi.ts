@@ -2,6 +2,7 @@ import type {
   CreateProjectRequest,
   CreateProjectTaskRequest,
   CreateProjectTaskCommentRequest,
+  CreateProjectInvitationRequest,
   ProjectResponse,
   ProjectOperationResponse,
   ProjectMembersResponse,
@@ -12,6 +13,9 @@ import type {
   ProjectTaskResponse,
   ProjectTaskCommentResponse,
   ProjectTaskCommentsResponse,
+  ProjectInvitationsResponse,
+  CreatedProjectInvitationResponse,
+  ProjectInvitationResponse,
   ProjectTasksResponse,
   ProjectsResponse,
   UpdateProjectRequest,
@@ -110,6 +114,22 @@ export class ProjectApi {
   updateMemberRole(projectId: string, userId: string, role: ProjectMemberRole): Promise<ProjectMemberResponse> {
     return this.client.patch<ProjectMemberResponse, { role: ProjectMemberRole }>(
       `/projects/${projectId}/members/${userId}/role`, { role });
+  }
+
+  getInvitations(projectId: string): Promise<ProjectInvitationsResponse> {
+    return this.client.get<ProjectInvitationsResponse>(`/projects/${projectId}/invitations`);
+  }
+
+  createInvitation(projectId: string, request: CreateProjectInvitationRequest): Promise<CreatedProjectInvitationResponse> {
+    return this.client.post<CreatedProjectInvitationResponse, CreateProjectInvitationRequest>(`/projects/${projectId}/invitations`, request);
+  }
+
+  acceptInvitation(token: string): Promise<ProjectInvitationResponse> {
+    return this.client.post<ProjectInvitationResponse, { token: string }>('/project-invitations/accept', { token });
+  }
+
+  declineInvitation(token: string): Promise<ProjectInvitationResponse> {
+    return this.client.post<ProjectInvitationResponse, { token: string }>('/project-invitations/decline', { token });
   }
 }
 

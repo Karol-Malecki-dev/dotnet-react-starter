@@ -10,6 +10,7 @@ import Login from '../pages/Login';
 import NotFound from '../pages/NotFound';
 import Notifications from '../pages/Notifications';
 import Profile from '../pages/Profile';
+import ProjectInvitation from '../pages/ProjectInvitation';
 import Projects from '../pages/Projects';
 import Register from '../pages/Register';
 import ResetPassword from '../pages/ResetPassword';
@@ -39,6 +40,7 @@ export function AppRoutes() {
         <Route path="/profile" element={<Profile />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/projects" element={projectsEnabled ? <ProjectsProvider><Projects /></ProjectsProvider> : <Navigate to="/" replace />} />
+        <Route path="/project-invitation" element={projectsEnabled ? <ProjectsProvider><ProjectInvitation /></ProjectsProvider> : <Navigate to="/" replace />} />
       </Route>
 
       <Route element={<ProtectedRoute allowedRoles={['Admin']} />}>

@@ -4,6 +4,8 @@ using Domain.Entities;
 using Domain.Enums;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Infrastructure.Services;
 
@@ -281,6 +283,157 @@ public sealed class DatabaseProjectService : IProjectApplicationService
         return ProjectOperationResult<bool>.Success(true, "Project member removed");
     }
 
+    public async Task<ProjectOperationResult<CreatedProjectInvitationView>> CreateProjectInvitationAsync(CreateProjectInvitationCommand command)
+    {
+        if (!await OwnedProjectExistsAsync(command.OwnerId, command.ProjectId))
+        {
+            return ProjectOperationResult<CreatedProjectInvitationView>.Failure(ProjectOperationStatus.NotFound, "Project not found");
+        }
+
+        if (command.Role is not ProjectMemberRole.Member and not ProjectMemberRole.Viewer)
+        {
+            return ProjectOperationResult<CreatedProjectInvitationView>.Failure(ProjectOperationStatus.ValidationError, "Invitation role must be Member or Viewer");
+        }
+
+        var email = command.Email.Trim();
+        var invitedUser = await _dbContext.Users.FirstOrDefaultAsync(user => user.IsActive && user.Email == email);
+        if (invitedUser is null)
+        {
+            return ProjectOperationResult<CreatedProjectInvitationView>.Failure(ProjectOperationStatus.NotFound, "An active user with this email was not found");
+        }
+
+        if (invitedUser.Id == command.OwnerId || await _dbContext.ProjectMembers.AnyAsync(member => member.ProjectId == command.ProjectId && member.UserId == invitedUser.Id))
+        {
+            return ProjectOperationResult<CreatedProjectInvitationView>.Failure(ProjectOperationStatus.Conflict, "User is already a project member");
+        }
+
+        var hasPendingInvitation = await _dbContext.ProjectInvitations.AnyAsync(invitation => invitation.ProjectId == command.ProjectId
+            && invitation.InvitedUserId == invitedUser.Id
+            && invitation.Status == ProjectInvitationStatus.Pending
+            && invitation.ExpiresAt > DateTime.UtcNow);
+        if (hasPendingInvitation)
+        {
+            return ProjectOperationResult<CreatedProjectInvitationView>.Failure(ProjectOperationStatus.Conflict, "User already has a pending invitation");
+        }
+
+        var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+        var invitation = new ProjectInvitation
+        {
+            ProjectId = command.ProjectId,
+            InvitedUserId = invitedUser.Id,
+            InvitedByUserId = command.OwnerId,
+            Role = command.Role,
+            TokenHash = HashToken(token),
+            ExpiresAt = DateTime.UtcNow.AddDays(7)
+        };
+        _dbContext.ProjectInvitations.Add(invitation);
+        AddActivity(command.ProjectId, command.OwnerId, "invitation.created", $"invited {invitedUser.DisplayName} to the project.");
+        await _dbContext.SaveChangesAsync();
+
+        var projectName = await _dbContext.Projects.Where(project => project.Id == command.ProjectId).Select(project => project.Name).SingleAsync();
+        var inviterName = await _dbContext.Users.Where(user => user.Id == command.OwnerId).Select(user => user.DisplayName).SingleAsync();
+        await _notificationService.CreateAsync(invitedUser.Id, NotificationType.ProjectInvitation,
+            "Project invitation", $"{inviterName} invited you to join '{projectName}'.", "ProjectInvitation", invitation.Id);
+
+        return ProjectOperationResult<CreatedProjectInvitationView>.Success(
+            new CreatedProjectInvitationView(MapInvitation(invitation, projectName, invitedUser, inviterName), token),
+            "Project invitation created",
+            201);
+    }
+
+    public async Task<ProjectOperationResult<IReadOnlyList<ProjectInvitationView>>> GetProjectInvitationsAsync(Guid ownerId, Guid projectId)
+    {
+        if (!await OwnedProjectExistsAsync(ownerId, projectId))
+        {
+            return ProjectOperationResult<IReadOnlyList<ProjectInvitationView>>.Failure(ProjectOperationStatus.NotFound, "Project not found");
+        }
+
+        var invitations = await _dbContext.ProjectInvitations.AsNoTracking()
+            .Include(invitation => invitation.Project)
+            .Include(invitation => invitation.InvitedUser)
+            .Include(invitation => invitation.InvitedByUser)
+            .Where(invitation => invitation.ProjectId == projectId)
+            .OrderByDescending(invitation => invitation.CreatedAt)
+            .ToListAsync();
+        return ProjectOperationResult<IReadOnlyList<ProjectInvitationView>>.Success(invitations.Select(MapInvitation).ToList());
+    }
+
+    public async Task<ProjectOperationResult<IReadOnlyList<ProjectInvitationView>>> GetMyProjectInvitationsAsync(Guid userId)
+    {
+        var invitations = await _dbContext.ProjectInvitations.AsNoTracking()
+            .Include(invitation => invitation.Project)
+            .Include(invitation => invitation.InvitedUser)
+            .Include(invitation => invitation.InvitedByUser)
+            .Where(invitation => invitation.InvitedUserId == userId && invitation.Status == ProjectInvitationStatus.Pending)
+            .OrderByDescending(invitation => invitation.CreatedAt)
+            .ToListAsync();
+        return ProjectOperationResult<IReadOnlyList<ProjectInvitationView>>.Success(invitations.Select(MapInvitation).ToList());
+    }
+
+    public Task<ProjectOperationResult<ProjectInvitationView>> AcceptProjectInvitationAsync(Guid userId, string token)
+        => RespondToProjectInvitationAsync(userId, token, ProjectInvitationStatus.Accepted);
+
+    public Task<ProjectOperationResult<ProjectInvitationView>> DeclineProjectInvitationAsync(Guid userId, string token)
+        => RespondToProjectInvitationAsync(userId, token, ProjectInvitationStatus.Declined);
+
+    private async Task<ProjectOperationResult<ProjectInvitationView>> RespondToProjectInvitationAsync(Guid userId, string token, ProjectInvitationStatus responseStatus)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return ProjectOperationResult<ProjectInvitationView>.Failure(ProjectOperationStatus.ValidationError, "Invitation token is required");
+        }
+
+        var invitation = await _dbContext.ProjectInvitations
+            .Include(candidate => candidate.Project)
+            .Include(candidate => candidate.InvitedUser)
+            .Include(candidate => candidate.InvitedByUser)
+            .FirstOrDefaultAsync(candidate => candidate.TokenHash == HashToken(token));
+        if (invitation is null || invitation.InvitedUserId != userId)
+        {
+            return ProjectOperationResult<ProjectInvitationView>.Failure(ProjectOperationStatus.NotFound, "Project invitation not found");
+        }
+
+        if (invitation.Status != ProjectInvitationStatus.Pending)
+        {
+            return ProjectOperationResult<ProjectInvitationView>.Failure(ProjectOperationStatus.Conflict, "Project invitation has already been answered");
+        }
+
+        if (invitation.ExpiresAt <= DateTime.UtcNow || invitation.Project.IsArchived)
+        {
+            invitation.Status = ProjectInvitationStatus.Expired;
+            await _dbContext.SaveChangesAsync();
+            return ProjectOperationResult<ProjectInvitationView>.Failure(ProjectOperationStatus.Conflict, "Project invitation has expired");
+        }
+
+        if (responseStatus == ProjectInvitationStatus.Accepted)
+        {
+            if (await _dbContext.ProjectMembers.AnyAsync(member => member.ProjectId == invitation.ProjectId && member.UserId == userId))
+            {
+                return ProjectOperationResult<ProjectInvitationView>.Failure(ProjectOperationStatus.Conflict, "User is already a project member");
+            }
+
+            _dbContext.ProjectMembers.Add(new ProjectMember
+            {
+                ProjectId = invitation.ProjectId,
+                UserId = userId,
+                Role = invitation.Role
+            });
+        }
+
+        invitation.Status = responseStatus;
+        invitation.RespondedAt = DateTime.UtcNow;
+        AddActivity(invitation.ProjectId, userId,
+            responseStatus == ProjectInvitationStatus.Accepted ? "invitation.accepted" : "invitation.declined",
+            responseStatus == ProjectInvitationStatus.Accepted ? "accepted a project invitation." : "declined a project invitation.");
+        await _dbContext.SaveChangesAsync();
+
+        await _notificationService.CreateAsync(invitation.InvitedByUserId, NotificationType.ProjectInvitation,
+            "Project invitation response", $"{invitation.InvitedUser.DisplayName} {responseStatus.ToString().ToLowerInvariant()} the invitation to '{invitation.Project.Name}'.",
+            "ProjectInvitation", invitation.Id);
+
+        return ProjectOperationResult<ProjectInvitationView>.Success(MapInvitation(invitation), "Project invitation updated");
+    }
+
     public async Task<ProjectOperationResult<PagedProjectActivityView>> GetProjectActivitiesAsync(Guid userId, Guid projectId, int pageNumber, int pageSize)
     {
         if (!await HasProjectAccessAsync(userId, projectId))
@@ -372,4 +525,24 @@ public sealed class DatabaseProjectService : IProjectApplicationService
 
     private static string? NormalizeDescription(string? description)
         => string.IsNullOrWhiteSpace(description) ? null : description.Trim();
+
+    private static string HashToken(string token)
+        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
+
+    private static ProjectInvitationView MapInvitation(ProjectInvitation invitation)
+        => MapInvitation(invitation, invitation.Project.Name, invitation.InvitedUser, invitation.InvitedByUser.DisplayName);
+
+    private static ProjectInvitationView MapInvitation(ProjectInvitation invitation, string projectName, User invitedUser, string invitedByDisplayName)
+        => new(
+            invitation.Id,
+            invitation.ProjectId,
+            projectName,
+            invitation.InvitedUserId,
+            invitedUser.DisplayName,
+            invitedUser.Email,
+            invitedByDisplayName,
+            invitation.Role,
+            invitation.Status == ProjectInvitationStatus.Pending && invitation.ExpiresAt <= DateTime.UtcNow ? ProjectInvitationStatus.Expired : invitation.Status,
+            invitation.ExpiresAt,
+            invitation.CreatedAt);
 }

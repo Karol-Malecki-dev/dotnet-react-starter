@@ -105,6 +105,7 @@ export {
   ProjectTaskStatus,
   ProjectTaskPriority,
   ProjectMemberRole,
+  ProjectInvitationStatus,
 } from './project';
 
 export type {
@@ -113,12 +114,15 @@ export type {
   ProjectTaskCommentDto,
   ProjectMemberDto,
   ProjectMemberUserDto,
+  ProjectInvitationDto,
+  CreatedProjectInvitationDto,
   CreateProjectRequest,
   UpdateProjectRequest,
   CreateProjectTaskRequest,
   UpdateProjectTaskRequest,
   UpdateProjectTaskStatusRequest,
   CreateProjectTaskCommentRequest,
+  CreateProjectInvitationRequest,
   ProjectsResponse,
   ProjectResponse,
   ProjectTasksResponse,
@@ -129,6 +133,9 @@ export type {
   ProjectMembersResponse,
   ProjectMemberUsersResponse,
   ProjectMemberResponse,
+  ProjectInvitationsResponse,
+  CreatedProjectInvitationResponse,
+  ProjectInvitationResponse,
   ProjectActivityDto,
   ProjectActivitiesResponse,
   ProjectDashboardDto,

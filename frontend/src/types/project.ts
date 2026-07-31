@@ -18,6 +18,13 @@ export enum ProjectMemberRole {
   Viewer = 3,
 }
 
+export enum ProjectInvitationStatus {
+  Pending = 1,
+  Accepted = 2,
+  Declined = 3,
+  Expired = 4,
+}
+
 export interface ProjectDto {
   id: string;
   name: string;
@@ -64,6 +71,25 @@ export interface ProjectMemberUserDto {
   id: string;
   displayName: string;
   email: string;
+}
+
+export interface ProjectInvitationDto {
+  id: string;
+  projectId: string;
+  projectName: string;
+  invitedUserId: string;
+  invitedUserDisplayName: string;
+  invitedUserEmail: string;
+  invitedByDisplayName: string;
+  role: ProjectMemberRole;
+  status: ProjectInvitationStatus;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface CreatedProjectInvitationDto {
+  invitation: ProjectInvitationDto;
+  token: string;
 }
 
 export interface ProjectActivityDto {
@@ -117,6 +143,11 @@ export interface CreateProjectTaskCommentRequest {
   content: string;
 }
 
+export interface CreateProjectInvitationRequest {
+  email: string;
+  role: ProjectMemberRole;
+}
+
 export type ProjectsResponse = ApiResponse<ProjectDto[]>;
 export type ProjectResponse = ApiResponse<ProjectDto>;
 export interface PagedResult<T> {
@@ -135,5 +166,8 @@ export type ProjectOperationResponse = ApiResponse<boolean>;
 export type ProjectMembersResponse = ApiResponse<ProjectMemberDto[]>;
 export type ProjectMemberUsersResponse = ApiResponse<ProjectMemberUserDto[]>;
 export type ProjectMemberResponse = ApiResponse<ProjectMemberDto>;
+export type ProjectInvitationsResponse = ApiResponse<ProjectInvitationDto[]>;
+export type CreatedProjectInvitationResponse = ApiResponse<CreatedProjectInvitationDto>;
+export type ProjectInvitationResponse = ApiResponse<ProjectInvitationDto>;
 export type ProjectActivitiesResponse = ApiResponse<PagedResult<ProjectActivityDto>>;
 export type ProjectDashboardResponse = ApiResponse<ProjectDashboardDto>;

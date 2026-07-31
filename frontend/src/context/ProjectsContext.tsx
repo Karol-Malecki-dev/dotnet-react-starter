@@ -12,6 +12,9 @@ import type {
   ProjectActivityDto,
   ProjectDashboardDto,
   ProjectTaskCommentDto,
+  ProjectInvitationDto,
+  CreatedProjectInvitationDto,
+  CreateProjectInvitationRequest,
   UpdateProjectRequest,
   UpdateProjectTaskRequest,
 } from '../types';
@@ -31,6 +34,8 @@ interface ProjectsContextValue {
   dashboardLoading: boolean;
   taskComments: Record<string, ProjectTaskCommentDto[]>;
   commentsLoadingTaskId: string | null;
+  projectInvitations: ProjectInvitationDto[];
+  invitationsLoading: boolean;
   includeArchived: boolean;
   setIncludeArchived: (includeArchived: boolean) => Promise<void>;
   projectScope?: 'all' | 'owned' | 'member';
@@ -47,6 +52,10 @@ interface ProjectsContextValue {
   loadTaskComments: (taskId: string) => Promise<void>;
   createTaskComment: (taskId: string, content: string) => Promise<ProjectTaskCommentDto>;
   deleteTaskComment: (taskId: string, commentId: string) => Promise<void>;
+  loadProjectInvitations: (projectId: string) => Promise<void>;
+  createProjectInvitation: (request: CreateProjectInvitationRequest) => Promise<CreatedProjectInvitationDto>;
+  acceptProjectInvitation: (token: string) => Promise<void>;
+  declineProjectInvitation: (token: string) => Promise<void>;
   addMember: (userId: string) => Promise<void>;
   removeMember: (userId: string) => Promise<void>;
   updateMemberRole?: (userId: string, role: ProjectMemberRole) => Promise<void>;
@@ -75,6 +84,8 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [taskComments, setTaskComments] = useState<Record<string, ProjectTaskCommentDto[]>>({});
   const [commentsLoadingTaskId, setCommentsLoadingTaskId] = useState<string | null>(null);
+  const [projectInvitations, setProjectInvitations] = useState<ProjectInvitationDto[]>([]);
+  const [invitationsLoading, setInvitationsLoading] = useState(false);
   const [includeArchived, setIncludeArchivedState] = useState(false);
   const [projectScope, setProjectScopeState] = useState<'all' | 'owned' | 'member'>('all');
   const [taskPage, setTaskPage] = useState(1);
@@ -172,6 +183,19 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     }
   }, [selectedProjectId]);
 
+  const loadProjectInvitations = useCallback(async (projectId: string) => {
+    setInvitationsLoading(true);
+    try {
+      const response = await projectApi.getInvitations(projectId);
+      setProjectInvitations(response.data ?? []);
+    } catch (caughtError) {
+      setProjectInvitations([]);
+      setError(caughtError instanceof Error ? caughtError.message : 'Unable to load project invitations');
+    } finally {
+      setInvitationsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void loadProjects();
   }, [loadProjects]);
@@ -189,6 +213,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
       setActivities([]);
       setDashboard(null);
       setTaskComments({});
+      setProjectInvitations([]);
     }
   }, [loadActivities, loadDashboard, loadMembers, loadTasks, selectedProjectId]);
 
@@ -241,6 +266,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     setSelectedProjectId((currentId) => (currentId === projectId ? null : currentId));
     setTasks([]);
     setTaskComments({});
+    setProjectInvitations([]);
   }, []);
 
   const createTask = useCallback(async (request: CreateProjectTaskRequest) => {
@@ -343,6 +369,41 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     }));
   }, [selectedProjectId]);
 
+  const createProjectInvitation = useCallback(async (request: CreateProjectInvitationRequest) => {
+    if (!selectedProjectId) {
+      throw new Error('Select a project first');
+    }
+
+    setError(null);
+    const response = await projectApi.createInvitation(selectedProjectId, request);
+    if (!response.data) {
+      throw new Error(response.message || 'Project invitation was not created');
+    }
+
+    setProjectInvitations((currentInvitations) => [response.data!.invitation, ...currentInvitations]);
+    void loadActivities(selectedProjectId);
+    void loadDashboard(selectedProjectId);
+    return response.data;
+  }, [loadActivities, loadDashboard, selectedProjectId]);
+
+  const acceptProjectInvitation = useCallback(async (token: string) => {
+    setError(null);
+    const response = await projectApi.acceptInvitation(token);
+    if (!response.data) {
+      throw new Error(response.message || 'Project invitation was not accepted');
+    }
+
+    await loadProjects();
+  }, [loadProjects]);
+
+  const declineProjectInvitation = useCallback(async (token: string) => {
+    setError(null);
+    const response = await projectApi.declineInvitation(token);
+    if (!response.data) {
+      throw new Error(response.message || 'Project invitation was not declined');
+    }
+  }, []);
+
   const addMember = useCallback(async (userId: string) => {
     if (!selectedProjectId) {
       throw new Error('Select a project first');
@@ -406,6 +467,8 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     dashboardLoading,
     taskComments,
     commentsLoadingTaskId,
+    projectInvitations,
+    invitationsLoading,
     includeArchived,
     setIncludeArchived,
     projectScope,
@@ -422,6 +485,10 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     loadTaskComments,
     createTaskComment,
     deleteTaskComment,
+    loadProjectInvitations,
+    createProjectInvitation,
+    acceptProjectInvitation,
+    declineProjectInvitation,
     addMember,
     removeMember,
     updateMemberRole,
@@ -446,6 +513,8 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     dashboardLoading,
     taskComments,
     commentsLoadingTaskId,
+    projectInvitations,
+    invitationsLoading,
     includeArchived,
     projectScope,
     setIncludeArchived,
@@ -462,6 +531,10 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     loadTaskComments,
     createTaskComment,
     deleteTaskComment,
+    loadProjectInvitations,
+    createProjectInvitation,
+    acceptProjectInvitation,
+    declineProjectInvitation,
     addMember,
     removeMember,
     updateMemberRole,
