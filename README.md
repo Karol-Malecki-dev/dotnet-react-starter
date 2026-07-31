@@ -158,6 +158,17 @@ The frontend shell now waits for both auth and runtime config before rendering p
 
 The default Docker Compose configuration is intended for local development and smoke testing. The CD workflow publishes container images to GHCR but does not deploy them to a hosting platform. Production secrets, migrations, monitoring, rollback, and hosting configuration remain environment-specific.
 
+## Operations
+
+The API exposes health endpoints for deployment probes and monitoring:
+
+- `GET /health` reports the API and database health, excluding background workers.
+- `GET /health/live` reports that the API process is alive.
+- `GET /health/ready` verifies that the configured database accepts connections.
+- `GET /health/workers` reports the latest processing state of background workers.
+
+Every response includes `X-Correlation-ID`. Clients can provide this header to trace a request through structured API logs; otherwise the API generates a request identifier.
+
 ## Testing
 
 ### Backend

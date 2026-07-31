@@ -10,15 +10,19 @@ namespace Infrastructure.Services;
 public sealed class NotificationEmailOutboxWorker : BackgroundService
 {
     private const int MaxAttempts = 3;
+    public const string WorkerName = "notification-email-outbox";
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<NotificationEmailOutboxWorker> _logger;
+    private readonly BackgroundWorkerHealthState _healthState;
 
     public NotificationEmailOutboxWorker(
         IServiceScopeFactory scopeFactory,
-        ILogger<NotificationEmailOutboxWorker> logger)
+        ILogger<NotificationEmailOutboxWorker> logger,
+        BackgroundWorkerHealthState healthState)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
+        _healthState = healthState;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -28,6 +32,7 @@ public sealed class NotificationEmailOutboxWorker : BackgroundService
             try
             {
                 await ProcessPendingMessagesAsync(stoppingToken);
+                _healthState.ReportSuccess(WorkerName);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -35,6 +40,7 @@ public sealed class NotificationEmailOutboxWorker : BackgroundService
             }
             catch (Exception exception)
             {
+                _healthState.ReportFailure(WorkerName, exception);
                 _logger.LogError(exception, "Notification email outbox worker failed while processing messages");
             }
 
