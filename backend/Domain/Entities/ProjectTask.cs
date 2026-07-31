@@ -21,4 +21,5 @@ public class ProjectTask
     public User? AssignedUser { get; set; }
     public ICollection<ProjectTaskComment> Comments { get; set; } = [];
     public ICollection<ProjectTaskAttachment> Attachments { get; set; } = [];
+    public ICollection<ProjectTaskLabel> Labels { get; set; } = [];
 }

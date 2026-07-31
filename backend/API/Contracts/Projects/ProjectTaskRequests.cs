@@ -9,13 +9,15 @@ public sealed record CreateProjectTaskRequest(
     string? Description,
     ProjectTaskPriority Priority = ProjectTaskPriority.Normal,
     DateTime? DueDate = null,
-    Guid? AssignedUserId = null);
+    Guid? AssignedUserId = null,
+    IReadOnlyList<string>? Labels = null);
 
 public sealed record UpdateProjectTaskRequest(
     string Title,
     string? Description,
     ProjectTaskPriority Priority = ProjectTaskPriority.Normal,
     DateTime? DueDate = null,
-    Guid? AssignedUserId = null);
+    Guid? AssignedUserId = null,
+    IReadOnlyList<string>? Labels = null);
 
 public sealed record UpdateProjectTaskStatusRequest(ProjectTaskStatus Status);

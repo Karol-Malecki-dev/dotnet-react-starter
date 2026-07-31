@@ -16,5 +16,13 @@ public sealed class CreateProjectTaskRequestValidator : AbstractValidator<Create
 
         RuleFor(task => task.Priority)
             .IsInEnum();
+
+        RuleForEach(task => task.Labels)
+            .NotEmpty()
+            .MaximumLength(40);
+
+        RuleFor(task => task.Labels)
+            .Must(labels => labels is null || labels.Count <= 10)
+            .WithMessage("A task cannot have more than 10 labels");
     }
 }

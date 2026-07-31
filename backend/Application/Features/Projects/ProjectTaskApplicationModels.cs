@@ -13,7 +13,8 @@ public sealed record ProjectTaskView(
     Guid? AssignedUserId,
     Guid? CreatedByUserId,
     DateTime CreatedAt,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    IReadOnlyList<string> Labels);
 
 public sealed record PagedProjectTaskView(
     IReadOnlyList<ProjectTaskView> Items,
@@ -30,7 +31,8 @@ public sealed record CreateProjectTaskCommand(
     string? Description,
     ProjectTaskPriority Priority,
     DateTime? DueDate,
-    Guid? AssignedUserId);
+    Guid? AssignedUserId,
+    IReadOnlyList<string> Labels);
 
 public sealed record UpdateProjectTaskCommand(
     Guid OwnerId,
@@ -40,7 +42,8 @@ public sealed record UpdateProjectTaskCommand(
     string? Description,
     ProjectTaskPriority Priority,
     DateTime? DueDate,
-    Guid? AssignedUserId);
+    Guid? AssignedUserId,
+    IReadOnlyList<string> Labels);
 
 public sealed record UpdateProjectTaskStatusCommand(
     Guid OwnerId,

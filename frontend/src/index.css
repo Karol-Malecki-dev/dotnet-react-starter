@@ -466,6 +466,8 @@ ul {
 .task-attachments__item small { color: var(--muted); }
 .task-attachments__actions { display: flex; gap: 0.55rem; flex-wrap: wrap; justify-content: end; }
 .task-attachments__form { display: grid; gap: 0.65rem; margin-top: 1rem; }
+.task-labels { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.45rem 0; }
+.task-label { padding: 0.2rem 0.5rem; border: 1px solid rgba(72, 209, 201, 0.35); border-radius: 999px; color: var(--accent); font-size: 0.75rem; }
 .priority { padding: 0.35rem 0.6rem; border-radius: 999px; font-size: 0.8rem; font-weight: 700; background: rgba(148, 163, 184, 0.16); }
 .priority--high { color: #fecaca; background: rgba(248, 113, 113, 0.16); }
 .priority--normal { color: #fde68a; background: rgba(245, 158, 11, 0.16); }
