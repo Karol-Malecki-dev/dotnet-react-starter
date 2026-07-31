@@ -299,6 +299,43 @@ public sealed class DatabaseProjectService : IProjectApplicationService
         return ProjectOperationResult<PagedProjectActivityView>.Success(new PagedProjectActivityView(items, safePageNumber, safePageSize, totalCount));
     }
 
+    public async Task<ProjectOperationResult<ProjectDashboardView>> GetProjectDashboardAsync(Guid userId, Guid projectId)
+    {
+        if (!await HasProjectAccessAsync(userId, projectId))
+        {
+            return ProjectOperationResult<ProjectDashboardView>.Failure(ProjectOperationStatus.NotFound, "Project not found");
+        }
+
+        var today = DateTime.UtcNow.Date;
+        var upcomingDeadline = today.AddDays(7);
+        var tasks = await _dbContext.ProjectTasks.AsNoTracking()
+            .Where(task => task.ProjectId == projectId)
+            .ToListAsync();
+        var recentActivities = await _dbContext.ProjectActivities.AsNoTracking()
+            .Where(activity => activity.ProjectId == projectId)
+            .OrderByDescending(activity => activity.CreatedAt)
+            .Take(5)
+            .Select(activity => new ProjectActivityView(activity.Id, activity.Type, activity.Description, activity.ActorUserId, activity.ActorUser.DisplayName, activity.ProjectTaskId, activity.CreatedAt))
+            .ToListAsync();
+
+        var overdueTasks = tasks.Where(task => task.DueDate.HasValue && task.DueDate.Value.Date < today && task.Status != ProjectTaskStatus.Done)
+            .OrderBy(task => task.DueDate).Take(10).Select(MapDashboardTask).ToList();
+        var upcomingTasks = tasks.Where(task => task.DueDate.HasValue && task.DueDate.Value.Date >= today && task.DueDate.Value.Date <= upcomingDeadline && task.Status != ProjectTaskStatus.Done)
+            .OrderBy(task => task.DueDate).Take(10).Select(MapDashboardTask).ToList();
+
+        return ProjectOperationResult<ProjectDashboardView>.Success(new ProjectDashboardView(
+            tasks.Count,
+            tasks.Count(task => task.Status == ProjectTaskStatus.Todo),
+            tasks.Count(task => task.Status == ProjectTaskStatus.InProgress),
+            tasks.Count(task => task.Status == ProjectTaskStatus.Done),
+            tasks.Count(task => task.Priority == ProjectTaskPriority.Low),
+            tasks.Count(task => task.Priority == ProjectTaskPriority.Normal),
+            tasks.Count(task => task.Priority == ProjectTaskPriority.High),
+            overdueTasks,
+            upcomingTasks,
+            recentActivities));
+    }
+
     private Task<bool> OwnedProjectExistsAsync(Guid ownerId, Guid projectId)
         => _dbContext.Projects.AnyAsync(project => project.Id == projectId && project.OwnerId == ownerId);
 
@@ -316,6 +353,10 @@ public sealed class DatabaseProjectService : IProjectApplicationService
             Description = description
         });
     }
+
+    private static ProjectTaskView MapDashboardTask(ProjectTask task) => new(
+        task.Id, task.ProjectId, task.Title, task.Description, task.Status, task.Priority,
+        task.DueDate, task.AssignedUserId, task.CreatedByUserId, task.CreatedAt, task.UpdatedAt);
 
     private static ProjectView MapToView(Project project, Guid? currentUserId = null) => new(
         project.Id,

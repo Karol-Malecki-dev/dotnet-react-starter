@@ -70,6 +70,8 @@ function createContextValue(overrides = {}) {
     availableMembers: [],
     activities: [],
     activitiesLoading: false,
+    dashboard: null,
+    dashboardLoading: false,
     includeArchived: false,
     setIncludeArchived: jest.fn().mockResolvedValue(undefined),
     refreshProjects: jest.fn().mockResolvedValue(undefined),
@@ -137,6 +139,29 @@ describe('Projects page', () => {
 
     expect(screen.getByRole('heading', { name: 'Activity' })).toBeInTheDocument();
     expect(screen.getByText("created the task 'Prepare wireframes'.")).toBeInTheDocument();
+  });
+
+  it('renders project dashboard task metrics and deadlines', () => {
+    mockedUseProjects.mockReturnValue(createContextValue({
+      dashboard: {
+        totalTasks: 3,
+        todoTasks: 1,
+        inProgressTasks: 1,
+        doneTasks: 1,
+        lowPriorityTasks: 1,
+        normalPriorityTasks: 1,
+        highPriorityTasks: 1,
+        overdueTasks: [{ ...task, id: 'overdue-task', title: 'Fix checkout', dueDate: '2026-07-20T00:00:00Z' }],
+        upcomingTasks: [{ ...task, id: 'upcoming-task', title: 'Review copy', dueDate: '2026-07-28T00:00:00Z' }],
+        recentActivities: [],
+      },
+    }));
+
+    render(<Projects />);
+
+    expect(screen.getByRole('heading', { name: 'Work at a glance' })).toBeInTheDocument();
+    expect(screen.getByText('Fix checkout')).toBeInTheDocument();
+    expect(screen.getByText('Review copy')).toBeInTheDocument();
   });
 
   it('submits a new task through the projects context', async () => {

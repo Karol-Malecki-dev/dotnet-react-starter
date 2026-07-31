@@ -159,6 +159,35 @@ public class ProjectsApiIntegrationTests
         Assert.Equal(HttpStatusCode.NotFound, forbiddenResponse.StatusCode);
     }
 
+    [Fact]
+    public async Task Project_dashboard_returns_task_metrics_and_due_date_lists()
+    {
+        var ownerId = await SeedUserAsync("dashboard.owner@example.com", "password123", "Dashboard Owner");
+        await SeedUserAsync("dashboard.outsider@example.com", "password123", "Dashboard Outsider");
+        var projectId = await SeedProjectAsync(ownerId, "Dashboard project");
+        await SeedProjectTaskAsync(projectId, "Overdue task", ProjectTaskStatus.Todo, ProjectTaskPriority.High, DateTime.UtcNow.AddDays(-1));
+        await SeedProjectTaskAsync(projectId, "Upcoming task", ProjectTaskStatus.InProgress, ProjectTaskPriority.Normal, DateTime.UtcNow.AddDays(3));
+        await SeedProjectTaskAsync(projectId, "Completed task", ProjectTaskStatus.Done, ProjectTaskPriority.Low, DateTime.UtcNow.AddDays(-2));
+
+        var ownerTokens = await LoginAsync("dashboard.owner@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerTokens.AccessToken);
+        var dashboardResponse = await _client.GetAsync($"/api/projects/{projectId}/dashboard");
+        dashboardResponse.EnsureSuccessStatusCode();
+        var dashboard = await dashboardResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectDashboardView>>();
+        Assert.NotNull(dashboard?.Data);
+        Assert.Equal(3, dashboard.Data.TotalTasks);
+        Assert.Equal(1, dashboard.Data.TodoTasks);
+        Assert.Equal(1, dashboard.Data.InProgressTasks);
+        Assert.Equal(1, dashboard.Data.DoneTasks);
+        Assert.Single(dashboard.Data.OverdueTasks);
+        Assert.Single(dashboard.Data.UpcomingTasks);
+
+        var outsiderTokens = await LoginAsync("dashboard.outsider@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", outsiderTokens.AccessToken);
+        var forbiddenResponse = await _client.GetAsync($"/api/projects/{projectId}/dashboard");
+        Assert.Equal(HttpStatusCode.NotFound, forbiddenResponse.StatusCode);
+    }
+
     private async Task<AuthTokenResponse> LoginAsync(string email, string password)
     {
         var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new { Email = email, Password = password });
@@ -204,5 +233,20 @@ public class ProjectsApiIntegrationTests
         dbContext.Projects.Add(project);
         await dbContext.SaveChangesAsync();
         return project.Id;
+    }
+
+    private async Task SeedProjectTaskAsync(Guid projectId, string title, ProjectTaskStatus status, ProjectTaskPriority priority, DateTime dueDate)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        dbContext.ProjectTasks.Add(new ProjectTask
+        {
+            ProjectId = projectId,
+            Title = title,
+            Status = status,
+            Priority = priority,
+            DueDate = dueDate
+        });
+        await dbContext.SaveChangesAsync();
     }
 }

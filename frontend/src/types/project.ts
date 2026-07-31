@@ -67,6 +67,19 @@ export interface ProjectActivityDto {
   createdAt: string;
 }
 
+export interface ProjectDashboardDto {
+  totalTasks: number;
+  todoTasks: number;
+  inProgressTasks: number;
+  doneTasks: number;
+  lowPriorityTasks: number;
+  normalPriorityTasks: number;
+  highPriorityTasks: number;
+  overdueTasks: ProjectTaskDto[];
+  upcomingTasks: ProjectTaskDto[];
+  recentActivities: ProjectActivityDto[];
+}
+
 export interface CreateProjectRequest {
   name: string;
   description?: string;
@@ -108,3 +121,4 @@ export type ProjectMembersResponse = ApiResponse<ProjectMemberDto[]>;
 export type ProjectMemberUsersResponse = ApiResponse<ProjectMemberUserDto[]>;
 export type ProjectMemberResponse = ApiResponse<ProjectMemberDto>;
 export type ProjectActivitiesResponse = ApiResponse<PagedResult<ProjectActivityDto>>;
+export type ProjectDashboardResponse = ApiResponse<ProjectDashboardDto>;

@@ -10,6 +10,7 @@ import type {
   ProjectMemberUserDto,
   ProjectMemberRole,
   ProjectActivityDto,
+  ProjectDashboardDto,
   UpdateProjectRequest,
   UpdateProjectTaskRequest,
 } from '../types';
@@ -25,6 +26,8 @@ interface ProjectsContextValue {
   availableMembers: ProjectMemberUserDto[];
   activities: ProjectActivityDto[];
   activitiesLoading: boolean;
+  dashboard: ProjectDashboardDto | null;
+  dashboardLoading: boolean;
   includeArchived: boolean;
   setIncludeArchived: (includeArchived: boolean) => Promise<void>;
   projectScope?: 'all' | 'owned' | 'member';
@@ -62,6 +65,8 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
   const [availableMembers, setAvailableMembers] = useState<ProjectMemberUserDto[]>([]);
   const [activities, setActivities] = useState<ProjectActivityDto[]>([]);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
+  const [dashboard, setDashboard] = useState<ProjectDashboardDto | null>(null);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
   const [includeArchived, setIncludeArchivedState] = useState(false);
   const [projectScope, setProjectScopeState] = useState<'all' | 'owned' | 'member'>('all');
   const [taskPage, setTaskPage] = useState(1);
@@ -132,6 +137,19 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const loadDashboard = useCallback(async (projectId: string) => {
+    setDashboardLoading(true);
+    try {
+      const response = await projectApi.getDashboard(projectId);
+      setDashboard(response.data ?? null);
+    } catch (caughtError) {
+      setDashboard(null);
+      setError(caughtError instanceof Error ? caughtError.message : 'Unable to load project dashboard');
+    } finally {
+      setDashboardLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void loadProjects();
   }, [loadProjects]);
@@ -141,13 +159,15 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
       void loadTasks(selectedProjectId);
       void loadMembers(selectedProjectId);
       void loadActivities(selectedProjectId);
+      void loadDashboard(selectedProjectId);
     } else {
       setTasks([]);
       setMembers([]);
       setAvailableMembers([]);
       setActivities([]);
+      setDashboard(null);
     }
-  }, [loadActivities, loadMembers, loadTasks, selectedProjectId]);
+  }, [loadActivities, loadDashboard, loadMembers, loadTasks, selectedProjectId]);
 
   const selectedProject = projects.find((project) => project.id === selectedProjectId) ?? null;
 
@@ -212,8 +232,9 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
 
     setTasks((currentTasks) => [...currentTasks, response.data!]);
     void loadActivities(selectedProjectId);
+    void loadDashboard(selectedProjectId);
     return response.data;
-  }, [loadActivities, selectedProjectId]);
+  }, [loadActivities, loadDashboard, selectedProjectId]);
 
   const updateTask = useCallback(async (taskId: string, request: UpdateProjectTaskRequest) => {
     if (!selectedProjectId) {
@@ -228,8 +249,9 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
 
     setTasks((currentTasks) => currentTasks.map((task) => (task.id === taskId ? response.data! : task)));
     void loadActivities(selectedProjectId);
+    void loadDashboard(selectedProjectId);
     return response.data;
-  }, [loadActivities, selectedProjectId]);
+  }, [loadActivities, loadDashboard, selectedProjectId]);
 
   const updateTaskStatus = useCallback(async (taskId: string, status: ProjectTaskStatus) => {
     if (!selectedProjectId) {
@@ -244,8 +266,9 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
 
     setTasks((currentTasks) => currentTasks.map((task) => (task.id === taskId ? response.data! : task)));
     void loadActivities(selectedProjectId);
+    void loadDashboard(selectedProjectId);
     return response.data;
-  }, [loadActivities, selectedProjectId]);
+  }, [loadActivities, loadDashboard, selectedProjectId]);
 
   const deleteTask = useCallback(async (taskId: string) => {
     if (!selectedProjectId) {
@@ -255,7 +278,9 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     setError(null);
     await projectApi.deleteTask(selectedProjectId, taskId);
     setTasks((currentTasks) => currentTasks.filter((task) => task.id !== taskId));
-  }, [selectedProjectId]);
+    void loadActivities(selectedProjectId);
+    void loadDashboard(selectedProjectId);
+  }, [loadActivities, loadDashboard, selectedProjectId]);
 
   const addMember = useCallback(async (userId: string) => {
     if (!selectedProjectId) {
@@ -316,6 +341,8 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     availableMembers,
     activities,
     activitiesLoading,
+    dashboard,
+    dashboardLoading,
     includeArchived,
     setIncludeArchived,
     projectScope,
@@ -349,6 +376,8 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     availableMembers,
     activities,
     activitiesLoading,
+    dashboard,
+    dashboardLoading,
     includeArchived,
     projectScope,
     setIncludeArchived,
