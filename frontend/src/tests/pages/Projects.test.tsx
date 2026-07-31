@@ -36,6 +36,7 @@ const task = {
   assignedUserId: null,
   createdAt: '2026-07-25T10:00:00Z',
   updatedAt: '2026-07-25T10:00:00Z',
+  labels: [],
 };
 
 const ownerMember = {
@@ -269,6 +270,27 @@ describe('Projects page', () => {
       dueDate: undefined,
       assignedUserId: undefined,
     }));
+  });
+
+  it('renders task labels and submits normalized labels from the task form', async () => {
+    const createTask = jest.fn().mockResolvedValue(task);
+    mockedUseProjects.mockReturnValue(createContextValue({
+      tasks: [{ ...task, labels: ['design', 'urgent'] }],
+      createTask,
+    }));
+    render(<Projects />);
+
+    expect(screen.getByText('design')).toBeInTheDocument();
+    expect(screen.getByText('urgent')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Task title'), { target: { value: 'Review labels' } });
+    fireEvent.change(screen.getByLabelText('Labels'), { target: { value: ' frontend, urgent ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add task' }));
+
+    await waitFor(() => expect(createTask).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Review labels',
+      labels: ['frontend', 'urgent'],
+    })));
   });
 
   it('changes task status through the projects context', async () => {

@@ -134,6 +134,7 @@ Feature zarządzania projektami składa się z dwóch powiązanych pojęć domen
 - `ProjectTask` należy do dokładnie jednego projektu (`ProjectId`),
 - jeden projekt może mieć wiele zadań,
 - zadanie może być opcjonalnie przypisane do aktywnego użytkownika (`AssignedUserId`).
+- zadanie może mieć do 10 etykiet (`ProjectTaskLabel`), unikalnych w ramach zadania.
 
 Relacja ma następującą postać:
 
@@ -169,6 +170,10 @@ PATCH  /api/projects/{projectId}/tasks/{taskId}/status
 DELETE /api/projects/{projectId}/tasks/{taskId}
 ```
 
+Etykiety są przekazywane w polu `labels` żądań tworzenia i edycji zadania. Każda
+etykieta ma maksymalnie 40 znaków; API usuwa białe znaki brzegowe, normalizuje
+nazwy do małych liter, usuwa duplikaty i zwraca je w kolejności alfabetycznej.
+
 Każdy endpoint zadań najpierw sprawdza, czy zalogowany użytkownik jest właścicielem
 aktywnego projektu. Samo posiadanie identyfikatora projektu lub zadania nie daje dostępu.
 
@@ -179,6 +184,7 @@ Relację należy konfigurować jawnie w `ApplicationDbContext`:
 - `ProjectTask.ProjectId` jest wymaganym kluczem obcym do `Project.Id` i używa cascade delete,
 - `ProjectTask.AssignedUserId` jest opcjonalnym kluczem obcym do `User.Id` i używa `SetNull`,
 - `Status` i `Priority` są enumami zapisywanymi jako tekst,
+- `ProjectTaskLabel` używa cascade delete z zadaniem i unikalnego indeksu na `(ProjectTaskId, Name)`,
 - po zmianie modelu należy wygenerować migrację z katalogu `backend/`.
 
 Przykład komendy:

@@ -45,7 +45,8 @@ public class ProjectTasksApiIntegrationTests
             Title = "Prepare release notes",
             Description = "Document the first release",
             Priority = ProjectTaskPriority.High,
-            DueDate = DateTime.UtcNow.AddDays(3)
+            DueDate = DateTime.UtcNow.AddDays(3),
+            Labels = new[] { " Release ", "documentation", "release" }
         });
 
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
@@ -54,6 +55,7 @@ public class ProjectTasksApiIntegrationTests
         Assert.Equal(projectId, created.Data.ProjectId);
         Assert.Equal(ProjectTaskStatus.Todo, created.Data.Status);
         Assert.Equal(ProjectTaskPriority.High, created.Data.Priority);
+        Assert.Equal(new[] { "documentation", "release" }, created.Data.Labels);
 
         var statusResponse = await _client.PatchAsJsonAsync(
             $"/api/projects/{projectId}/tasks/{created.Data.Id}/status",
@@ -70,13 +72,20 @@ public class ProjectTasksApiIntegrationTests
                 Title = "Prepare final release notes",
                 Description = "Updated description",
                 Priority = ProjectTaskPriority.Normal,
-                DueDate = (DateTime?)null
+                DueDate = (DateTime?)null,
+                Labels = new[] { "final" }
             });
 
         updateResponse.EnsureSuccessStatusCode();
         var updateResult = await updateResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskResponse>>();
         Assert.Equal("Prepare final release notes", updateResult?.Data?.Title);
         Assert.Equal(ProjectTaskStatus.InProgress, updateResult?.Data?.Status);
+        Assert.Equal(new[] { "final" }, updateResult?.Data?.Labels);
+
+        var searchResponse = await _client.GetAsync($"/api/projects/{projectId}/tasks?search=final");
+        searchResponse.EnsureSuccessStatusCode();
+        var searchResult = await searchResponse.Content.ReadFromJsonAsync<ApiResponse<PagedProjectTaskResponse>>();
+        Assert.Equal(created.Data.Id, Assert.Single(searchResult?.Data?.Items ?? []).Id);
 
         var deleteResponse = await _client.DeleteAsync($"/api/projects/{projectId}/tasks/{created.Data.Id}");
 

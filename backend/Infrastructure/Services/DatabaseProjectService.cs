@@ -462,6 +462,7 @@ public sealed class DatabaseProjectService : IProjectApplicationService
         var today = DateTime.UtcNow.Date;
         var upcomingDeadline = today.AddDays(7);
         var tasks = await _dbContext.ProjectTasks.AsNoTracking()
+            .Include(task => task.Labels)
             .Where(task => task.ProjectId == projectId)
             .ToListAsync();
         var recentActivities = await _dbContext.ProjectActivities.AsNoTracking()
@@ -509,7 +510,8 @@ public sealed class DatabaseProjectService : IProjectApplicationService
 
     private static ProjectTaskView MapDashboardTask(ProjectTask task) => new(
         task.Id, task.ProjectId, task.Title, task.Description, task.Status, task.Priority,
-        task.DueDate, task.AssignedUserId, task.CreatedByUserId, task.CreatedAt, task.UpdatedAt);
+        task.DueDate, task.AssignedUserId, task.CreatedByUserId, task.CreatedAt, task.UpdatedAt,
+        task.Labels.OrderBy(label => label.Name).Select(label => label.Name).ToList());
 
     private static ProjectView MapToView(Project project, Guid? currentUserId = null) => new(
         project.Id,

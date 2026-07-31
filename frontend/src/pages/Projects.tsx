@@ -68,6 +68,7 @@ function TaskForm({ onSubmit, initialTask, assignmentEnabled, members }: { onSub
   const [priority, setPriority] = useState(initialTask?.priority ?? ProjectTaskPriority.Normal);
   const [dueDate, setDueDate] = useState(initialTask?.dueDate?.slice(0, 10) ?? '');
   const [assignedUserId, setAssignedUserId] = useState(initialTask?.assignedUserId ?? '');
+  const [labels, setLabels] = useState(initialTask?.labels.join(', ') ?? '');
   const [saving, setSaving] = useState(false);
 
   const submit = async (event: React.FormEvent) => {
@@ -75,12 +76,14 @@ function TaskForm({ onSubmit, initialTask, assignmentEnabled, members }: { onSub
     if (!title.trim()) return;
     setSaving(true);
     try {
-      await onSubmit({ title: title.trim(), description: description.trim() || undefined, priority, dueDate: dueDate || undefined, assignedUserId: assignedUserId || undefined });
+      const normalizedLabels = labels.split(',').map((label) => label.trim()).filter(Boolean);
+      await onSubmit({ title: title.trim(), description: description.trim() || undefined, priority, dueDate: dueDate || undefined, assignedUserId: assignedUserId || undefined, ...(normalizedLabels.length ? { labels: normalizedLabels } : {}) });
       if (!initialTask) {
         setTitle('');
         setDescription('');
         setDueDate('');
         setAssignedUserId('');
+        setLabels('');
       }
     } finally {
       setSaving(false);
@@ -96,6 +99,7 @@ function TaskForm({ onSubmit, initialTask, assignmentEnabled, members }: { onSub
         <div className="field"><label className="field__label" htmlFor="task-due-date">Due date</label><input id="task-due-date" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></div>
       </div>
       {assignmentEnabled ? <div className="field"><label className="field__label" htmlFor="task-assignee">Assign to</label><select id="task-assignee" value={assignedUserId} onChange={(event) => setAssignedUserId(event.target.value)}><option value="">Unassigned</option>{members.map((member) => <option key={member.userId} value={member.userId}>{member.displayName} ({member.email})</option>)}</select></div> : null}
+      <div className="field"><label className="field__label" htmlFor="task-labels">Labels</label><input id="task-labels" value={labels} onChange={(event) => setLabels(event.target.value)} placeholder="frontend, urgent" /></div>
       <button className="button" type="submit" disabled={saving}>{saving ? initialTask ? 'Saving...' : 'Adding...' : initialTask ? 'Save changes' : 'Add task'}</button>
     </form>
   );
@@ -177,7 +181,7 @@ function TaskItem({ task, canManage, discussionOpen, attachmentsOpen, onToggleDi
   const [deleting, setDeleting] = useState(false);
   return (
     <article className="task-item">
-      <div><h3>{task.title}</h3>{task.description ? <p>{task.description}</p> : null}<small>{task.dueDate ? `Due ${new Date(task.dueDate).toLocaleDateString()}` : 'No due date'}</small></div>
+      <div><h3>{task.title}</h3>{task.description ? <p>{task.description}</p> : null}<div className="task-labels">{task.labels.map((label) => <span className="task-label" key={label}>{label}</span>)}</div><small>{task.dueDate ? `Due ${new Date(task.dueDate).toLocaleDateString()}` : 'No due date'}</small></div>
       <div className="task-item__actions">
         <select aria-label={`Status for ${task.title}`} value={task.status} disabled={!canManage} onChange={(event) => void onStatusChange(Number(event.target.value) as ProjectTaskStatus)}>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
         <span className={`priority priority--${priorityLabels[task.priority].toLowerCase()}`}>{priorityLabels[task.priority]}</span>

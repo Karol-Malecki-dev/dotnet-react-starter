@@ -13,7 +13,8 @@ public sealed record ProjectTaskResponse(
     Guid? AssignedUserId,
     Guid? CreatedByUserId,
     DateTime CreatedAt,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    IReadOnlyList<string> Labels);
 
 public sealed record PagedProjectTaskResponse(
     IReadOnlyList<ProjectTaskResponse> Items,

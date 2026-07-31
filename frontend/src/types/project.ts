@@ -48,6 +48,7 @@ export interface ProjectTaskDto {
   createdByUserId?: string | null;
   createdAt: string;
   updatedAt: string;
+  labels: string[];
 }
 
 export interface ProjectTaskCommentDto {
@@ -142,6 +143,7 @@ export interface CreateProjectTaskRequest {
   priority: ProjectTaskPriority;
   dueDate?: string;
   assignedUserId?: string;
+  labels?: string[];
 }
 
 export interface UpdateProjectTaskRequest extends CreateProjectTaskRequest {}

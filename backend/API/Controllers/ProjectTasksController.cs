@@ -59,7 +59,7 @@ public class ProjectTasksController : ControllerBase
         }
 
         var result = await _projectTaskService.CreateProjectTaskAsync(new CreateProjectTaskCommand(
-            ownerId, projectId, request.Title, request.Description, request.Priority, request.DueDate, request.AssignedUserId));
+            ownerId, projectId, request.Title, request.Description, request.Priority, request.DueDate, request.AssignedUserId, request.Labels ?? []));
         return ToActionResult(result, MapTask);
     }
 
@@ -72,7 +72,7 @@ public class ProjectTasksController : ControllerBase
         }
 
         var result = await _projectTaskService.UpdateProjectTaskAsync(new UpdateProjectTaskCommand(
-            ownerId, projectId, taskId, request.Title, request.Description, request.Priority, request.DueDate, request.AssignedUserId));
+            ownerId, projectId, taskId, request.Title, request.Description, request.Priority, request.DueDate, request.AssignedUserId, request.Labels ?? []));
         return ToActionResult(result, MapTask);
     }
 
@@ -196,7 +196,8 @@ public class ProjectTasksController : ControllerBase
         task.AssignedUserId,
         task.CreatedByUserId,
         task.CreatedAt,
-        task.UpdatedAt);
+        task.UpdatedAt,
+        task.Labels);
 
     private static ProjectTaskAttachmentResponse MapAttachment(ProjectTaskAttachmentView attachment) => new(
         attachment.Id,

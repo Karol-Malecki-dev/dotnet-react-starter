@@ -29,11 +29,14 @@ public sealed class DatabaseProjectTaskService : IProjectTaskApplicationService
         var pageSize = Math.Clamp(query.PageSize, 1, 100);
         var taskQuery = _dbContext.ProjectTasks
             .AsNoTracking()
+            .Include(task => task.Labels)
             .Where(task => task.ProjectId == query.ProjectId);
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
             var search = query.Search.Trim();
-            taskQuery = taskQuery.Where(task => task.Title.Contains(search) || (task.Description != null && task.Description.Contains(search)));
+            taskQuery = taskQuery.Where(task => task.Title.Contains(search)
+                || (task.Description != null && task.Description.Contains(search))
+                || task.Labels.Any(label => label.Name.Contains(search)));
         }
 
         var totalCount = await taskQuery.CountAsync();
@@ -46,7 +49,7 @@ public sealed class DatabaseProjectTaskService : IProjectTaskApplicationService
             .ToListAsync();
 
         return ProjectOperationResult<PagedProjectTaskView>.Success(new PagedProjectTaskView(
-            tasks.Select(MapToView).ToList(), pageNumber, pageSize, totalCount));
+            tasks.Select(task => MapToView(task)).ToList(), pageNumber, pageSize, totalCount));
     }
 
     public async Task<ProjectOperationResult<ProjectTaskView>> GetProjectTaskAsync(Guid ownerId, Guid projectId, Guid taskId)
@@ -87,6 +90,7 @@ public sealed class DatabaseProjectTaskService : IProjectTaskApplicationService
             AssignedUserId = command.AssignedUserId,
             CreatedByUserId = command.OwnerId
         };
+        var labels = ReplaceLabels(task, command.Labels);
 
         _dbContext.ProjectTasks.Add(task);
         AddActivity(task.ProjectId, command.OwnerId, "task.created", $"created the task '{task.Title}'.", task.Id);
@@ -107,7 +111,7 @@ public sealed class DatabaseProjectTaskService : IProjectTaskApplicationService
                 task.Id);
         }
 
-        return ProjectOperationResult<ProjectTaskView>.Success(MapToView(task), "Project task created", 201);
+        return ProjectOperationResult<ProjectTaskView>.Success(MapToView(task, labels), "Project task created", 201);
     }
 
     public async Task<ProjectOperationResult<ProjectTaskView>> UpdateProjectTaskAsync(UpdateProjectTaskCommand command)
@@ -137,6 +141,7 @@ public sealed class DatabaseProjectTaskService : IProjectTaskApplicationService
         task.DueDate = command.DueDate;
         task.AssignedUserId = command.AssignedUserId;
         task.UpdatedAt = DateTime.UtcNow;
+        var labels = ReplaceLabels(task, command.Labels);
         if (task.AssignedUserId != previousAssignedUserId)
         {
             AddActivity(task.ProjectId, command.OwnerId, task.AssignedUserId.HasValue ? "task.assigned" : "task.unassigned",
@@ -157,7 +162,7 @@ public sealed class DatabaseProjectTaskService : IProjectTaskApplicationService
                 task.Id);
         }
 
-        return ProjectOperationResult<ProjectTaskView>.Success(MapToView(task), "Project task updated");
+        return ProjectOperationResult<ProjectTaskView>.Success(MapToView(task, labels), "Project task updated");
     }
 
     public async Task<ProjectOperationResult<ProjectTaskView>> UpdateProjectTaskStatusAsync(UpdateProjectTaskStatusCommand command)
@@ -234,6 +239,7 @@ public sealed class DatabaseProjectTaskService : IProjectTaskApplicationService
     private Task<ProjectTask?> GetAccessibleActiveTaskAsync(Guid userId, Guid projectId, Guid taskId)
         => _dbContext.ProjectTasks.Where(task => task.Id == taskId && task.ProjectId == projectId && !task.Project.IsArchived
             && (task.Project.OwnerId == userId || task.Project.Members.Any(member => member.UserId == userId && member.User.IsActive)))
+            .Include(task => task.Labels)
             .FirstOrDefaultAsync();
 
     private async Task<string?> ValidateAssignedUserAsync(Guid projectId, Guid? assignedUserId)
@@ -250,7 +256,7 @@ public sealed class DatabaseProjectTaskService : IProjectTaskApplicationService
             : "Assigned user is not an active member of this project";
     }
 
-    private static ProjectTaskView MapToView(ProjectTask task) => new(
+    private static ProjectTaskView MapToView(ProjectTask task, IReadOnlyList<string>? labels = null) => new(
         task.Id,
         task.ProjectId,
         task.Title,
@@ -261,7 +267,29 @@ public sealed class DatabaseProjectTaskService : IProjectTaskApplicationService
         task.AssignedUserId,
         task.CreatedByUserId,
         task.CreatedAt,
-        task.UpdatedAt);
+        task.UpdatedAt,
+        labels ?? task.Labels.OrderBy(label => label.Name).Select(label => label.Name).ToList());
+
+    private IReadOnlyList<string> ReplaceLabels(ProjectTask task, IReadOnlyList<string> labels)
+    {
+        var normalizedLabels = NormalizeLabels(labels);
+        _dbContext.ProjectTaskLabels.RemoveRange(task.Labels);
+        foreach (var label in normalizedLabels)
+        {
+            _dbContext.ProjectTaskLabels.Add(new ProjectTaskLabel { ProjectTaskId = task.Id, Name = label });
+        }
+
+        return normalizedLabels;
+    }
+
+    private static IReadOnlyList<string> NormalizeLabels(IEnumerable<string>? labels)
+        => (labels ?? [])
+            .Where(label => !string.IsNullOrWhiteSpace(label))
+            .Select(label => label.Trim().ToLowerInvariant())
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(label => label, StringComparer.Ordinal)
+            .Take(10)
+            .ToList();
 
     private void AddActivity(Guid projectId, Guid actorUserId, string type, string description, Guid? projectTaskId = null)
     {
