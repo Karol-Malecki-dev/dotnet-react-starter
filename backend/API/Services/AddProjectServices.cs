@@ -158,6 +158,8 @@ namespace API.Services
                     : serviceProvider.GetRequiredService<LoggingNotificationEmailSender>();
             });
             services.AddHostedService<NotificationEmailOutboxWorker>();
+            services.AddScoped<IProjectTaskDeadlineReminderService, ProjectTaskDeadlineReminderService>();
+            services.AddHostedService<ProjectTaskDeadlineReminderWorker>();
             services.AddScoped<IAdminService, DatabaseAdminService>();
             services.AddScoped<IProjectApplicationService, DatabaseProjectService>();
             services.AddScoped<IProjectTaskApplicationService, DatabaseProjectTaskService>();
