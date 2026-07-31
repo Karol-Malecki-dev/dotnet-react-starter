@@ -6,6 +6,7 @@ using Domain.Enums.Auth;
 using Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
+using OtpNet;
 using Shared.Responses;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -358,6 +359,41 @@ public class AuthApiIntegrationTests
         Assert.NotNull(apiResponse?.Data);
         Assert.True(apiResponse.Data.RequiresTwoFactor);
         Assert.False(string.IsNullOrWhiteSpace(_factory.EmailSender.LatestTwoFactorCode));
+    }
+
+    [Fact]
+    public async Task Authenticator_setup_confirm_and_login_flow_uses_totp_challenge()
+    {
+        const string email = "authenticator.user@example.com";
+        await SeedUserAsync(email, "password123", "Authenticator User", UserRole.User);
+
+        var tokens = await LoginAsync(email, "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+
+        var setupResponse = await _client.PostAsync("/api/auth/authenticator/setup", null);
+        setupResponse.EnsureSuccessStatusCode();
+        var setup = await setupResponse.Content.ReadFromJsonAsync<ApiResponse<AuthenticatorSetupDto>>();
+        Assert.False(string.IsNullOrWhiteSpace(setup?.Data?.SharedKey));
+        Assert.StartsWith("otpauth://totp/", setup.Data.ProvisioningUri);
+
+        var authenticatorCode = new Totp(Base32Encoding.ToBytes(setup.Data.SharedKey)).ComputeTotp();
+        var confirmResponse = await _client.PostAsJsonAsync("/api/auth/authenticator/confirm", new { Code = authenticatorCode });
+        confirmResponse.EnsureSuccessStatusCode();
+        var confirmation = await confirmResponse.Content.ReadFromJsonAsync<ApiResponse<AuthenticatorConfirmationDto>>();
+        Assert.Equal(10, confirmation?.Data?.RecoveryCodes.Count);
+
+        _client.DefaultRequestHeaders.Authorization = null;
+        var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new { Email = email, Password = "password123" });
+        Assert.Equal(System.Net.HttpStatusCode.Accepted, loginResponse.StatusCode);
+        var challenge = await loginResponse.Content.ReadFromJsonAsync<ApiResponse<TwoFactorChallengeResponseDto>>();
+        Assert.Equal("authenticator", challenge?.Data?.Method);
+
+        var verifyResponse = await _client.PostAsJsonAsync("/api/auth/verify-2fa", new
+        {
+            ChallengeId = challenge!.Data!.ChallengeId,
+            Code = authenticatorCode
+        });
+        verifyResponse.EnsureSuccessStatusCode();
     }
 
     [Fact]

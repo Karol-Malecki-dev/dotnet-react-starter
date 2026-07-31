@@ -157,6 +157,32 @@ namespace Application.Services
                 DateTime.UtcNow.AddMinutes(10)));
         }
 
+        public Task<AuthenticatorSetup?> BeginAuthenticatorSetupAsync(Guid userId)
+            => Task.FromResult<AuthenticatorSetup?>(userId == TestUser.Id
+                ? new AuthenticatorSetup("JBSWY3DPEHPK3PXP", "otpauth://totp/dotnet-react-starter:test%40example.com?secret=JBSWY3DPEHPK3PXP")
+                : null);
+
+        public Task<AuthenticatorConfirmation?> ConfirmAuthenticatorSetupAsync(Guid userId, string code)
+            => Task.FromResult<AuthenticatorConfirmation?>(userId == TestUser.Id && code == "123456"
+                ? new AuthenticatorConfirmation(["AAAA-BBBB-CCCC-DDDD"])
+                : null);
+
+        public Task<AuthenticatorLoginChallengeInfo?> CreateAuthenticatorLoginChallengeAsync(Guid userId)
+            => Task.FromResult<AuthenticatorLoginChallengeInfo?>(userId == TestUser.Id
+                ? new AuthenticatorLoginChallengeInfo(Guid.NewGuid(), DateTime.UtcNow.AddMinutes(5))
+                : null);
+
+        public Task<User?> VerifyAuthenticatorLoginChallengeAsync(Guid challengeId, string code)
+            => Task.FromResult<User?>(challengeId != Guid.Empty && code == "123456" ? TestUser : null);
+
+        public Task<bool> DisableAuthenticatorAsync(Guid userId, string currentPassword, string code)
+            => Task.FromResult(userId == TestUser.Id && currentPassword == "password123" && code == "123456");
+
+        public Task<AuthenticatorConfirmation?> RegenerateAuthenticatorRecoveryCodesAsync(Guid userId, string currentPassword, string code)
+            => Task.FromResult<AuthenticatorConfirmation?>(userId == TestUser.Id && currentPassword == "password123" && code == "123456"
+                ? new AuthenticatorConfirmation(["EEEE-FFFF-GGGG-HHHH"])
+                : null);
+
         public async Task<bool> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword)
         {
             _logger.LogInformation("🔑 Mock change password for user {UserId}", userId);

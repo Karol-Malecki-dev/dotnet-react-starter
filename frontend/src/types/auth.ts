@@ -52,6 +52,29 @@ export interface ResendTwoFactorRequest {
   challengeId: string;
 }
 
+export interface AuthenticatorSetup {
+  sharedKey: string;
+  provisioningUri: string;
+}
+
+export interface ConfirmAuthenticatorSetupRequest {
+  code: string;
+}
+
+export interface AuthenticatorConfirmation {
+  recoveryCodes: string[];
+}
+
+export interface DisableAuthenticatorRequest {
+  currentPassword: string;
+  code: string;
+}
+
+export interface RegenerateAuthenticatorRecoveryCodesRequest {
+  currentPassword: string;
+  code: string;
+}
+
 /** Mirrors backend Domain.Enums.Auth.ResetType. Serialized as its numeric value (no string enum converter on backend). */
 export enum ResetType {
   Link = 0,
@@ -91,6 +114,7 @@ export interface RegisterResultData {
 
 export interface TwoFactorChallenge {
   requiresTwoFactor: true;
+  method?: 'email' | 'authenticator';
   challengeId: string;
   destinationHint: string;
   expiresAt: string;

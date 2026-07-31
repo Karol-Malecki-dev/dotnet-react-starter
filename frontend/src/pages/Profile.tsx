@@ -1,7 +1,8 @@
 import { FormEvent, useEffect, useState } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '../hooks/useAuth';
 import { authApi, notificationApi, userApi } from '../services/api';
-import type { AuthUser, UpdateUserRequest, UserSecurity } from '../types';
+import type { AuthUser, AuthenticatorSetup, UpdateUserRequest, UserSecurity } from '../types';
 import { getApiErrorMessage } from '../utils/helpers';
 
 function splitDisplayName(displayName: string) {
@@ -43,6 +44,12 @@ export default function Profile() {
   const [resendingConfirmation, setResendingConfirmation] = useState(false);
   const [securityMessage, setSecurityMessage] = useState<string | null>(null);
   const [securityError, setSecurityError] = useState<string | null>(null);
+  const [authenticatorSetup, setAuthenticatorSetup] = useState<AuthenticatorSetup | null>(null);
+  const [authenticatorCode, setAuthenticatorCode] = useState('');
+  const [disableAuthenticatorCode, setDisableAuthenticatorCode] = useState('');
+  const [authenticatorPassword, setAuthenticatorPassword] = useState('');
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+  const [updatingAuthenticator, setUpdatingAuthenticator] = useState(false);
   const [isNotificationEmailEnabled, setIsNotificationEmailEnabled] = useState<boolean | null>(null);
   const [loadingNotificationPreference, setLoadingNotificationPreference] = useState(false);
   const [updatingNotificationPreference, setUpdatingNotificationPreference] = useState(false);
@@ -287,6 +294,103 @@ export default function Profile() {
     }
   };
 
+  const handleBeginAuthenticatorSetup = async () => {
+    setUpdatingAuthenticator(true);
+    setSecurityError(null);
+    setSecurityMessage(null);
+    setRecoveryCodes([]);
+
+    try {
+      const response = await authApi.beginAuthenticatorSetup();
+      if (!response.data) {
+        throw new Error('Authenticator setup response missing data');
+      }
+      setAuthenticatorSetup(response.data);
+      setAuthenticatorCode('');
+    } catch (caughtError) {
+      setSecurityError(getApiErrorMessage(caughtError, { defaultMessage: 'Unable to start authenticator setup right now.' }));
+    } finally {
+      setUpdatingAuthenticator(false);
+    }
+  };
+
+  const handleConfirmAuthenticatorSetup = async () => {
+    if (!authenticatorCode.trim()) {
+      setSecurityError('Enter the code from your authenticator app.');
+      return;
+    }
+
+    setUpdatingAuthenticator(true);
+    setSecurityError(null);
+    try {
+      const response = await authApi.confirmAuthenticatorSetup({ code: authenticatorCode.trim() });
+      if (!response.data) {
+        throw new Error('Authenticator confirmation response missing data');
+      }
+      setAuthenticatorSetup(null);
+      setAuthenticatorCode('');
+      setRecoveryCodes(response.data.recoveryCodes);
+      setSecurity((current) => current ? { ...current, isAuthenticatorEnabled: true } : current);
+      setSecurityMessage('Authenticator app enabled. Store the recovery codes securely.');
+    } catch (caughtError) {
+      setSecurityError(getApiErrorMessage(caughtError, { defaultMessage: 'Authenticator code is invalid.' }));
+    } finally {
+      setUpdatingAuthenticator(false);
+    }
+  };
+
+  const handleDisableAuthenticator = async () => {
+    if (!disableAuthenticatorCode.trim()) {
+      setSecurityError('Enter a current authenticator or recovery code.');
+      return;
+    }
+
+    setUpdatingAuthenticator(true);
+    setSecurityError(null);
+    try {
+      await authApi.disableAuthenticator({
+        currentPassword: authenticatorPassword,
+        code: disableAuthenticatorCode.trim(),
+      });
+      setDisableAuthenticatorCode('');
+      setAuthenticatorPassword('');
+      setRecoveryCodes([]);
+      setSecurity((current) => current ? { ...current, isAuthenticatorEnabled: false } : current);
+      setSecurityMessage('Authenticator app disabled.');
+    } catch (caughtError) {
+      setSecurityError(getApiErrorMessage(caughtError, { defaultMessage: 'Authenticator code is invalid.' }));
+    } finally {
+      setUpdatingAuthenticator(false);
+    }
+  };
+
+  const handleRegenerateRecoveryCodes = async () => {
+    if (!authenticatorPassword || !disableAuthenticatorCode.trim()) {
+      setSecurityError('Enter your password and a current authenticator or recovery code.');
+      return;
+    }
+
+    setUpdatingAuthenticator(true);
+    setSecurityError(null);
+    try {
+      const response = await authApi.regenerateAuthenticatorRecoveryCodes({
+        currentPassword: authenticatorPassword,
+        code: disableAuthenticatorCode.trim(),
+      });
+      if (!response.data) {
+        throw new Error('Recovery code response missing data');
+      }
+      setAuthenticatorPassword('');
+      setDisableAuthenticatorCode('');
+      setRecoveryCodes(response.data.recoveryCodes);
+      setSecurityMessage('Recovery codes regenerated. Store them securely.');
+    } catch (caughtError) {
+      setSecurityError(getApiErrorMessage(caughtError, { defaultMessage: 'Password or authenticator code is invalid.' }));
+    } finally {
+      setUpdatingAuthenticator(false);
+    }
+  };
+
   return (
     <section className="page-shell">
       <div className="page-shell__header">
@@ -439,6 +543,66 @@ export default function Profile() {
                 {!security.isEmailConfirmed ? (
                   <p className="field__hint">Confirm your email before enabling two-factor authentication.</p>
                 ) : null}
+                <div className="stack stack--tight">
+                  <p><strong>Authenticator app:</strong> {security.isAuthenticatorEnabled ? 'Enabled' : 'Not configured'}</p>
+                  {security.isAuthenticatorEnabled ? (
+                    <>
+                      <label className="field">
+                        <span className="field__label">Current password</span>
+                        <input
+                          type="password"
+                          value={authenticatorPassword}
+                          onChange={(event) => setAuthenticatorPassword(event.target.value)}
+                          autoComplete="current-password"
+                        />
+                      </label>
+                      <label className="field">
+                        <span className="field__label">Authenticator or recovery code</span>
+                        <input
+                          value={disableAuthenticatorCode}
+                          onChange={(event) => setDisableAuthenticatorCode(event.target.value)}
+                          autoComplete="one-time-code"
+                        />
+                      </label>
+                      <button className="button button--ghost" type="button" onClick={() => void handleRegenerateRecoveryCodes()} disabled={updatingAuthenticator}>
+                        {updatingAuthenticator ? 'Regenerating...' : 'Regenerate recovery codes'}
+                      </button>
+                      <button className="button button--ghost" type="button" onClick={() => void handleDisableAuthenticator()} disabled={updatingAuthenticator}>
+                        {updatingAuthenticator ? 'Disabling...' : 'Disable authenticator'}
+                      </button>
+                    </>
+                  ) : authenticatorSetup ? (
+                    <>
+                      <QRCodeSVG value={authenticatorSetup.provisioningUri} size={192} includeMargin />
+                      <label className="field">
+                        <span className="field__label">Setup key</span>
+                        <input value={authenticatorSetup.sharedKey} readOnly />
+                      </label>
+                      <label className="field">
+                        <span className="field__label">Authenticator code</span>
+                        <input
+                          value={authenticatorCode}
+                          onChange={(event) => setAuthenticatorCode(event.target.value)}
+                          autoComplete="one-time-code"
+                          inputMode="numeric"
+                        />
+                      </label>
+                      <button className="button" type="button" onClick={() => void handleConfirmAuthenticatorSetup()} disabled={updatingAuthenticator}>
+                        {updatingAuthenticator ? 'Confirming...' : 'Confirm authenticator'}
+                      </button>
+                    </>
+                  ) : (
+                    <button className="button button--ghost" type="button" onClick={() => void handleBeginAuthenticatorSetup()} disabled={updatingAuthenticator || !security.isEmailConfirmed}>
+                      {updatingAuthenticator ? 'Preparing...' : 'Set up authenticator app'}
+                    </button>
+                  )}
+                  {recoveryCodes.length > 0 ? (
+                    <div className="stack stack--tight">
+                      <p className="field__hint">Store these recovery codes securely. They will not be shown again.</p>
+                      <code>{recoveryCodes.join(' ')}</code>
+                    </div>
+                  ) : null}
+                </div>
                 {securityMessage ? <p className="form__success">{securityMessage}</p> : null}
               </div>
             ) : null}

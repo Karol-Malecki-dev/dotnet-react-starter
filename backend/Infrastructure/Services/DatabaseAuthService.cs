@@ -5,11 +5,13 @@ using Domain.Enums.Auth;
 using Domain.Interfaces;
 using Domain.ValueObjects;
 using Infrastructure.Data;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Shared.Settings;
+using OtpNet;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -25,17 +27,20 @@ public class DatabaseAuthService : IAuthService
     private readonly EmailConfirmationSettings _emailConfirmationSettings;
     private readonly EmailTwoFactorSettings _emailTwoFactorSettings;
     private readonly ILogger<DatabaseAuthService> _logger;
+    private readonly IDataProtector _authenticatorSecretProtector;
     private readonly PasswordHasher<User> _passwordHasher = new();
 
     public DatabaseAuthService(
         ApplicationDbContext dbContext,
         IOptions<EmailConfirmationSettings> emailConfirmationOptions,
         IOptions<EmailTwoFactorSettings> emailTwoFactorOptions,
+        IDataProtectionProvider dataProtectionProvider,
         ILogger<DatabaseAuthService> logger)
     {
         _dbContext = dbContext;
         _emailConfirmationSettings = emailConfirmationOptions.Value;
         _emailTwoFactorSettings = emailTwoFactorOptions.Value;
+        _authenticatorSecretProtector = dataProtectionProvider.CreateProtector("DatabaseAuthService.AuthenticatorSecret.v1");
         _logger = logger;
     }
 
@@ -477,6 +482,203 @@ public class DatabaseAuthService : IAuthService
             code,
             challenge.ExpiresAt);
     }
+
+    /// <inheritdoc />
+    public async Task<AuthenticatorSetup?> BeginAuthenticatorSetupAsync(Guid userId)
+    {
+        var user = await _dbContext.Users.FirstOrDefaultAsync(candidate => candidate.Id == userId);
+        if (user is null || !user.IsActive || !user.IsEmailConfirmed || user.IsAuthenticatorEnabled)
+        {
+            return null;
+        }
+
+        var sharedKey = Base32Encoding.ToString(RandomNumberGenerator.GetBytes(20));
+        user.ProtectedAuthenticatorSecret = _authenticatorSecretProtector.Protect(sharedKey);
+        await _dbContext.SaveChangesAsync();
+
+        var issuer = "dotnet-react-starter";
+        var label = Uri.EscapeDataString($"{issuer}:{user.Email}");
+        var provisioningUri = $"otpauth://totp/{label}?secret={sharedKey}&issuer={Uri.EscapeDataString(issuer)}&algorithm=SHA1&digits=6&period=30";
+        return new AuthenticatorSetup(sharedKey, provisioningUri);
+    }
+
+    /// <inheritdoc />
+    public async Task<AuthenticatorConfirmation?> ConfirmAuthenticatorSetupAsync(Guid userId, string code)
+    {
+        var user = await _dbContext.Users.FirstOrDefaultAsync(candidate => candidate.Id == userId);
+        if (user is null || user.IsAuthenticatorEnabled || string.IsNullOrWhiteSpace(user.ProtectedAuthenticatorSecret)
+            || !VerifyAuthenticatorCode(user.ProtectedAuthenticatorSecret, code))
+        {
+            return null;
+        }
+
+        var recoveryCodes = Enumerable.Range(0, 10).Select(_ => GenerateRecoveryCode()).ToArray();
+        user.IsAuthenticatorEnabled = true;
+        _dbContext.AuthenticatorRecoveryCodes.AddRange(recoveryCodes.Select(code => new AuthenticatorRecoveryCode
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            CodeHash = HashToken(code),
+            CreatedAt = DateTime.UtcNow
+        }));
+        await _dbContext.SaveChangesAsync();
+        return new AuthenticatorConfirmation(recoveryCodes);
+    }
+
+    /// <inheritdoc />
+    public async Task<AuthenticatorLoginChallengeInfo?> CreateAuthenticatorLoginChallengeAsync(Guid userId)
+    {
+        var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(candidate => candidate.Id == userId);
+        if (user is null || !user.IsActive || !user.IsEmailConfirmed || !user.IsAuthenticatorEnabled)
+        {
+            return null;
+        }
+
+        var now = DateTime.UtcNow;
+        var activeChallenges = await _dbContext.AuthenticatorLoginChallenges
+            .Where(challenge => challenge.UserId == userId && challenge.ConsumedAt == null && challenge.ExpiresAt > now)
+            .ToListAsync();
+        foreach (var activeChallenge in activeChallenges)
+        {
+            activeChallenge.ConsumedAt = now;
+        }
+
+        var challenge = new AuthenticatorLoginChallenge
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            CreatedAt = now,
+            ExpiresAt = now.AddMinutes(5)
+        };
+        _dbContext.AuthenticatorLoginChallenges.Add(challenge);
+        await _dbContext.SaveChangesAsync();
+        return new AuthenticatorLoginChallengeInfo(challenge.Id, challenge.ExpiresAt);
+    }
+
+    /// <inheritdoc />
+    public async Task<User?> VerifyAuthenticatorLoginChallengeAsync(Guid challengeId, string code)
+    {
+        var now = DateTime.UtcNow;
+        var challenge = await _dbContext.AuthenticatorLoginChallenges.FirstOrDefaultAsync(candidate => candidate.Id == challengeId);
+        if (challenge is null || challenge.ConsumedAt.HasValue || challenge.ExpiresAt <= now)
+        {
+            return null;
+        }
+
+        var user = await _dbContext.Users.FirstOrDefaultAsync(candidate => candidate.Id == challenge.UserId);
+        if (user is null || !user.IsActive || !user.IsAuthenticatorEnabled || string.IsNullOrWhiteSpace(user.ProtectedAuthenticatorSecret))
+        {
+            return null;
+        }
+
+        var isValid = VerifyAuthenticatorCode(user.ProtectedAuthenticatorSecret, code) || await ConsumeRecoveryCodeAsync(user.Id, code, now);
+        if (!isValid)
+        {
+            return null;
+        }
+
+        challenge.ConsumedAt = now;
+        await _dbContext.SaveChangesAsync();
+        return user;
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> DisableAuthenticatorAsync(Guid userId, string currentPassword, string code)
+    {
+        var user = await _dbContext.Users.FirstOrDefaultAsync(candidate => candidate.Id == userId);
+        if (user is null || !user.IsAuthenticatorEnabled || string.IsNullOrWhiteSpace(user.ProtectedAuthenticatorSecret))
+        {
+            return false;
+        }
+
+        var now = DateTime.UtcNow;
+        var isValid = VerifyCurrentPassword(user, currentPassword)
+            && (VerifyAuthenticatorCode(user.ProtectedAuthenticatorSecret, code) || await ConsumeRecoveryCodeAsync(user.Id, code, now));
+        if (!isValid)
+        {
+            return false;
+        }
+
+        user.IsAuthenticatorEnabled = false;
+        user.ProtectedAuthenticatorSecret = null;
+        var recoveryCodes = await _dbContext.AuthenticatorRecoveryCodes.Where(recoveryCode => recoveryCode.UserId == userId).ToListAsync();
+        _dbContext.AuthenticatorRecoveryCodes.RemoveRange(recoveryCodes);
+        await _dbContext.SaveChangesAsync();
+        return true;
+    }
+
+    /// <inheritdoc />
+    public async Task<AuthenticatorConfirmation?> RegenerateAuthenticatorRecoveryCodesAsync(Guid userId, string currentPassword, string code)
+    {
+        var user = await _dbContext.Users.FirstOrDefaultAsync(candidate => candidate.Id == userId);
+        if (user is null || !user.IsAuthenticatorEnabled || string.IsNullOrWhiteSpace(user.ProtectedAuthenticatorSecret))
+        {
+            return null;
+        }
+
+        var now = DateTime.UtcNow;
+        var isValid = VerifyCurrentPassword(user, currentPassword)
+            && (VerifyAuthenticatorCode(user.ProtectedAuthenticatorSecret, code) || await ConsumeRecoveryCodeAsync(user.Id, code, now));
+        if (!isValid)
+        {
+            return null;
+        }
+
+        var existingRecoveryCodes = await _dbContext.AuthenticatorRecoveryCodes.Where(recoveryCode => recoveryCode.UserId == userId).ToListAsync();
+        _dbContext.AuthenticatorRecoveryCodes.RemoveRange(existingRecoveryCodes);
+        var recoveryCodes = Enumerable.Range(0, 10).Select(_ => GenerateRecoveryCode()).ToArray();
+        _dbContext.AuthenticatorRecoveryCodes.AddRange(recoveryCodes.Select(recoveryCode => new AuthenticatorRecoveryCode
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            CodeHash = HashToken(recoveryCode),
+            CreatedAt = now
+        }));
+        await _dbContext.SaveChangesAsync();
+        return new AuthenticatorConfirmation(recoveryCodes);
+    }
+
+    private bool VerifyAuthenticatorCode(string protectedSecret, string code)
+    {
+        try
+        {
+            var secret = _authenticatorSecretProtector.Unprotect(protectedSecret);
+            var totp = new Totp(Base32Encoding.ToBytes(secret));
+            return totp.VerifyTotp(code.Trim(), out _, new VerificationWindow(previous: 1, future: 1));
+        }
+        catch (Exception exception) when (exception is CryptographicException or FormatException)
+        {
+            _logger.LogWarning(exception, "Could not unprotect or parse an authenticator secret");
+            return false;
+        }
+    }
+
+    private async Task<bool> ConsumeRecoveryCodeAsync(Guid userId, string code, DateTime now)
+    {
+        var codeHash = HashToken(code.Trim());
+        var recoveryCode = await _dbContext.AuthenticatorRecoveryCodes
+            .FirstOrDefaultAsync(candidate => candidate.UserId == userId && candidate.CodeHash == codeHash && candidate.UsedAt == null);
+        if (recoveryCode is null)
+        {
+            return false;
+        }
+
+        recoveryCode.UsedAt = now;
+        return true;
+    }
+
+    private bool VerifyCurrentPassword(User user, string currentPassword)
+    {
+        if (string.IsNullOrWhiteSpace(currentPassword))
+        {
+            return false;
+        }
+
+        return _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, currentPassword) != PasswordVerificationResult.Failed;
+    }
+
+    private static string GenerateRecoveryCode()
+        => Convert.ToHexString(RandomNumberGenerator.GetBytes(8));
 
     /// <summary>
     /// Generates a cryptographically secure URL-safe token.

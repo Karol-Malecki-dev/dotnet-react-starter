@@ -1,8 +1,13 @@
 import type {
   ApiResponse,
+  AuthenticatorConfirmation,
+  AuthenticatorSetup,
   AuthUser,
   ChangePasswordRequest,
   ConfirmEmailRequest,
+  ConfirmAuthenticatorSetupRequest,
+  DisableAuthenticatorRequest,
+  RegenerateAuthenticatorRecoveryCodesRequest,
   ForgotPasswordRequest,
   JwtTokens,
   LoginResponseData,
@@ -57,6 +62,27 @@ export class AuthApi {
     return this.client.post<ApiResponse<TwoFactorChallenge>, ResendTwoFactorRequest>('/auth/resend-2fa', request, {
       skipAuth: true,
     });
+  }
+
+  beginAuthenticatorSetup(): Promise<ApiResponse<AuthenticatorSetup>> {
+    return this.client.post<ApiResponse<AuthenticatorSetup>, undefined>('/auth/authenticator/setup');
+  }
+
+  confirmAuthenticatorSetup(request: ConfirmAuthenticatorSetupRequest): Promise<ApiResponse<AuthenticatorConfirmation>> {
+    return this.client.post<ApiResponse<AuthenticatorConfirmation>, ConfirmAuthenticatorSetupRequest>('/auth/authenticator/confirm', request);
+  }
+
+  disableAuthenticator(request: DisableAuthenticatorRequest): Promise<ApiResponse<null>> {
+    return this.client.post<ApiResponse<null>, DisableAuthenticatorRequest>('/auth/authenticator/disable', request);
+  }
+
+  regenerateAuthenticatorRecoveryCodes(
+    request: RegenerateAuthenticatorRecoveryCodesRequest,
+  ): Promise<ApiResponse<AuthenticatorConfirmation>> {
+    return this.client.post<ApiResponse<AuthenticatorConfirmation>, RegenerateAuthenticatorRecoveryCodesRequest>(
+      '/auth/authenticator/recovery-codes',
+      request,
+    );
   }
 
   refreshToken(): Promise<ApiResponse<JwtTokens>> {

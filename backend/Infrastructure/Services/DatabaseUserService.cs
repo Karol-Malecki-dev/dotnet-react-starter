@@ -250,7 +250,8 @@ public class DatabaseUserService : IUserService
         {
             Email = user.Email,
             IsEmailConfirmed = user.IsEmailConfirmed,
-            IsTwoFactorEnabled = user.IsTwoFactorEnabled
+            IsTwoFactorEnabled = user.IsTwoFactorEnabled,
+            IsAuthenticatorEnabled = user.IsAuthenticatorEnabled
         };
     }
     private static (string FirstName, string LastName) SplitDisplayName(string displayName)

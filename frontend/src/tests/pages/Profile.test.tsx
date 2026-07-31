@@ -9,6 +9,9 @@ vi.mock('../../hooks/useAuth');
 vi.mock('../../services/api', () => ({
   authApi: {
     resendConfirmation: jest.fn(),
+    beginAuthenticatorSetup: jest.fn(),
+    confirmAuthenticatorSetup: jest.fn(),
+    disableAuthenticator: jest.fn(),
   },
   userApi: {
     getUserSecurity: jest.fn(),
@@ -34,6 +37,7 @@ describe('Profile page', () => {
         email: 'test@example.com',
         isEmailConfirmed: true,
         isTwoFactorEnabled: false,
+        isAuthenticatorEnabled: false,
       },
       errors: null,
       timestamp: new Date().toISOString(),
@@ -120,6 +124,7 @@ describe('Profile page', () => {
         email: 'test@example.com',
         isEmailConfirmed: true,
         isTwoFactorEnabled: true,
+        isAuthenticatorEnabled: false,
       },
       errors: null,
       timestamp: new Date().toISOString(),
@@ -160,6 +165,7 @@ describe('Profile page', () => {
         email: 'test@example.com',
         isEmailConfirmed: false,
         isTwoFactorEnabled: false,
+        isAuthenticatorEnabled: false,
       },
       errors: null,
       timestamp: new Date().toISOString(),
@@ -226,5 +232,30 @@ describe('Profile page', () => {
       expect(mockedNotificationApi.updateEmailPreference).toHaveBeenCalledWith({ isEmailEnabled: false });
     });
     expect(emailNotificationsCheckbox).not.toBeChecked();
+  });
+
+  it('starts authenticator app setup from the security panel', async () => {
+    mockedAuthApi.beginAuthenticatorSetup.mockResolvedValue({
+      statusCode: 200,
+      message: 'Authenticator setup started',
+      data: {
+        sharedKey: 'JBSWY3DPEHPK3PXP',
+        provisioningUri: 'otpauth://totp/dotnet-react-starter:test@example.com?secret=JBSWY3DPEHPK3PXP',
+      },
+      errors: null,
+      timestamp: new Date().toISOString(),
+    });
+    mockedUseAuth.mockReturnValue({
+      user: { id: 'user-1', email: 'test@example.com', displayName: 'Old Name', role: 'User' },
+      tokens: { accessToken: 'access', expiresIn: 900 },
+      updateProfile: jest.fn(),
+      changePassword: jest.fn(),
+    } as any);
+
+    render(<Profile />);
+    fireEvent.click(await screen.findByRole('button', { name: /set up authenticator app/i }));
+
+    await waitFor(() => expect(mockedAuthApi.beginAuthenticatorSetup).toHaveBeenCalled());
+    expect(await screen.findByDisplayValue('JBSWY3DPEHPK3PXP')).toBeInTheDocument();
   });
 });

@@ -36,12 +36,20 @@ namespace Domain.Entities
 
         /// <summary>Indicates whether the account requires email-based two-factor verification during sign-in</summary>
         public bool IsTwoFactorEnabled { get; set; }
+
+        /// <summary>Indicates whether an authenticator application has been confirmed for the account.</summary>
+        public bool IsAuthenticatorEnabled { get; set; }
+
+        /// <summary>Data Protection-encrypted TOTP secret. The raw secret is never stored in the database.</summary>
+        public string? ProtectedAuthenticatorSecret { get; set; }
         public string? Address { get; set; }
 
         /// <summary>Timestamp when the user account was created in UTC</summary>
         public DateTime CreatedAt { get; set; }
 
         public ICollection<ProjectMember> ProjectMemberships { get; set; } = [];
+
+        public ICollection<AuthenticatorRecoveryCode> AuthenticatorRecoveryCodes { get; set; } = [];
 
     }
 }
