@@ -1,4 +1,5 @@
 using Application.DTOs.Auth;
+using Application.Features.Projects;
 using API.Contracts.Projects;
 using Domain.Entities;
 using Domain.Enums;
@@ -126,6 +127,36 @@ public class ProjectsApiIntegrationTests
 
         Assert.Equal(HttpStatusCode.NotFound, updateResponse.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, archiveResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Project_activity_is_paged_and_hidden_from_users_without_project_access()
+    {
+        await SeedUserAsync("activity.owner@example.com", "password123", "Activity Owner");
+        var memberId = await SeedUserAsync("activity.member@example.com", "password123", "Activity Member");
+        await SeedUserAsync("activity.outsider@example.com", "password123", "Activity Outsider");
+
+        var ownerTokens = await LoginAsync("activity.owner@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerTokens.AccessToken);
+        var createResponse = await _client.PostAsJsonAsync("/api/projects", new { Name = "Activity project", Description = "Timeline" });
+        var createdProject = await createResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectResponse>>();
+        Assert.NotNull(createdProject?.Data);
+
+        var addMemberResponse = await _client.PostAsJsonAsync($"/api/projects/{createdProject.Data.Id}/members", new { UserId = memberId });
+        Assert.Equal(HttpStatusCode.Created, addMemberResponse.StatusCode);
+
+        var activityResponse = await _client.GetAsync($"/api/projects/{createdProject.Data.Id}/activity?pageNumber=1&pageSize=1");
+        activityResponse.EnsureSuccessStatusCode();
+        var activity = await activityResponse.Content.ReadFromJsonAsync<ApiResponse<PagedProjectActivityView>>();
+        Assert.NotNull(activity?.Data);
+        Assert.Single(activity.Data.Items);
+        Assert.Equal(2, activity.Data.TotalCount);
+        Assert.Equal("member.added", activity.Data.Items[0].Type);
+
+        var outsiderTokens = await LoginAsync("activity.outsider@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", outsiderTokens.AccessToken);
+        var forbiddenResponse = await _client.GetAsync($"/api/projects/{createdProject.Data.Id}/activity");
+        Assert.Equal(HttpStatusCode.NotFound, forbiddenResponse.StatusCode);
     }
 
     private async Task<AuthTokenResponse> LoginAsync(string email, string password)

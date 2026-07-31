@@ -95,6 +95,18 @@ public class ProjectsController : ControllerBase
         return ToActionResult(result, members => members.Select(MapMember).ToList());
     }
 
+    [HttpGet("{projectId:guid}/activity")]
+    public async Task<IActionResult> GetActivity(Guid projectId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return Unauthorized(ApiResponse<PagedProjectActivityView>.Error(401, "User not authenticated"));
+        }
+
+        var result = await _projectService.GetProjectActivitiesAsync(userId, projectId, pageNumber, pageSize);
+        return ToActionResult(result, value => value);
+    }
+
     [HttpGet("{projectId:guid}/members/available")]
     public async Task<IActionResult> GetAvailableMembers(Guid projectId)
     {

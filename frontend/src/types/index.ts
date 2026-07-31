@@ -125,6 +125,8 @@ export type {
   ProjectMembersResponse,
   ProjectMemberUsersResponse,
   ProjectMemberResponse,
+  ProjectActivityDto,
+  ProjectActivitiesResponse,
 } from './project';
 
 // Notification types

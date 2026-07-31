@@ -9,6 +9,7 @@ import type {
   ProjectMemberDto,
   ProjectMemberUserDto,
   ProjectMemberRole,
+  ProjectActivityDto,
   UpdateProjectRequest,
   UpdateProjectTaskRequest,
 } from '../types';
@@ -22,6 +23,8 @@ interface ProjectsContextValue {
   error: string | null;
   members: ProjectMemberDto[];
   availableMembers: ProjectMemberUserDto[];
+  activities: ProjectActivityDto[];
+  activitiesLoading: boolean;
   includeArchived: boolean;
   setIncludeArchived: (includeArchived: boolean) => Promise<void>;
   projectScope?: 'all' | 'owned' | 'member';
@@ -57,6 +60,8 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [members, setMembers] = useState<ProjectMemberDto[]>([]);
   const [availableMembers, setAvailableMembers] = useState<ProjectMemberUserDto[]>([]);
+  const [activities, setActivities] = useState<ProjectActivityDto[]>([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [includeArchived, setIncludeArchivedState] = useState(false);
   const [projectScope, setProjectScopeState] = useState<'all' | 'owned' | 'member'>('all');
   const [taskPage, setTaskPage] = useState(1);
@@ -114,6 +119,19 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const loadActivities = useCallback(async (projectId: string) => {
+    setActivitiesLoading(true);
+    try {
+      const response = await projectApi.getActivity(projectId);
+      setActivities(response.data?.items ?? []);
+    } catch (caughtError) {
+      setActivities([]);
+      setError(caughtError instanceof Error ? caughtError.message : 'Unable to load project activity');
+    } finally {
+      setActivitiesLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void loadProjects();
   }, [loadProjects]);
@@ -122,12 +140,14 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     if (selectedProjectId) {
       void loadTasks(selectedProjectId);
       void loadMembers(selectedProjectId);
+      void loadActivities(selectedProjectId);
     } else {
       setTasks([]);
       setMembers([]);
       setAvailableMembers([]);
+      setActivities([]);
     }
-  }, [loadMembers, loadTasks, selectedProjectId]);
+  }, [loadActivities, loadMembers, loadTasks, selectedProjectId]);
 
   const selectedProject = projects.find((project) => project.id === selectedProjectId) ?? null;
 
@@ -191,8 +211,9 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     }
 
     setTasks((currentTasks) => [...currentTasks, response.data!]);
+    void loadActivities(selectedProjectId);
     return response.data;
-  }, [selectedProjectId]);
+  }, [loadActivities, selectedProjectId]);
 
   const updateTask = useCallback(async (taskId: string, request: UpdateProjectTaskRequest) => {
     if (!selectedProjectId) {
@@ -206,8 +227,9 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     }
 
     setTasks((currentTasks) => currentTasks.map((task) => (task.id === taskId ? response.data! : task)));
+    void loadActivities(selectedProjectId);
     return response.data;
-  }, [selectedProjectId]);
+  }, [loadActivities, selectedProjectId]);
 
   const updateTaskStatus = useCallback(async (taskId: string, status: ProjectTaskStatus) => {
     if (!selectedProjectId) {
@@ -221,8 +243,9 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     }
 
     setTasks((currentTasks) => currentTasks.map((task) => (task.id === taskId ? response.data! : task)));
+    void loadActivities(selectedProjectId);
     return response.data;
-  }, [selectedProjectId]);
+  }, [loadActivities, selectedProjectId]);
 
   const deleteTask = useCallback(async (taskId: string) => {
     if (!selectedProjectId) {
@@ -246,7 +269,8 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
 
     setMembers((currentMembers) => [...currentMembers, response.data!]);
     setAvailableMembers((currentUsers) => currentUsers.filter((user) => user.id !== userId));
-  }, [selectedProjectId]);
+    void loadActivities(selectedProjectId);
+  }, [loadActivities, selectedProjectId]);
 
   const removeMember = useCallback(async (userId: string) => {
     if (!selectedProjectId) {
@@ -263,7 +287,8 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
         email: removedMember.email,
       }]);
     }
-  }, [members, selectedProjectId]);
+    void loadActivities(selectedProjectId);
+  }, [loadActivities, members, selectedProjectId]);
 
   const updateMemberRole = useCallback(async (userId: string, role: ProjectMemberRole) => {
     if (!selectedProjectId) {
@@ -289,6 +314,8 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     error,
     members,
     availableMembers,
+    activities,
+    activitiesLoading,
     includeArchived,
     setIncludeArchived,
     projectScope,
@@ -320,6 +347,8 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     error,
     members,
     availableMembers,
+    activities,
+    activitiesLoading,
     includeArchived,
     projectScope,
     setIncludeArchived,

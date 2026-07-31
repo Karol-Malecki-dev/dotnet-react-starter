@@ -31,6 +31,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<NotificationEmailOutboxMessage> NotificationEmailOutboxMessages => Set<NotificationEmailOutboxMessage>();
 
     public DbSet<Project> Projects => Set<Project>();
+    public DbSet<ProjectActivity> ProjectActivities => Set<ProjectActivity>();
 
     public DbSet<ProjectTask> ProjectTasks => Set<ProjectTask>();
 

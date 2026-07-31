@@ -73,6 +73,7 @@ public sealed class DatabaseProjectService : IProjectApplicationService
             UserId = command.OwnerId,
             Role = ProjectMemberRole.Owner
         });
+        AddActivity(project.Id, command.OwnerId, "project.created", $"created the project '{project.Name}'.");
         await _dbContext.SaveChangesAsync();
 
         return ProjectOperationResult<ProjectView>.Success(MapToView(project, command.OwnerId), "Project created", 201);
@@ -186,6 +187,7 @@ public sealed class DatabaseProjectService : IProjectApplicationService
 
         var member = new ProjectMember { ProjectId = projectId, UserId = userId };
         _dbContext.ProjectMembers.Add(member);
+        AddActivity(projectId, ownerId, "member.added", $"added {user.DisplayName} to the project.");
         await _dbContext.SaveChangesAsync();
 
         var projectName = await _dbContext.Projects
@@ -273,9 +275,28 @@ public sealed class DatabaseProjectService : IProjectApplicationService
         }
 
         _dbContext.ProjectMembers.Remove(member);
+        AddActivity(projectId, ownerId, "member.removed", "removed a project member.");
         await _dbContext.SaveChangesAsync();
 
         return ProjectOperationResult<bool>.Success(true, "Project member removed");
+    }
+
+    public async Task<ProjectOperationResult<PagedProjectActivityView>> GetProjectActivitiesAsync(Guid userId, Guid projectId, int pageNumber, int pageSize)
+    {
+        if (!await HasProjectAccessAsync(userId, projectId))
+        {
+            return ProjectOperationResult<PagedProjectActivityView>.Failure(ProjectOperationStatus.NotFound, "Project not found");
+        }
+
+        var safePageNumber = Math.Max(pageNumber, 1);
+        var safePageSize = Math.Clamp(pageSize, 1, 100);
+        var query = _dbContext.ProjectActivities.AsNoTracking().Where(activity => activity.ProjectId == projectId);
+        var totalCount = await query.CountAsync();
+        var items = await query.OrderByDescending(activity => activity.CreatedAt)
+            .Skip((safePageNumber - 1) * safePageSize).Take(safePageSize)
+            .Select(activity => new ProjectActivityView(activity.Id, activity.Type, activity.Description, activity.ActorUserId, activity.ActorUser.DisplayName, activity.ProjectTaskId, activity.CreatedAt))
+            .ToListAsync();
+        return ProjectOperationResult<PagedProjectActivityView>.Success(new PagedProjectActivityView(items, safePageNumber, safePageSize, totalCount));
     }
 
     private Task<bool> OwnedProjectExistsAsync(Guid ownerId, Guid projectId)
@@ -284,6 +305,17 @@ public sealed class DatabaseProjectService : IProjectApplicationService
     private Task<bool> HasProjectAccessAsync(Guid userId, Guid projectId)
         => _dbContext.Projects.AnyAsync(project => project.Id == projectId
             && (project.OwnerId == userId || project.Members.Any(member => member.UserId == userId && member.User.IsActive)));
+
+    private void AddActivity(Guid projectId, Guid actorUserId, string type, string description)
+    {
+        _dbContext.ProjectActivities.Add(new ProjectActivity
+        {
+            ProjectId = projectId,
+            ActorUserId = actorUserId,
+            Type = type,
+            Description = description
+        });
+    }
 
     private static ProjectView MapToView(Project project, Guid? currentUserId = null) => new(
         project.Id,

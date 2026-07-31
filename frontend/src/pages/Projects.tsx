@@ -153,7 +153,7 @@ function TaskItem({ task, canManage, onStatusChange, onDelete, onEdit }: { task:
 export default function Projects() {
   const { projectArchiveEnabled, projectTaskAssignmentEnabled } = useFeatureAvailability();
   const { user } = useAuth();
-  const { projects, selectedProject, tasks, loading, tasksLoading, error, members, availableMembers, includeArchived, setIncludeArchived, projectScope, setProjectScope, selectProject, createProject, updateProject, archiveProject, createTask, updateTask, updateTaskStatus, deleteTask, addMember, removeMember, updateMemberRole, clearError, taskPage, taskSearch, taskTotalPages, setTaskPage, setTaskSearch } = useProjects();
+  const { projects, selectedProject, tasks, loading, tasksLoading, error, members, availableMembers, activities, activitiesLoading, includeArchived, setIncludeArchived, projectScope, setProjectScope, selectProject, createProject, updateProject, archiveProject, createTask, updateTask, updateTaskStatus, deleteTask, addMember, removeMember, updateMemberRole, clearError, taskPage, taskSearch, taskTotalPages, setTaskPage, setTaskSearch } = useProjects();
   const [editing, setEditing] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | ProjectTaskStatus>('all');
@@ -195,6 +195,21 @@ export default function Projects() {
                     const canManage = isProjectOwner || (selectedProject.currentUserRole === ProjectMemberRole.Member && task.createdByUserId === user?.id);
                     return editingTaskId === task.id ? <div className="card" key={task.id}><TaskForm initialTask={task} members={members} assignmentEnabled={projectTaskAssignmentEnabled} onSubmit={async (request) => { await updateTask(task.id, request); setEditingTaskId(null); }} /><button className="button button--ghost" type="button" onClick={() => setEditingTaskId(null)}>Cancel</button></div> : <TaskItem key={task.id} task={task} canManage={canManage} onEdit={() => setEditingTaskId(task.id)} onStatusChange={(status) => updateTaskStatus(task.id, status).then(() => undefined)} onDelete={() => deleteTask(task.id)} />;
                   })}
+                </div>
+              )}
+            </div>
+            <div className="card">
+              <div className="page-shell__header">
+                <div><h2>Activity</h2><p className="page-note">Recent changes made by project members.</p></div>
+              </div>
+              {activitiesLoading ? <p className="page-note">Loading activity...</p> : activities.length === 0 ? <p className="page-note">No activity recorded yet.</p> : (
+                <div className="member-list">
+                  {activities.map((activity) => (
+                    <div className="member-list__item" key={activity.id}>
+                      <span><strong>{activity.actorDisplayName}</strong><small>{activity.description}</small></span>
+                      <small>{new Date(activity.createdAt).toLocaleString()}</small>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

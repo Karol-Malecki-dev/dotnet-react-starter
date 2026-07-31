@@ -68,6 +68,8 @@ function createContextValue(overrides = {}) {
     error: null,
     members: [ownerMember],
     availableMembers: [],
+    activities: [],
+    activitiesLoading: false,
     includeArchived: false,
     setIncludeArchived: jest.fn().mockResolvedValue(undefined),
     refreshProjects: jest.fn().mockResolvedValue(undefined),
@@ -116,6 +118,25 @@ describe('Projects page', () => {
     expect(screen.getByRole('heading', { name: 'Website refresh' })).toBeInTheDocument();
     expect(screen.getByText('Prepare wireframes')).toBeInTheDocument();
     expect(screen.getByText('High', { selector: 'span.priority' })).toBeInTheDocument();
+  });
+
+  it('renders recent project activity', () => {
+    mockedUseProjects.mockReturnValue(createContextValue({
+      activities: [{
+        id: 'activity-1',
+        type: 'task.created',
+        description: "created the task 'Prepare wireframes'.",
+        actorUserId: 'owner-1',
+        actorDisplayName: 'Owner',
+        projectTaskId: 'task-1',
+        createdAt: '2026-07-25T10:00:00Z',
+      }],
+    }));
+
+    render(<Projects />);
+
+    expect(screen.getByRole('heading', { name: 'Activity' })).toBeInTheDocument();
+    expect(screen.getByText("created the task 'Prepare wireframes'.")).toBeInTheDocument();
   });
 
   it('submits a new task through the projects context', async () => {

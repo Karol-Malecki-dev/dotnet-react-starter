@@ -48,3 +48,6 @@ public sealed record ProjectMemberView(
     DateTime AddedAt);
 
 public sealed record ProjectMemberUserView(Guid Id, string DisplayName, string Email);
+
+public sealed record ProjectActivityView(Guid Id, string Type, string Description, Guid ActorUserId, string ActorDisplayName, Guid? ProjectTaskId, DateTime CreatedAt);
+public sealed record PagedProjectActivityView(IReadOnlyList<ProjectActivityView> Items, int PageNumber, int PageSize, int TotalCount);
