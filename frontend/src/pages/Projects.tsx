@@ -13,6 +13,7 @@ import {
 import { useProjects } from '../context/ProjectsContext';
 import { useFeatureAvailability } from '../hooks/useFeatureAvailability';
 import { useAuth } from '../hooks/useAuth';
+import { projectApi } from '../services/api';
 
 const statusLabels: Record<ProjectTaskStatus, string> = {
   [ProjectTaskStatus.Todo]: 'To do',
@@ -180,7 +181,7 @@ function InvitationPanel({ projectId, invitations, loading, onLoad, onCreate }: 
 function TaskItem({ task, canManage, discussionOpen, attachmentsOpen, onToggleDiscussion, onToggleAttachments, onStatusChange, onDelete, onEdit }: { task: ProjectTaskDto; canManage: boolean; discussionOpen: boolean; attachmentsOpen: boolean; onToggleDiscussion: () => void; onToggleAttachments: () => void; onStatusChange: (status: ProjectTaskStatus) => Promise<void>; onDelete: () => Promise<void>; onEdit: () => void }) {
   const [deleting, setDeleting] = useState(false);
   return (
-    <article className="task-item">
+    <article className="task-item" id={`project-task-${task.id}`}>
       <div><h3>{task.title}</h3>{task.description ? <p>{task.description}</p> : null}<div className="task-labels">{task.labels.map((label) => <span className="task-label" key={label}>{label}</span>)}</div><small>{task.dueDate ? `Due ${new Date(task.dueDate).toLocaleDateString()}` : 'No due date'}</small></div>
       <div className="task-item__actions">
         <select aria-label={`Status for ${task.title}`} value={task.status} disabled={!canManage} onChange={(event) => void onStatusChange(Number(event.target.value) as ProjectTaskStatus)}>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
@@ -294,8 +295,44 @@ export default function Projects() {
   const [priorityFilter, setPriorityFilter] = useState<'all' | ProjectTaskPriority>('all');
   const [openDiscussionTaskId, setOpenDiscussionTaskId] = useState<string | null>(null);
   const [openAttachmentsTaskId, setOpenAttachmentsTaskId] = useState<string | null>(null);
-  const visibleTasks = useMemo(() => tasks.filter((task) => (statusFilter === 'all' || task.status === statusFilter) && (priorityFilter === 'all' || task.priority === priorityFilter)), [priorityFilter, statusFilter, tasks]);
+  const [requestedTask, setRequestedTask] = useState<ProjectTaskDto | null>(null);
   const isProjectOwner = selectedProject ? selectedProject.currentUserRole === ProjectMemberRole.Owner || selectedProject.ownerId === user?.id : false;
+  const requestedProjectId = new URLSearchParams(window.location.search).get('projectId');
+  const requestedTaskId = new URLSearchParams(window.location.search).get('taskId');
+
+  useEffect(() => {
+    if (requestedProjectId
+      && selectedProject?.id !== requestedProjectId
+      && projects.some((project) => project.id === requestedProjectId)) {
+      void selectProject(requestedProjectId);
+    }
+  }, [projects, requestedProjectId, selectProject, selectedProject?.id]);
+
+  useEffect(() => {
+    if (!requestedTaskId || selectedProject?.id !== requestedProjectId || tasksLoading) return;
+
+    document.getElementById(`project-task-${requestedTaskId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [requestedProjectId, requestedTaskId, requestedTask, selectedProject?.id, tasks, tasksLoading]);
+
+  useEffect(() => {
+    if (!requestedTaskId || selectedProject?.id !== requestedProjectId || tasks.some((task) => task.id === requestedTaskId)) {
+      setRequestedTask(null);
+      return;
+    }
+
+    let cancelled = false;
+    void projectApi.getTask(selectedProject.id, requestedTaskId).then((response) => {
+      if (!cancelled) setRequestedTask(response.data ?? null);
+    }).catch(() => {
+      if (!cancelled) setRequestedTask(null);
+    });
+    return () => { cancelled = true; };
+  }, [requestedProjectId, requestedTaskId, selectedProject?.id, tasks]);
+
+  const displayedTasks = requestedTask && !tasks.some((task) => task.id === requestedTask.id)
+    ? [...tasks, requestedTask]
+    : tasks;
+  const visibleTasks = useMemo(() => displayedTasks.filter((task) => (statusFilter === 'all' || task.status === statusFilter) && (priorityFilter === 'all' || task.priority === priorityFilter)), [displayedTasks, priorityFilter, statusFilter]);
 
   return (
     <section className="page-shell projects-page">

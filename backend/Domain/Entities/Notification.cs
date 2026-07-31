@@ -11,6 +11,7 @@ public sealed class Notification
     public string Message { get; set; } = string.Empty;
     public string? ResourceType { get; set; }
     public Guid? ResourceId { get; set; }
+    public Guid? ProjectId { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? ReadAt { get; set; }
 

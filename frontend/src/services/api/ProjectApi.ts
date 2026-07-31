@@ -53,6 +53,10 @@ export class ProjectApi {
     return this.client.get<ProjectTasksResponse>(`/projects/${projectId}/tasks?${query.toString()}`);
   }
 
+  getTask(projectId: string, taskId: string): Promise<ProjectTaskResponse> {
+    return this.client.get<ProjectTaskResponse>(`/projects/${projectId}/tasks/${taskId}`);
+  }
+
   createTask(projectId: string, request: CreateProjectTaskRequest): Promise<ProjectTaskResponse> {
     return this.client.post<ProjectTaskResponse, CreateProjectTaskRequest>(`/projects/${projectId}/tasks`, request);
   }

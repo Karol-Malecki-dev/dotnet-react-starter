@@ -180,6 +180,11 @@ ma termin w ciągu 24 godzin, oraz osobne powiadomienie po terminie. Rekord
 `ProjectTaskDeadlineReminder` deduplikuje powiadomienia według zadania,
 odbiorcy, rodzaju i terminu.
 
+Powiadomienia dotyczące zadań przekazują również `ProjectId` obok
+`ResourceType = "ProjectTask"` i `ResourceId` zadania. Frontend używa tych
+danych do przejścia do `/projects` oraz przewinięcia do wskazanego zadania,
+także gdy zadanie nie znajduje się na aktualnej stronie listy.
+
 Każdy endpoint zadań najpierw sprawdza, czy zalogowany użytkownik jest właścicielem
 aktywnego projektu. Samo posiadanie identyfikatora projektu lub zadania nie daje dostępu.
 

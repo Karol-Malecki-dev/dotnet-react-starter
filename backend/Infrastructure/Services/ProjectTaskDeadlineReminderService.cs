@@ -33,7 +33,7 @@ public sealed class ProjectTaskDeadlineReminderService : IProjectTaskDeadlineRem
                 && task.Status != ProjectTaskStatus.Done
                 && !task.Project.IsArchived
                 && task.AssignedUser!.IsActive)
-            .Select(task => new { task.Id, task.Title, task.AssignedUserId, task.DueDate })
+            .Select(task => new { task.Id, task.ProjectId, task.Title, task.AssignedUserId, task.DueDate })
             .ToListAsync(cancellationToken);
 
         if (candidates.Count == 0)
@@ -82,7 +82,8 @@ public sealed class ProjectTaskDeadlineReminderService : IProjectTaskDeadlineRem
                     ? $"The task '{task.Title}' was due on {dueDate:yyyy-MM-dd}."
                     : $"The task '{task.Title}' is due on {dueDate:yyyy-MM-dd}.",
                 "ProjectTask",
-                task.Id);
+                task.Id,
+                task.ProjectId);
         }
     }
 }

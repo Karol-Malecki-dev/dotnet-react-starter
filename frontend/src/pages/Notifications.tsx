@@ -1,5 +1,6 @@
-import { CheckCheck, Check, Inbox } from 'lucide-react';
+import { CheckCheck, Check, Inbox, ArrowRight } from 'lucide-react';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../hooks/useNotifications';
 
 function formatDate(value: string) {
@@ -11,6 +12,7 @@ function formatDate(value: string) {
 
 export default function Notifications() {
   const { notifications, unreadCount, loading, error, refreshNotifications, markAsRead, markAllAsRead } = useNotifications();
+  const navigate = useNavigate();
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [updating, setUpdating] = useState(false);
 
@@ -35,6 +37,16 @@ export default function Notifications() {
     } finally {
       setUpdating(false);
     }
+  };
+
+  const openTask = async (notification: typeof notifications[number]) => {
+    if (notification.resourceType !== 'ProjectTask' || !notification.resourceId || !notification.projectId) return;
+
+    if (!notification.isRead) {
+      await handleMarkAsRead(notification.id);
+    }
+
+    navigate(`/projects?projectId=${encodeURIComponent(notification.projectId)}&taskId=${encodeURIComponent(notification.resourceId)}`);
   };
 
   return (
@@ -92,6 +104,12 @@ export default function Notifications() {
                 </div>
                 <p>{notification.message}</p>
               </div>
+              {notification.resourceType === 'ProjectTask' && notification.resourceId && notification.projectId ? (
+                <button className="button button--ghost" type="button" onClick={() => void openTask(notification)}>
+                  Open task
+                  <ArrowRight aria-hidden="true" size={16} />
+                </button>
+              ) : null}
               {!notification.isRead ? (
                 <button
                   aria-label={`Mark ${notification.title} as read`}

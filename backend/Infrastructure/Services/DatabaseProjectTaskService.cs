@@ -108,7 +108,8 @@ public sealed class DatabaseProjectTaskService : IProjectTaskApplicationService
                 "You were assigned a task",
                 $"You were assigned the task '{task.Title}'.",
                 "ProjectTask",
-                task.Id);
+                task.Id,
+                task.ProjectId);
         }
 
         return ProjectOperationResult<ProjectTaskView>.Success(MapToView(task, labels), "Project task created", 201);
@@ -159,7 +160,8 @@ public sealed class DatabaseProjectTaskService : IProjectTaskApplicationService
                 "You were assigned a task",
                 $"You were assigned the task '{task.Title}'.",
                 "ProjectTask",
-                task.Id);
+                task.Id,
+                task.ProjectId);
         }
 
         return ProjectOperationResult<ProjectTaskView>.Success(MapToView(task, labels), "Project task updated");
