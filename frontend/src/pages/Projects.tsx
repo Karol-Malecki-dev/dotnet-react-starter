@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ProjectTaskPriority,
   ProjectTaskStatus,
   ProjectMemberRole,
+  ProjectInvitationStatus,
   type CreateProjectTaskRequest,
   type ProjectDto,
   type ProjectMemberDto,
@@ -136,6 +137,41 @@ function MemberPanel({ members, availableMembers, ownerId, onAdd, onRemove, onRo
   );
 }
 
+function InvitationPanel({ projectId, invitations, loading, onLoad, onCreate }: { projectId: string; invitations: { id: string; invitedUserDisplayName: string; invitedUserEmail: string; role: ProjectMemberRole; status: ProjectInvitationStatus; expiresAt: string }[]; loading: boolean; onLoad: (projectId: string) => Promise<void>; onCreate: (request: { email: string; role: ProjectMemberRole }) => Promise<{ token: string }> }) {
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState(ProjectMemberRole.Member);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { void onLoad(projectId); }, [onLoad, projectId]);
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!email.trim()) return;
+    setSaving(true);
+    try {
+      const created = await onCreate({ email: email.trim(), role });
+      setInviteLink(`${window.location.origin}/project-invitation?token=${encodeURIComponent(created.token)}`);
+      setEmail('');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="card invitation-panel">
+      <div><h2>Invite to project</h2><p className="page-note">Create a time-limited invitation for an existing account.</p></div>
+      <form className="invitation-panel__form" onSubmit={submit}>
+        <div className="field"><label className="field__label" htmlFor="invitation-email">Account email</label><input id="invitation-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></div>
+        <div className="field"><label className="field__label" htmlFor="invitation-role">Role</label><select id="invitation-role" value={role} onChange={(event) => setRole(Number(event.target.value) as ProjectMemberRole)}><option value={ProjectMemberRole.Member}>Member</option><option value={ProjectMemberRole.Viewer}>Viewer</option></select></div>
+        <button className="button" type="submit" disabled={saving}>{saving ? 'Creating...' : 'Create invitation'}</button>
+      </form>
+      {inviteLink ? <div className="invitation-panel__link"><label className="field__label" htmlFor="invitation-link">Invitation link</label><input id="invitation-link" value={inviteLink} readOnly /><button className="button button--ghost" type="button" onClick={() => void navigator.clipboard.writeText(inviteLink)}>Copy link</button></div> : null}
+      <div><h3>Invitation history</h3>{loading ? <p className="page-note">Loading invitations...</p> : invitations.length === 0 ? <p className="page-note">No invitations sent yet.</p> : <div className="member-list">{invitations.map((invitation) => <div key={invitation.id} className="member-list__item"><span><strong>{invitation.invitedUserDisplayName}</strong><small>{invitation.invitedUserEmail}</small></span><small>{invitation.role === ProjectMemberRole.Member ? 'Member' : 'Viewer'} · {ProjectInvitationStatus[invitation.status]} · expires {new Date(invitation.expiresAt).toLocaleDateString()}</small></div>)}</div>}</div>
+    </div>
+  );
+}
+
 function TaskItem({ task, canManage, discussionOpen, onToggleDiscussion, onStatusChange, onDelete, onEdit }: { task: ProjectTaskDto; canManage: boolean; discussionOpen: boolean; onToggleDiscussion: () => void; onStatusChange: (status: ProjectTaskStatus) => Promise<void>; onDelete: () => Promise<void>; onEdit: () => void }) {
   const [deleting, setDeleting] = useState(false);
   return (
@@ -179,7 +215,7 @@ function TaskDiscussion({ taskId, comments, loading, canComment, canDeleteCommen
 export default function Projects() {
   const { projectArchiveEnabled, projectTaskAssignmentEnabled } = useFeatureAvailability();
   const { user } = useAuth();
-  const { projects, selectedProject, tasks, loading, tasksLoading, error, members, availableMembers, activities, activitiesLoading, dashboard, dashboardLoading, taskComments, commentsLoadingTaskId, includeArchived, setIncludeArchived, projectScope, setProjectScope, selectProject, createProject, updateProject, archiveProject, createTask, updateTask, updateTaskStatus, deleteTask, loadTaskComments, createTaskComment, deleteTaskComment, addMember, removeMember, updateMemberRole, clearError, taskPage, taskSearch, taskTotalPages, setTaskPage, setTaskSearch } = useProjects();
+  const { projects, selectedProject, tasks, loading, tasksLoading, error, members, availableMembers, activities, activitiesLoading, dashboard, dashboardLoading, taskComments, commentsLoadingTaskId, projectInvitations, invitationsLoading, includeArchived, setIncludeArchived, projectScope, setProjectScope, selectProject, createProject, updateProject, archiveProject, createTask, updateTask, updateTaskStatus, deleteTask, loadTaskComments, createTaskComment, deleteTaskComment, loadProjectInvitations, createProjectInvitation, addMember, removeMember, updateMemberRole, clearError, taskPage, taskSearch, taskTotalPages, setTaskPage, setTaskSearch } = useProjects();
   const [editing, setEditing] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | ProjectTaskStatus>('all');
@@ -220,6 +256,7 @@ export default function Projects() {
               </>}
             </section>
             {!selectedProject.isArchived && projectTaskAssignmentEnabled && isProjectOwner ? <MemberPanel members={members} availableMembers={availableMembers} ownerId={selectedProject.ownerId} onAdd={addMember} onRemove={removeMember} onRoleChange={updateMemberRole} /> : null}
+            {!selectedProject.isArchived && isProjectOwner ? <InvitationPanel projectId={selectedProject.id} invitations={projectInvitations} loading={invitationsLoading} onLoad={loadProjectInvitations} onCreate={createProjectInvitation} /> : null}
             {!selectedProject.isArchived && selectedProject.currentUserRole !== ProjectMemberRole.Viewer ? <div className="card"><h2>Add task</h2><TaskForm members={members} assignmentEnabled={projectTaskAssignmentEnabled} onSubmit={createTask} /></div> : null}
             <div className="card"><label className="field__label" htmlFor="task-search">Search tasks</label><input id="task-search" value={taskSearch ?? ''} onChange={(event) => { setTaskSearch?.(event.target.value); setTaskPage?.(1); }} /><div className="hero__actions"><button className="button button--ghost" type="button" disabled={!taskPage || taskPage <= 1} onClick={() => setTaskPage?.((taskPage ?? 1) - 1)}>Previous</button><span className="role-badge">Page {taskPage ?? 1} of {taskTotalPages ?? 0}</span><button className="button button--ghost" type="button" disabled={!taskTotalPages || (taskPage ?? 1) >= taskTotalPages} onClick={() => setTaskPage?.((taskPage ?? 1) + 1)}>Next</button></div></div>
             <div className="card">

@@ -74,6 +74,8 @@ function createContextValue(overrides = {}) {
     dashboardLoading: false,
     taskComments: {},
     commentsLoadingTaskId: null,
+    projectInvitations: [],
+    invitationsLoading: false,
     includeArchived: false,
     setIncludeArchived: jest.fn().mockResolvedValue(undefined),
     refreshProjects: jest.fn().mockResolvedValue(undefined),
@@ -88,6 +90,10 @@ function createContextValue(overrides = {}) {
     loadTaskComments: jest.fn().mockResolvedValue(undefined),
     createTaskComment: jest.fn().mockResolvedValue(undefined),
     deleteTaskComment: jest.fn().mockResolvedValue(undefined),
+    loadProjectInvitations: jest.fn().mockResolvedValue(undefined),
+    createProjectInvitation: jest.fn().mockResolvedValue(undefined),
+    acceptProjectInvitation: jest.fn().mockResolvedValue(undefined),
+    declineProjectInvitation: jest.fn().mockResolvedValue(undefined),
     addMember: jest.fn().mockResolvedValue(undefined),
     removeMember: jest.fn().mockResolvedValue(undefined),
     clearError: jest.fn(),
@@ -181,6 +187,22 @@ describe('Projects page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Post comment' }));
 
     await waitFor(() => expect(createTaskComment).toHaveBeenCalledWith(task.id, 'I will review this.'));
+  });
+
+  it('creates a project invitation through the projects context', async () => {
+    const loadProjectInvitations = jest.fn().mockResolvedValue(undefined);
+    const createProjectInvitation = jest.fn().mockResolvedValue({ token: 'invitation-token' });
+    mockedUseProjects.mockReturnValue(createContextValue({ loadProjectInvitations, createProjectInvitation }));
+    render(<Projects />);
+
+    expect(loadProjectInvitations).toHaveBeenCalledWith(project.id);
+    fireEvent.change(screen.getByLabelText('Account email'), { target: { value: 'new.member@example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create invitation' }));
+
+    await waitFor(() => expect(createProjectInvitation).toHaveBeenCalledWith({
+      email: 'new.member@example.com',
+      role: ProjectMemberRole.Member,
+    }));
   });
 
   it('submits a new task through the projects context', async () => {

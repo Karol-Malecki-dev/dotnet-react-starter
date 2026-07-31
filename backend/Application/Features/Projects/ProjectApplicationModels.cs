@@ -49,6 +49,25 @@ public sealed record ProjectMemberView(
 
 public sealed record ProjectMemberUserView(Guid Id, string DisplayName, string Email);
 
+/// <summary>Invitation information visible to the project owner or its intended recipient.</summary>
+public sealed record ProjectInvitationView(
+    Guid Id,
+    Guid ProjectId,
+    string ProjectName,
+    Guid InvitedUserId,
+    string InvitedUserDisplayName,
+    string InvitedUserEmail,
+    string InvitedByDisplayName,
+    ProjectMemberRole Role,
+    ProjectInvitationStatus Status,
+    DateTime ExpiresAt,
+    DateTime CreatedAt);
+
+/// <summary>Result of creating an invitation. The raw token is returned once and is never persisted.</summary>
+public sealed record CreatedProjectInvitationView(ProjectInvitationView Invitation, string Token);
+
+public sealed record CreateProjectInvitationCommand(Guid OwnerId, Guid ProjectId, string Email, ProjectMemberRole Role);
+
 public sealed record ProjectActivityView(Guid Id, string Type, string Description, Guid ActorUserId, string ActorDisplayName, Guid? ProjectTaskId, DateTime CreatedAt);
 public sealed record PagedProjectActivityView(IReadOnlyList<ProjectActivityView> Items, int PageNumber, int PageSize, int TotalCount);
 

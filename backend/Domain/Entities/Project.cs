@@ -12,4 +12,5 @@ public class Project
 
     public ICollection<ProjectTask> Tasks { get; set; } = [];
     public ICollection<ProjectMember> Members { get; set; } = [];
+    public ICollection<ProjectInvitation> Invitations { get; set; } = [];
 }
