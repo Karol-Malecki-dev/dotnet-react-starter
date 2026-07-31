@@ -1,8 +1,10 @@
 using Application.DTOs.Auth;
+using Application.Interfaces;
 using API.Contracts.Projects;
 using Domain.Entities;
 using Domain.Enums;
 using Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Shared.Responses;
@@ -415,6 +417,57 @@ public class ProjectTasksApiIntegrationTests
         var outsiderDownload = await _client.GetAsync(
             $"/api/projects/{projectId}/tasks/{task.Data.Id}/attachments/{ownerAttachment.Data.Id}/download");
         Assert.Equal(HttpStatusCode.NotFound, outsiderDownload.StatusCode);
+    }
+
+    [Fact]
+    public async Task Deadline_reminder_processor_notifies_assignees_once_for_upcoming_and_overdue_tasks()
+    {
+        var ownerId = await SeedUserAsync("reminders.owner@example.com", "password123", "Reminder Owner");
+        var assigneeId = await SeedUserAsync("reminders.assignee@example.com", "password123", "Reminder Assignee");
+        var projectId = await SeedProjectAsync(ownerId, "Reminder project");
+        await SeedProjectMemberAsync(projectId, assigneeId);
+
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        dbContext.ProjectTasks.AddRange(
+            new ProjectTask
+            {
+                ProjectId = projectId,
+                Title = "Upcoming deadline",
+                AssignedUserId = assigneeId,
+                CreatedByUserId = ownerId,
+                DueDate = DateTime.UtcNow.AddHours(12)
+            },
+            new ProjectTask
+            {
+                ProjectId = projectId,
+                Title = "Overdue task",
+                AssignedUserId = assigneeId,
+                CreatedByUserId = ownerId,
+                DueDate = DateTime.UtcNow.AddHours(-2)
+            },
+            new ProjectTask
+            {
+                ProjectId = projectId,
+                Title = "Completed task",
+                AssignedUserId = assigneeId,
+                CreatedByUserId = ownerId,
+                DueDate = DateTime.UtcNow.AddHours(6),
+                Status = ProjectTaskStatus.Done
+            });
+        await dbContext.SaveChangesAsync();
+
+        var processor = scope.ServiceProvider.GetRequiredService<IProjectTaskDeadlineReminderService>();
+        await processor.ProcessDueTasksAsync();
+        await processor.ProcessDueTasksAsync();
+
+        var notifications = await dbContext.Notifications
+            .Where(notification => notification.UserId == assigneeId)
+            .ToListAsync();
+        Assert.Equal(2, notifications.Count);
+        Assert.Contains(notifications, notification => notification.Type == NotificationType.TaskDeadlineApproaching);
+        Assert.Contains(notifications, notification => notification.Type == NotificationType.TaskOverdue);
+        Assert.Equal(2, await dbContext.ProjectTaskDeadlineReminders.CountAsync());
     }
 
     private async Task<HttpResponseMessage> UploadAttachmentAsync(

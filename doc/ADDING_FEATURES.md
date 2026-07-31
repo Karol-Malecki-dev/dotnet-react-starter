@@ -174,6 +174,12 @@ Etykiety są przekazywane w polu `labels` żądań tworzenia i edycji zadania. K
 etykieta ma maksymalnie 40 znaków; API usuwa białe znaki brzegowe, normalizuje
 nazwy do małych liter, usuwa duplikaty i zwraca je w kolejności alfabetycznej.
 
+Przypomnienia o terminach są tworzone przez worker uruchamiany co godzinę.
+Przypisany aktywny użytkownik dostaje jedno powiadomienie, gdy aktywne zadanie
+ma termin w ciągu 24 godzin, oraz osobne powiadomienie po terminie. Rekord
+`ProjectTaskDeadlineReminder` deduplikuje powiadomienia według zadania,
+odbiorcy, rodzaju i terminu.
+
 Każdy endpoint zadań najpierw sprawdza, czy zalogowany użytkownik jest właścicielem
 aktywnego projektu. Samo posiadanie identyfikatora projektu lub zadania nie daje dostępu.
 
@@ -185,6 +191,7 @@ Relację należy konfigurować jawnie w `ApplicationDbContext`:
 - `ProjectTask.AssignedUserId` jest opcjonalnym kluczem obcym do `User.Id` i używa `SetNull`,
 - `Status` i `Priority` są enumami zapisywanymi jako tekst,
 - `ProjectTaskLabel` używa cascade delete z zadaniem i unikalnego indeksu na `(ProjectTaskId, Name)`,
+- `ProjectTaskDeadlineReminder` używa cascade delete z zadaniem i unikalnego indeksu na `(ProjectTaskId, RecipientUserId, Type, DueDate)`,
 - po zmianie modelu należy wygenerować migrację z katalogu `backend/`.
 
 Przykład komendy:
