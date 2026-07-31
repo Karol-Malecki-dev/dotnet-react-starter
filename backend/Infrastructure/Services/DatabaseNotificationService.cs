@@ -125,7 +125,7 @@ public sealed class DatabaseNotificationService : INotificationService
         }, "Notification email preference updated");
     }
 
-    public async Task CreateAsync(Guid userId, NotificationType type, string title, string message, string? resourceType = null, Guid? resourceId = null)
+    public async Task CreateAsync(Guid userId, NotificationType type, string title, string message, string? resourceType = null, Guid? resourceId = null, Guid? projectId = null)
     {
         if (userId == Guid.Empty || string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(message))
         {
@@ -142,6 +142,7 @@ public sealed class DatabaseNotificationService : INotificationService
             Message = message.Trim(),
             ResourceType = string.IsNullOrWhiteSpace(resourceType) ? null : resourceType.Trim(),
             ResourceId = resourceId,
+            ProjectId = projectId,
             CreatedAt = now
         };
         _dbContext.Notifications.Add(notification);
@@ -173,6 +174,7 @@ public sealed class DatabaseNotificationService : INotificationService
         Message = notification.Message,
         ResourceType = notification.ResourceType,
         ResourceId = notification.ResourceId,
+        ProjectId = notification.ProjectId,
         CreatedAt = notification.CreatedAt,
         ReadAt = notification.ReadAt
     };

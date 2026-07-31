@@ -16,6 +16,7 @@ export interface NotificationDto {
   message: string;
   resourceType: string | null;
   resourceId: string | null;
+  projectId: string | null;
   createdAt: string;
   readAt: string | null;
   isRead: boolean;

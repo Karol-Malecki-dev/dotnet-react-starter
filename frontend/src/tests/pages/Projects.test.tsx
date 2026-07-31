@@ -4,6 +4,7 @@ import { useProjects } from '../../context/ProjectsContext';
 import { useAuth } from '../../hooks/useAuth';
 import { useFeatureAvailability } from '../../hooks/useFeatureAvailability';
 import { ProjectMemberRole, ProjectTaskPriority, ProjectTaskStatus } from '../../types';
+import { projectApi } from '../../services/api';
 
 import { vi } from 'vitest';
 
@@ -138,6 +139,39 @@ describe('Projects page', () => {
     expect(screen.getByRole('heading', { name: 'Website refresh' })).toBeInTheDocument();
     expect(screen.getByText('Prepare wireframes')).toBeInTheDocument();
     expect(screen.getByText('High', { selector: 'span.priority' })).toBeInTheDocument();
+  });
+
+  it('scrolls to a task requested through the project navigation URL', () => {
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView });
+    window.history.replaceState({}, '', '/projects?projectId=project-1&taskId=task-1');
+
+    render(<Projects />);
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' });
+    window.history.replaceState({}, '', '/');
+  });
+
+  it('loads a requested task outside the current page before scrolling to it', async () => {
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView });
+    const requestedTask = { ...task, id: 'task-2', title: 'Off-page task' };
+    vi.spyOn(projectApi, 'getTask').mockResolvedValue({
+      data: requestedTask,
+      message: 'Task loaded',
+      statusCode: 200,
+      errors: [],
+      timestamp: '2026-07-31T10:00:00Z',
+    });
+    window.history.replaceState({}, '', '/projects?projectId=project-1&taskId=task-2');
+    mockedUseProjects.mockReturnValue(createContextValue({ tasks: [] }));
+
+    render(<Projects />);
+
+    await waitFor(() => expect(screen.getByText('Off-page task')).toBeInTheDocument());
+    expect(projectApi.getTask).toHaveBeenCalledWith('project-1', 'task-2');
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' });
+    window.history.replaceState({}, '', '/');
   });
 
   it('renders recent project activity', () => {

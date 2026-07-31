@@ -10,6 +10,7 @@ public sealed class NotificationDto
     public string Message { get; init; } = string.Empty;
     public string? ResourceType { get; init; }
     public Guid? ResourceId { get; init; }
+    public Guid? ProjectId { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime? ReadAt { get; init; }
     public bool IsRead => ReadAt.HasValue;

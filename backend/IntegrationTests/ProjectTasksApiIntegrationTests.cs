@@ -467,6 +467,7 @@ public class ProjectTasksApiIntegrationTests
         Assert.Equal(2, notifications.Count);
         Assert.Contains(notifications, notification => notification.Type == NotificationType.TaskDeadlineApproaching);
         Assert.Contains(notifications, notification => notification.Type == NotificationType.TaskOverdue);
+        Assert.All(notifications, notification => Assert.Equal(projectId, notification.ProjectId));
         Assert.Equal(2, await dbContext.ProjectTaskDeadlineReminders.CountAsync());
     }
 
