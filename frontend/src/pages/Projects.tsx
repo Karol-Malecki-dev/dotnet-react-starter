@@ -196,6 +196,33 @@ function TaskItem({ task, canManage, discussionOpen, attachmentsOpen, onToggleDi
   );
 }
 
+function TaskBoard({ tasks, canManageTask, onStatusChange }: { tasks: ProjectTaskDto[]; canManageTask: (task: ProjectTaskDto) => boolean; onStatusChange: (taskId: string, status: ProjectTaskStatus) => Promise<void> }) {
+  const columns = [ProjectTaskStatus.Todo, ProjectTaskStatus.InProgress, ProjectTaskStatus.Done];
+
+  return (
+    <div className="task-board" role="region" aria-label="Task board">
+      {columns.map((status) => {
+        const columnTasks = tasks.filter((task) => task.status === status);
+        return (
+          <section className="task-board__column" key={status} aria-labelledby={`task-board-${status}`}>
+            <header className="task-board__column-header"><h3 id={`task-board-${status}`}>{statusLabels[status]}</h3><span className="role-badge">{columnTasks.length}</span></header>
+            <div className="task-board__cards">
+              {columnTasks.length === 0 ? <p className="page-note">No tasks.</p> : columnTasks.map((task) => (
+                <article className="task-board__card" id={`project-task-${task.id}`} key={task.id}>
+                  <div><h4>{task.title}</h4>{task.description ? <p>{task.description}</p> : null}</div>
+                  <div className="task-labels">{task.labels.map((label) => <span className="task-label" key={label}>{label}</span>)}</div>
+                  <div className="task-board__meta"><span className={`priority priority--${priorityLabels[task.priority].toLowerCase()}`}>{priorityLabels[task.priority]}</span><small>{task.dueDate ? `Due ${new Date(task.dueDate).toLocaleDateString()}` : 'No due date'}</small></div>
+                  <label className="field field--inline"><span className="field__label">Move {task.title} to</span><select value={task.status} disabled={!canManageTask(task)} onChange={(event) => void onStatusChange(task.id, Number(event.target.value) as ProjectTaskStatus)}>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+                </article>
+              ))}
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
 function TaskDiscussion({ taskId, comments, loading, canComment, canDeleteComment, onCreate, onDelete }: { taskId: string; comments?: { id: string; authorUserId: string; authorDisplayName: string; content: string; createdAt: string }[]; loading: boolean; canComment: boolean; canDeleteComment: (authorUserId: string) => boolean; onCreate: (content: string) => Promise<unknown>; onDelete: (commentId: string) => Promise<void> }) {
   const [content, setContent] = useState('');
   const [saving, setSaving] = useState(false);
@@ -293,6 +320,7 @@ export default function Projects() {
   const { projects, selectedProject, tasks, loading, tasksLoading, error, members, availableMembers, activities, activitiesLoading, dashboard, dashboardLoading, taskComments, commentsLoadingTaskId, taskAttachments, attachmentsLoadingTaskId, projectInvitations, invitationsLoading, includeArchived, setIncludeArchived, projectScope, setProjectScope, selectProject, createProject, updateProject, archiveProject, createTask, updateTask, updateTaskStatus, deleteTask, loadTaskComments, createTaskComment, deleteTaskComment, loadTaskAttachments, uploadTaskAttachment, downloadTaskAttachment, deleteTaskAttachment, loadProjectInvitations, createProjectInvitation, addMember, removeMember, updateMemberRole, clearError, taskPage, taskSearch, taskTotalPages, setTaskPage, setTaskSearch, taskFilters, setTaskFilters } = useProjects();
   const [editing, setEditing] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [taskView, setTaskView] = useState<'list' | 'board'>('list');
   const [openDiscussionTaskId, setOpenDiscussionTaskId] = useState<string | null>(null);
   const [openAttachmentsTaskId, setOpenAttachmentsTaskId] = useState<string | null>(null);
   const [requestedTask, setRequestedTask] = useState<ProjectTaskDto | null>(null);
@@ -372,7 +400,7 @@ export default function Projects() {
             <div className="card">
               <div className="page-shell__header">
                 <div><h2>Tasks</h2><p className="page-note">Filter and sort tasks in this project.</p></div>
-                <span className="role-badge">{visibleTasks.length} of {tasks.length}</span>
+                <div className="hero__actions"><span className="role-badge">{visibleTasks.length} of {tasks.length}</span><div className="segmented-control" aria-label="Task view"><button className={`segmented-control__button ${taskView === 'list' ? 'segmented-control__button--active' : ''}`} type="button" aria-pressed={taskView === 'list'} onClick={() => setTaskView('list')}>List</button><button className={`segmented-control__button ${taskView === 'board' ? 'segmented-control__button--active' : ''}`} type="button" aria-pressed={taskView === 'board'} onClick={() => setTaskView('board')}>Board</button></div></div>
               </div>
               <div className="toolbar">
                 <div className="toolbar__group">
@@ -385,7 +413,7 @@ export default function Projects() {
                   <label>Order<select className="toolbar__select" value={taskFilters?.sortDirection ?? SortDirection.Ascending} onChange={(event) => setTaskFilters?.({ sortDirection: event.target.value as SortDirection })}><option value={SortDirection.Ascending}>Ascending</option><option value={SortDirection.Descending}>Descending</option></select></label>
                 </div>
               </div>
-              {tasksLoading ? <p className="page-note">Loading tasks...</p> : visibleTasks.length === 0 ? <p className="page-note">No tasks match the current filters.</p> : (
+              {tasksLoading ? <p className="page-note">Loading tasks...</p> : visibleTasks.length === 0 ? <p className="page-note">No tasks match the current filters.</p> : taskView === 'board' ? <TaskBoard tasks={visibleTasks} canManageTask={(task) => isProjectOwner || (selectedProject.currentUserRole === ProjectMemberRole.Member && task.createdByUserId === user?.id)} onStatusChange={(taskId, status) => updateTaskStatus(taskId, status).then(() => undefined)} /> : (
                 <div className="task-list">
                   {visibleTasks.map((task) => {
                     const canManage = isProjectOwner || (selectedProject.currentUserRole === ProjectMemberRole.Member && task.createdByUserId === user?.id);

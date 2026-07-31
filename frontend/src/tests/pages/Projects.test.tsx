@@ -387,6 +387,22 @@ describe('Projects page', () => {
     expect(setTaskFilters).toHaveBeenCalledWith({ priority: ProjectTaskPriority.Low });
   });
 
+  it('renders the task board and changes task status from a board card', async () => {
+    const updateTaskStatus = jest.fn().mockResolvedValue(task);
+    mockedUseProjects.mockReturnValue(createContextValue({ updateTaskStatus }));
+    render(<Projects />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Board' }));
+
+    expect(screen.getByRole('region', { name: 'Task board' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'To do' })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Move Prepare wireframes to'), {
+      target: { value: String(ProjectTaskStatus.InProgress) },
+    });
+
+    await waitFor(() => expect(updateTaskStatus).toHaveBeenCalledWith(task.id, ProjectTaskStatus.InProgress));
+  });
+
   it('submits edited task data with the selected project member', async () => {
     const updateTask = jest.fn().mockResolvedValue(task);
     mockedUseProjects.mockReturnValue(createContextValue({ updateTask }));
