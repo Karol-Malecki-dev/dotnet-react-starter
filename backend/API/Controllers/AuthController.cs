@@ -619,6 +619,20 @@ namespace API.Controllers
             });
         }
 
+        private string BuildPasswordResetLink(string email, string token)
+        {
+            var origin = _emailConfirmationSettings.PublicOrigin.TrimEnd('/');
+            var path = _emailConfirmationSettings.PasswordResetPath.StartsWith('/')
+                ? _emailConfirmationSettings.PasswordResetPath
+                : "/" + _emailConfirmationSettings.PasswordResetPath;
+
+            return QueryHelpers.AddQueryString(origin + path, new Dictionary<string, string?>
+            {
+                ["email"] = email,
+                ["token"] = token
+            });
+        }
+
         private static string MaskEmail(string email)
         {
             var parts = email.Split('@', 2, StringSplitOptions.RemoveEmptyEntries);
@@ -703,16 +717,34 @@ namespace API.Controllers
             try
             {
                 _logger.LogInformation("🔑 Forgot password request for email: {Email}", dto.Email);
-                var result = await _authService.SendPasswordResetEmailAsync(dto.Email);
-                if (!result)
+                var resetToken = await _authService.GeneratePasswordResetTokenAsync(dto.Email);
+                if (resetToken is null)
                 {
                     return Ok(ApiResponse<object?>.Success(
                         null,
                         "If the account exists, a password reset message has been sent.",
                         200));
                 }
+                var userResult = await _userService.GetUserByEmailAsync(dto.Email);
+                var user = userResult.Data;
+                if (user is null)
+                {
+                    return Ok(ApiResponse<object?>.Success(
+                        null,
+                        "If the account exists, a password reset message has been sent.",
+                        200));
+                }
+
+                await _accountEmailSender.SendPasswordResetLinkAsync(
+                    user.Email,
+                    user.DisplayName,
+                    BuildPasswordResetLink(user.Email, resetToken));
+
                 _logger.LogInformation("✓ Password reset email sent to: {Email}", dto.Email);
-                return Ok(ApiResponse<object?>.Success(null, "Password reset email sent", 200));
+                return Ok(ApiResponse<object?>.Success(
+                    null,
+                    "If the account exists, a password reset message has been sent.",
+                    200));
             }
             catch (Exception ex)
             {

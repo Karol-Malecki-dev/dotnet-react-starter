@@ -1,5 +1,5 @@
 using Application.DTOs.Auth;
-using Application.DTOs.Project;
+using API.Contracts.Projects;
 using Domain.Entities;
 using Domain.Enums;
 using Infrastructure.Data;
@@ -47,7 +47,7 @@ public class ProjectsApiIntegrationTests
         });
 
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
-        var created = await createResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectDto>>();
+        var created = await createResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectResponse>>();
 
         Assert.NotNull(created?.Data);
         Assert.Equal(ownerId, created.Data.OwnerId);
@@ -56,7 +56,7 @@ public class ProjectsApiIntegrationTests
 
         var listResponse = await _client.GetAsync("/api/projects");
         listResponse.EnsureSuccessStatusCode();
-        var projects = await listResponse.Content.ReadFromJsonAsync<ApiResponse<List<ProjectDto>>>();
+        var projects = await listResponse.Content.ReadFromJsonAsync<ApiResponse<List<ProjectResponse>>>();
 
         Assert.NotNull(projects?.Data);
         var project = Assert.Single(projects.Data);
@@ -90,17 +90,17 @@ public class ProjectsApiIntegrationTests
 
         var archivedProjectDetailsResponse = await _client.GetAsync($"/api/projects/{projectId}?includeArchived=true");
         archivedProjectDetailsResponse.EnsureSuccessStatusCode();
-        var archivedProject = await archivedProjectDetailsResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectDto>>();
+        var archivedProject = await archivedProjectDetailsResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectResponse>>();
         Assert.True(archivedProject?.Data?.IsArchived);
 
         var activeProjectsResponse = await _client.GetAsync("/api/projects");
         activeProjectsResponse.EnsureSuccessStatusCode();
-        var activeProjects = await activeProjectsResponse.Content.ReadFromJsonAsync<ApiResponse<List<ProjectDto>>>();
+        var activeProjects = await activeProjectsResponse.Content.ReadFromJsonAsync<ApiResponse<List<ProjectResponse>>>();
         Assert.Empty(activeProjects?.Data ?? []);
 
         var allProjectsResponse = await _client.GetAsync("/api/projects?includeArchived=true");
         allProjectsResponse.EnsureSuccessStatusCode();
-        var allProjects = await allProjectsResponse.Content.ReadFromJsonAsync<ApiResponse<List<ProjectDto>>>();
+        var allProjects = await allProjectsResponse.Content.ReadFromJsonAsync<ApiResponse<List<ProjectResponse>>>();
         Assert.Single(allProjects?.Data ?? []);
         Assert.True(allProjects!.Data![0].IsArchived);
         Assert.NotEqual(otherUserId, allProjects.Data[0].OwnerId);

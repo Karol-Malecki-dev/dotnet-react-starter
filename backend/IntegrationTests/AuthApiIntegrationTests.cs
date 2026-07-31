@@ -2,6 +2,7 @@ using Domain.Entities;
 using Application.DTOs.Auth;
 using Domain.Entities.JWT;
 using Domain.Enums;
+using Domain.Enums.Auth;
 using Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
@@ -284,6 +285,59 @@ public class AuthApiIntegrationTests
 
         var secondPayload = GetLatestConfirmationPayload();
         Assert.NotEqual(firstPayload.Token, secondPayload.Token);
+    }
+
+    [Fact]
+    public async Task PasswordReset_Sends_link_and_changes_password()
+    {
+        _factory.EmailSender.Clear();
+        await SeedUserAsync("password.reset@example.com", "password123", "Password Reset", UserRole.User);
+
+        var forgotResponse = await _client.PostAsJsonAsync("/api/auth/forgot-password", new
+        {
+            Email = "password.reset@example.com",
+            ResetType = ResetType.Link
+        });
+
+        forgotResponse.EnsureSuccessStatusCode();
+        Assert.NotNull(_factory.EmailSender.LatestPasswordResetLink);
+
+        var resetLink = new Uri(_factory.EmailSender.LatestPasswordResetLink!);
+        var parameters = resetLink.Query
+            .TrimStart('?')
+            .Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Select(part => part.Split('=', 2))
+            .ToDictionary(
+                parts => parts[0],
+                parts => parts.Length > 1 ? Uri.UnescapeDataString(parts[1]) : string.Empty,
+                StringComparer.OrdinalIgnoreCase);
+
+        Assert.Equal("password.reset@example.com", parameters["email"]);
+        Assert.False(string.IsNullOrWhiteSpace(parameters["token"]));
+
+        var resetResponse = await _client.PostAsJsonAsync("/api/auth/reset-password", new
+        {
+            Email = parameters["email"],
+            ResetType = ResetType.Link,
+            Token = parameters["token"],
+            NewPassword = "newPassword123"
+        });
+
+        resetResponse.EnsureSuccessStatusCode();
+
+        var oldLoginResponse = await _client.PostAsJsonAsync("/api/auth/login", new
+        {
+            Email = "password.reset@example.com",
+            Password = "password123"
+        });
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, oldLoginResponse.StatusCode);
+
+        var newLoginResponse = await _client.PostAsJsonAsync("/api/auth/login", new
+        {
+            Email = "password.reset@example.com",
+            Password = "newPassword123"
+        });
+        newLoginResponse.EnsureSuccessStatusCode();
     }
 
     [Fact]

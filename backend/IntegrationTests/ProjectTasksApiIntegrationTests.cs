@@ -1,5 +1,5 @@
 using Application.DTOs.Auth;
-using Application.DTOs.Project;
+using API.Contracts.Projects;
 using Domain.Entities;
 using Domain.Enums;
 using Infrastructure.Data;
@@ -48,7 +48,7 @@ public class ProjectTasksApiIntegrationTests
         });
 
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
-        var created = await createResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskDto>>();
+        var created = await createResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskResponse>>();
         Assert.NotNull(created?.Data);
         Assert.Equal(projectId, created.Data.ProjectId);
         Assert.Equal(ProjectTaskStatus.Todo, created.Data.Status);
@@ -59,7 +59,7 @@ public class ProjectTasksApiIntegrationTests
             new { Status = ProjectTaskStatus.InProgress });
 
         statusResponse.EnsureSuccessStatusCode();
-        var statusResult = await statusResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskDto>>();
+        var statusResult = await statusResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskResponse>>();
         Assert.Equal(ProjectTaskStatus.InProgress, statusResult?.Data?.Status);
 
         var updateResponse = await _client.PutAsJsonAsync(
@@ -73,7 +73,7 @@ public class ProjectTasksApiIntegrationTests
             });
 
         updateResponse.EnsureSuccessStatusCode();
-        var updateResult = await updateResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskDto>>();
+        var updateResult = await updateResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskResponse>>();
         Assert.Equal("Prepare final release notes", updateResult?.Data?.Title);
         Assert.Equal(ProjectTaskStatus.InProgress, updateResult?.Data?.Status);
 
@@ -137,7 +137,7 @@ public class ProjectTasksApiIntegrationTests
         var response = await _client.GetAsync($"/api/projects/{projectId}/members");
 
         response.EnsureSuccessStatusCode();
-        var result = await response.Content.ReadFromJsonAsync<ApiResponse<List<ProjectMemberDto>>>();
+        var result = await response.Content.ReadFromJsonAsync<ApiResponse<List<ProjectMemberResponse>>>();
         Assert.NotNull(result?.Data);
         Assert.Equal(2, result.Data.Count);
         Assert.Contains(result.Data, member => member.UserId == ownerId);
@@ -194,7 +194,7 @@ public class ProjectTasksApiIntegrationTests
             AssignedUserId = memberId
         });
         createResponse.EnsureSuccessStatusCode();
-        var created = await createResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskDto>>();
+        var created = await createResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskResponse>>();
         Assert.NotNull(created?.Data);
         Assert.Equal(memberId, created.Data.AssignedUserId);
 
@@ -203,7 +203,7 @@ public class ProjectTasksApiIntegrationTests
 
         var tasksResponse = await _client.GetAsync($"/api/projects/{projectId}/tasks");
         tasksResponse.EnsureSuccessStatusCode();
-        var tasks = await tasksResponse.Content.ReadFromJsonAsync<ApiResponse<PagedResult<ProjectTaskDto>>>();
+        var tasks = await tasksResponse.Content.ReadFromJsonAsync<ApiResponse<PagedProjectTaskResponse>>();
         Assert.NotNull(tasks?.Data);
         Assert.Equal(1, tasks.Data.TotalCount);
         var task = Assert.Single(tasks.Data.Items);

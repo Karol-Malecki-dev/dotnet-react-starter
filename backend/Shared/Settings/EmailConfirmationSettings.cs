@@ -9,6 +9,9 @@ public class EmailConfirmationSettings
     /// <summary>Frontend route that consumes the confirmation link.</summary>
     public string ConfirmationPath { get; set; } = "/confirm-email";
 
+    /// <summary>Frontend route that consumes password reset links.</summary>
+    public string PasswordResetPath { get; set; } = "/reset-password";
+
     /// <summary>Lifetime of an email confirmation token in hours.</summary>
     public int TokenExpiresInHours { get; set; } = 24;
 }

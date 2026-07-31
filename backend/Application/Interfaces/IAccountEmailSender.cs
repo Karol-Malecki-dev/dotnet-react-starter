@@ -9,6 +9,9 @@ public interface IAccountEmailSender
     /// <param name="confirmationLink">Frontend link containing the confirmation token.</param>
     Task SendEmailConfirmationAsync(string email, string displayName, string confirmationLink);
 
+    /// <summary>Sends a single-use password reset link.</summary>
+    Task SendPasswordResetLinkAsync(string email, string displayName, string resetLink);
+
     /// <summary>Sends the short-lived email 2FA code for a pending login challenge.</summary>
     /// <param name="email">Recipient email address.</param>
     /// <param name="displayName">Recipient display name used in the message.</param>

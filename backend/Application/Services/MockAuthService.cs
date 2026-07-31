@@ -94,7 +94,7 @@ namespace Application.Services
 
         public async Task<string?> GeneratePasswordResetTokenAsync(string email)
         {
-            return await Task.FromResult(Guid.NewGuid().ToString());
+            return await Task.FromResult(email == TestUser.Email ? Guid.NewGuid().ToString() : null);
         }
 
         public async Task<bool> ResetPasswordAsync(string email, string resetToken, string newPassword)
