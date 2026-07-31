@@ -30,6 +30,10 @@ public sealed class ProjectTaskDeadlineReminderWorker : BackgroundService
                 var service = scope.ServiceProvider.GetRequiredService<IProjectTaskDeadlineReminderService>();
                 await service.ProcessDueTasksAsync(stoppingToken);
             }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                return;
+            }
             catch (Exception exception)
             {
                 _logger.LogError(exception, "Project task deadline reminder worker failed while processing tasks");
