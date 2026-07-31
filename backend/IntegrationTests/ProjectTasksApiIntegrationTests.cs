@@ -429,6 +429,13 @@ public class ProjectTasksApiIntegrationTests
 
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        dbContext.NotificationEmailPreferences.Add(new NotificationEmailPreference
+        {
+            UserId = assigneeId,
+            IsEmailEnabled = true,
+            IsTaskDeadlineReminderEmailEnabled = false,
+            UpdatedAt = DateTime.UtcNow
+        });
         dbContext.ProjectTasks.AddRange(
             new ProjectTask
             {
@@ -469,6 +476,7 @@ public class ProjectTasksApiIntegrationTests
         Assert.Contains(notifications, notification => notification.Type == NotificationType.TaskOverdue);
         Assert.All(notifications, notification => Assert.Equal(projectId, notification.ProjectId));
         Assert.Equal(2, await dbContext.ProjectTaskDeadlineReminders.CountAsync());
+        Assert.DoesNotContain(await dbContext.NotificationEmailOutboxMessages.ToListAsync(), message => message.UserId == assigneeId);
     }
 
     private async Task<HttpResponseMessage> UploadAttachmentAsync(

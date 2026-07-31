@@ -51,6 +51,7 @@ export default function Profile() {
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const [updatingAuthenticator, setUpdatingAuthenticator] = useState(false);
   const [isNotificationEmailEnabled, setIsNotificationEmailEnabled] = useState<boolean | null>(null);
+  const [isTaskDeadlineReminderEmailEnabled, setIsTaskDeadlineReminderEmailEnabled] = useState<boolean | null>(null);
   const [loadingNotificationPreference, setLoadingNotificationPreference] = useState(false);
   const [updatingNotificationPreference, setUpdatingNotificationPreference] = useState(false);
   const [notificationPreferenceError, setNotificationPreferenceError] = useState<string | null>(null);
@@ -65,6 +66,7 @@ export default function Profile() {
     const loadNotificationPreference = async () => {
       if (!user) {
         setIsNotificationEmailEnabled(null);
+        setIsTaskDeadlineReminderEmailEnabled(null);
         return;
       }
 
@@ -79,6 +81,7 @@ export default function Profile() {
 
         if (isCurrent) {
           setIsNotificationEmailEnabled(response.data.isEmailEnabled);
+          setIsTaskDeadlineReminderEmailEnabled(response.data.isTaskDeadlineReminderEmailEnabled);
         }
       } catch (caughtError) {
         if (isCurrent) {
@@ -273,16 +276,23 @@ export default function Profile() {
     }
   };
 
-  const handleNotificationEmailPreferenceChange = async (isEmailEnabled: boolean) => {
+  const handleNotificationEmailPreferenceChange = async (
+    isEmailEnabled: boolean,
+    isTaskDeadlineReminderEmailEnabled: boolean,
+  ) => {
     setUpdatingNotificationPreference(true);
     setNotificationPreferenceError(null);
 
     try {
-      const response = await notificationApi.updateEmailPreference({ isEmailEnabled });
+      const response = await notificationApi.updateEmailPreference({
+        isEmailEnabled,
+        isTaskDeadlineReminderEmailEnabled,
+      });
       if (!response.data) {
         throw new Error('Notification preference update response missing data');
       }
       setIsNotificationEmailEnabled(response.data.isEmailEnabled);
+      setIsTaskDeadlineReminderEmailEnabled(response.data.isTaskDeadlineReminderEmailEnabled);
     } catch (caughtError) {
       setNotificationPreferenceError(
         getApiErrorMessage(caughtError, {
@@ -615,16 +625,33 @@ export default function Profile() {
             </div>
             {loadingNotificationPreference ? <p role="status">Loading notification settings...</p> : null}
             {notificationPreferenceError ? <p className="form__error" role="alert">{notificationPreferenceError}</p> : null}
-            {isNotificationEmailEnabled !== null ? (
-              <label className="field field--inline">
-                <span className="field__label">Email notifications</span>
-                <input
-                  type="checkbox"
-                  checked={isNotificationEmailEnabled}
-                  onChange={(event) => void handleNotificationEmailPreferenceChange(event.target.checked)}
-                  disabled={updatingNotificationPreference}
-                />
-              </label>
+            {isNotificationEmailEnabled !== null && isTaskDeadlineReminderEmailEnabled !== null ? (
+              <div className="stack stack--tight">
+                <label className="field field--inline">
+                  <span className="field__label">Email notifications</span>
+                  <input
+                    type="checkbox"
+                    checked={isNotificationEmailEnabled}
+                    onChange={(event) => void handleNotificationEmailPreferenceChange(
+                      event.target.checked,
+                      isTaskDeadlineReminderEmailEnabled,
+                    )}
+                    disabled={updatingNotificationPreference}
+                  />
+                </label>
+                <label className="field field--inline">
+                  <span className="field__label">Task deadline reminder emails</span>
+                  <input
+                    type="checkbox"
+                    checked={isTaskDeadlineReminderEmailEnabled}
+                    onChange={(event) => void handleNotificationEmailPreferenceChange(
+                      isNotificationEmailEnabled,
+                      event.target.checked,
+                    )}
+                    disabled={updatingNotificationPreference || !isNotificationEmailEnabled}
+                  />
+                </label>
+              </div>
             ) : null}
           </article>
         </div>

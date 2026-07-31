@@ -94,11 +94,15 @@ public sealed class DatabaseNotificationService : INotificationService
 
         return ApiResponse<NotificationEmailPreferenceDto>.Success(new NotificationEmailPreferenceDto
         {
-            IsEmailEnabled = preference?.IsEmailEnabled ?? true
+            IsEmailEnabled = preference?.IsEmailEnabled ?? true,
+            IsTaskDeadlineReminderEmailEnabled = preference?.IsTaskDeadlineReminderEmailEnabled ?? true
         });
     }
 
-    public async Task<ApiResponse<NotificationEmailPreferenceDto>> UpdateEmailPreferenceAsync(Guid userId, bool isEmailEnabled)
+    public async Task<ApiResponse<NotificationEmailPreferenceDto>> UpdateEmailPreferenceAsync(
+        Guid userId,
+        bool? isEmailEnabled,
+        bool? isTaskDeadlineReminderEmailEnabled)
     {
         var preference = await _dbContext.NotificationEmailPreferences
             .FirstOrDefaultAsync(candidate => candidate.UserId == userId);
@@ -107,25 +111,28 @@ public sealed class DatabaseNotificationService : INotificationService
             preference = new NotificationEmailPreference
             {
                 UserId = userId,
-                IsEmailEnabled = isEmailEnabled,
+                IsEmailEnabled = isEmailEnabled ?? true,
+                IsTaskDeadlineReminderEmailEnabled = isTaskDeadlineReminderEmailEnabled ?? true,
                 UpdatedAt = DateTime.UtcNow
             };
             _dbContext.NotificationEmailPreferences.Add(preference);
         }
         else
         {
-            preference.IsEmailEnabled = isEmailEnabled;
+            if (isEmailEnabled.HasValue) preference.IsEmailEnabled = isEmailEnabled.Value;
+            if (isTaskDeadlineReminderEmailEnabled.HasValue) preference.IsTaskDeadlineReminderEmailEnabled = isTaskDeadlineReminderEmailEnabled.Value;
             preference.UpdatedAt = DateTime.UtcNow;
         }
 
         await _dbContext.SaveChangesAsync();
         return ApiResponse<NotificationEmailPreferenceDto>.Success(new NotificationEmailPreferenceDto
         {
-            IsEmailEnabled = preference.IsEmailEnabled
+            IsEmailEnabled = preference.IsEmailEnabled,
+            IsTaskDeadlineReminderEmailEnabled = preference.IsTaskDeadlineReminderEmailEnabled
         }, "Notification email preference updated");
     }
 
-    public async Task CreateAsync(Guid userId, NotificationType type, string title, string message, string? resourceType = null, Guid? resourceId = null, Guid? projectId = null)
+    public async Task CreateAsync(Guid userId, NotificationType type, string title, string message, string? resourceType = null, Guid? resourceId = null, Guid? projectId = null, bool sendEmail = true)
     {
         if (userId == Guid.Empty || string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(message))
         {
@@ -151,7 +158,7 @@ public sealed class DatabaseNotificationService : INotificationService
             .Where(preference => preference.UserId == userId)
             .Select(preference => (bool?)preference.IsEmailEnabled)
             .FirstOrDefaultAsync() ?? true;
-        if (emailEnabled)
+        if (sendEmail && emailEnabled)
         {
             _dbContext.NotificationEmailOutboxMessages.Add(new NotificationEmailOutboxMessage
             {

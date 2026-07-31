@@ -11,6 +11,6 @@ public interface INotificationService
     Task<ApiResponse<NotificationDto>> MarkAsReadAsync(Guid userId, Guid notificationId);
     Task<ApiResponse<int>> MarkAllAsReadAsync(Guid userId);
     Task<ApiResponse<NotificationEmailPreferenceDto>> GetEmailPreferenceAsync(Guid userId);
-    Task<ApiResponse<NotificationEmailPreferenceDto>> UpdateEmailPreferenceAsync(Guid userId, bool isEmailEnabled);
-    Task CreateAsync(Guid userId, NotificationType type, string title, string message, string? resourceType = null, Guid? resourceId = null, Guid? projectId = null);
+    Task<ApiResponse<NotificationEmailPreferenceDto>> UpdateEmailPreferenceAsync(Guid userId, bool? isEmailEnabled, bool? isTaskDeadlineReminderEmailEnabled);
+    Task CreateAsync(Guid userId, NotificationType type, string title, string message, string? resourceType = null, Guid? resourceId = null, Guid? projectId = null, bool sendEmail = true);
 }

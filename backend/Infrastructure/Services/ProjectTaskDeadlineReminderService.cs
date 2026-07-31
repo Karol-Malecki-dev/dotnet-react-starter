@@ -50,6 +50,11 @@ public sealed class ProjectTaskDeadlineReminderService : IProjectTaskDeadlineRem
         var reminderKeys = existingReminders
             .Select(reminder => (reminder.ProjectTaskId, reminder.RecipientUserId, reminder.Type, reminder.DueDate))
             .ToHashSet();
+        var recipientUserIds = candidates.Select(task => task.AssignedUserId!.Value).Distinct().ToList();
+        var deadlineEmailPreferences = await _dbContext.NotificationEmailPreferences
+            .AsNoTracking()
+            .Where(preference => recipientUserIds.Contains(preference.UserId))
+            .ToDictionaryAsync(preference => preference.UserId, preference => preference.IsTaskDeadlineReminderEmailEnabled, cancellationToken);
 
         foreach (var task in candidates)
         {
@@ -83,7 +88,8 @@ public sealed class ProjectTaskDeadlineReminderService : IProjectTaskDeadlineRem
                     : $"The task '{task.Title}' is due on {dueDate:yyyy-MM-dd}.",
                 "ProjectTask",
                 task.Id,
-                task.ProjectId);
+                task.ProjectId,
+                deadlineEmailPreferences.GetValueOrDefault(recipientUserId, true));
         }
     }
 }
