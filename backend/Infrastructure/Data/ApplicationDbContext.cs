@@ -34,6 +34,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<ProjectActivity> ProjectActivities => Set<ProjectActivity>();
 
     public DbSet<ProjectTask> ProjectTasks => Set<ProjectTask>();
+    public DbSet<ProjectTaskComment> ProjectTaskComments => Set<ProjectTaskComment>();
 
     public DbSet<ProjectMember> ProjectMembers => Set<ProjectMember>();
 

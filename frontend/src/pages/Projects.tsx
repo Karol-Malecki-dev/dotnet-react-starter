@@ -136,7 +136,7 @@ function MemberPanel({ members, availableMembers, ownerId, onAdd, onRemove, onRo
   );
 }
 
-function TaskItem({ task, canManage, onStatusChange, onDelete, onEdit }: { task: ProjectTaskDto; canManage: boolean; onStatusChange: (status: ProjectTaskStatus) => Promise<void>; onDelete: () => Promise<void>; onEdit: () => void }) {
+function TaskItem({ task, canManage, discussionOpen, onToggleDiscussion, onStatusChange, onDelete, onEdit }: { task: ProjectTaskDto; canManage: boolean; discussionOpen: boolean; onToggleDiscussion: () => void; onStatusChange: (status: ProjectTaskStatus) => Promise<void>; onDelete: () => Promise<void>; onEdit: () => void }) {
   const [deleting, setDeleting] = useState(false);
   return (
     <article className="task-item">
@@ -144,20 +144,47 @@ function TaskItem({ task, canManage, onStatusChange, onDelete, onEdit }: { task:
       <div className="task-item__actions">
         <select aria-label={`Status for ${task.title}`} value={task.status} disabled={!canManage} onChange={(event) => void onStatusChange(Number(event.target.value) as ProjectTaskStatus)}>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
         <span className={`priority priority--${priorityLabels[task.priority].toLowerCase()}`}>{priorityLabels[task.priority]}</span>
+        <button className="button button--ghost" type="button" aria-expanded={discussionOpen} onClick={onToggleDiscussion}>Discussion</button>
         {canManage ? <><button className="button button--ghost" type="button" onClick={onEdit}>Edit</button><button className="button button--danger" type="button" disabled={deleting} onClick={async () => { setDeleting(true); try { await onDelete(); } finally { setDeleting(false); } }}>Delete</button></> : null}
       </div>
     </article>
   );
 }
 
+function TaskDiscussion({ taskId, comments, loading, canComment, canDeleteComment, onCreate, onDelete }: { taskId: string; comments?: { id: string; authorUserId: string; authorDisplayName: string; content: string; createdAt: string }[]; loading: boolean; canComment: boolean; canDeleteComment: (authorUserId: string) => boolean; onCreate: (content: string) => Promise<unknown>; onDelete: (commentId: string) => Promise<void> }) {
+  const [content, setContent] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!content.trim()) return;
+    setSaving(true);
+    try {
+      await onCreate(content.trim());
+      setContent('');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className="task-discussion" aria-label="Task discussion">
+      <h3>Discussion</h3>
+      {loading ? <p className="page-note">Loading comments...</p> : comments?.length ? <div className="task-discussion__list">{comments.map((comment) => <article key={comment.id} className="task-discussion__comment"><div><strong>{comment.authorDisplayName}</strong><small>{new Date(comment.createdAt).toLocaleString()}</small></div><p>{comment.content}</p>{canDeleteComment(comment.authorUserId) ? <button className="button button--danger" type="button" onClick={() => void onDelete(comment.id)}>Delete comment</button> : null}</article>)}</div> : <p className="page-note">No comments yet.</p>}
+      {canComment ? <form className="task-discussion__form" onSubmit={submit}><label className="field__label" htmlFor={`task-comment-${taskId}`}>Add a comment</label><textarea id={`task-comment-${taskId}`} value={content} onChange={(event) => setContent(event.target.value)} rows={3} maxLength={2000} required /><button className="button" type="submit" disabled={saving}>{saving ? 'Posting...' : 'Post comment'}</button></form> : <p className="page-note">Viewers can read comments but cannot add them.</p>}
+    </section>
+  );
+}
+
 export default function Projects() {
   const { projectArchiveEnabled, projectTaskAssignmentEnabled } = useFeatureAvailability();
   const { user } = useAuth();
-  const { projects, selectedProject, tasks, loading, tasksLoading, error, members, availableMembers, activities, activitiesLoading, dashboard, dashboardLoading, includeArchived, setIncludeArchived, projectScope, setProjectScope, selectProject, createProject, updateProject, archiveProject, createTask, updateTask, updateTaskStatus, deleteTask, addMember, removeMember, updateMemberRole, clearError, taskPage, taskSearch, taskTotalPages, setTaskPage, setTaskSearch } = useProjects();
+  const { projects, selectedProject, tasks, loading, tasksLoading, error, members, availableMembers, activities, activitiesLoading, dashboard, dashboardLoading, taskComments, commentsLoadingTaskId, includeArchived, setIncludeArchived, projectScope, setProjectScope, selectProject, createProject, updateProject, archiveProject, createTask, updateTask, updateTaskStatus, deleteTask, loadTaskComments, createTaskComment, deleteTaskComment, addMember, removeMember, updateMemberRole, clearError, taskPage, taskSearch, taskTotalPages, setTaskPage, setTaskSearch } = useProjects();
   const [editing, setEditing] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | ProjectTaskStatus>('all');
   const [priorityFilter, setPriorityFilter] = useState<'all' | ProjectTaskPriority>('all');
+  const [openDiscussionTaskId, setOpenDiscussionTaskId] = useState<string | null>(null);
   const visibleTasks = useMemo(() => tasks.filter((task) => (statusFilter === 'all' || task.status === statusFilter) && (priorityFilter === 'all' || task.priority === priorityFilter)), [priorityFilter, statusFilter, tasks]);
   const isProjectOwner = selectedProject ? selectedProject.currentUserRole === ProjectMemberRole.Owner || selectedProject.ownerId === user?.id : false;
 
@@ -210,7 +237,9 @@ export default function Projects() {
                 <div className="task-list">
                   {visibleTasks.map((task) => {
                     const canManage = isProjectOwner || (selectedProject.currentUserRole === ProjectMemberRole.Member && task.createdByUserId === user?.id);
-                    return editingTaskId === task.id ? <div className="card" key={task.id}><TaskForm initialTask={task} members={members} assignmentEnabled={projectTaskAssignmentEnabled} onSubmit={async (request) => { await updateTask(task.id, request); setEditingTaskId(null); }} /><button className="button button--ghost" type="button" onClick={() => setEditingTaskId(null)}>Cancel</button></div> : <TaskItem key={task.id} task={task} canManage={canManage} onEdit={() => setEditingTaskId(task.id)} onStatusChange={(status) => updateTaskStatus(task.id, status).then(() => undefined)} onDelete={() => deleteTask(task.id)} />;
+                    if (editingTaskId === task.id) return <div className="card" key={task.id}><TaskForm initialTask={task} members={members} assignmentEnabled={projectTaskAssignmentEnabled} onSubmit={async (request) => { await updateTask(task.id, request); setEditingTaskId(null); }} /><button className="button button--ghost" type="button" onClick={() => setEditingTaskId(null)}>Cancel</button></div>;
+                    const discussionOpen = openDiscussionTaskId === task.id;
+                    return <div key={task.id}><TaskItem task={task} canManage={canManage} discussionOpen={discussionOpen} onToggleDiscussion={() => { const opening = !discussionOpen; setOpenDiscussionTaskId(opening ? task.id : null); if (opening && !taskComments[task.id]) void loadTaskComments(task.id); }} onEdit={() => setEditingTaskId(task.id)} onStatusChange={(status) => updateTaskStatus(task.id, status).then(() => undefined)} onDelete={() => deleteTask(task.id)} />{discussionOpen ? <TaskDiscussion taskId={task.id} comments={taskComments[task.id]} loading={commentsLoadingTaskId === task.id} canComment={!selectedProject.isArchived && selectedProject.currentUserRole !== ProjectMemberRole.Viewer} canDeleteComment={(authorUserId) => isProjectOwner || authorUserId === user?.id} onCreate={(content) => createTaskComment(task.id, content)} onDelete={(commentId) => deleteTaskComment(task.id, commentId)} /> : null}</div>;
                   })}
                 </div>
               )}

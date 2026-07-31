@@ -72,6 +72,8 @@ function createContextValue(overrides = {}) {
     activitiesLoading: false,
     dashboard: null,
     dashboardLoading: false,
+    taskComments: {},
+    commentsLoadingTaskId: null,
     includeArchived: false,
     setIncludeArchived: jest.fn().mockResolvedValue(undefined),
     refreshProjects: jest.fn().mockResolvedValue(undefined),
@@ -83,6 +85,9 @@ function createContextValue(overrides = {}) {
     updateTask: jest.fn().mockResolvedValue(task),
     updateTaskStatus: jest.fn().mockResolvedValue(task),
     deleteTask: jest.fn().mockResolvedValue(undefined),
+    loadTaskComments: jest.fn().mockResolvedValue(undefined),
+    createTaskComment: jest.fn().mockResolvedValue(undefined),
+    deleteTaskComment: jest.fn().mockResolvedValue(undefined),
     addMember: jest.fn().mockResolvedValue(undefined),
     removeMember: jest.fn().mockResolvedValue(undefined),
     clearError: jest.fn(),
@@ -162,6 +167,20 @@ describe('Projects page', () => {
     expect(screen.getByRole('heading', { name: 'Work at a glance' })).toBeInTheDocument();
     expect(screen.getByText('Fix checkout')).toBeInTheDocument();
     expect(screen.getByText('Review copy')).toBeInTheDocument();
+  });
+
+  it('opens task discussion and submits a comment through the projects context', async () => {
+    const loadTaskComments = jest.fn().mockResolvedValue(undefined);
+    const createTaskComment = jest.fn().mockResolvedValue(undefined);
+    mockedUseProjects.mockReturnValue(createContextValue({ loadTaskComments, createTaskComment }));
+    render(<Projects />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Discussion' }));
+    expect(loadTaskComments).toHaveBeenCalledWith(task.id);
+    fireEvent.change(screen.getByLabelText('Add a comment'), { target: { value: 'I will review this.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Post comment' }));
+
+    await waitFor(() => expect(createTaskComment).toHaveBeenCalledWith(task.id, 'I will review this.'));
   });
 
   it('submits a new task through the projects context', async () => {

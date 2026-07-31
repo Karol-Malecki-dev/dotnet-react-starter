@@ -1,6 +1,7 @@
 import type {
   CreateProjectRequest,
   CreateProjectTaskRequest,
+  CreateProjectTaskCommentRequest,
   ProjectResponse,
   ProjectOperationResponse,
   ProjectMembersResponse,
@@ -9,6 +10,8 @@ import type {
   ProjectActivitiesResponse,
   ProjectDashboardResponse,
   ProjectTaskResponse,
+  ProjectTaskCommentResponse,
+  ProjectTaskCommentsResponse,
   ProjectTasksResponse,
   ProjectsResponse,
   UpdateProjectRequest,
@@ -64,6 +67,20 @@ export class ProjectApi {
 
   deleteTask(projectId: string, taskId: string): Promise<ProjectOperationResponse> {
     return this.client.delete<ProjectOperationResponse>(`/projects/${projectId}/tasks/${taskId}`);
+  }
+
+  getTaskComments(projectId: string, taskId: string): Promise<ProjectTaskCommentsResponse> {
+    return this.client.get<ProjectTaskCommentsResponse>(`/projects/${projectId}/tasks/${taskId}/comments`);
+  }
+
+  createTaskComment(projectId: string, taskId: string, request: CreateProjectTaskCommentRequest): Promise<ProjectTaskCommentResponse> {
+    return this.client.post<ProjectTaskCommentResponse, CreateProjectTaskCommentRequest>(
+      `/projects/${projectId}/tasks/${taskId}/comments`, request,
+    );
+  }
+
+  deleteTaskComment(projectId: string, taskId: string, commentId: string): Promise<ProjectOperationResponse> {
+    return this.client.delete<ProjectOperationResponse>(`/projects/${projectId}/tasks/${taskId}/comments/${commentId}`);
   }
 
   getMembers(projectId: string): Promise<ProjectMembersResponse> {
