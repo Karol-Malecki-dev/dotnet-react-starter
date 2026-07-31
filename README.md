@@ -168,6 +168,13 @@ dotnet test backend/IntegrationTests/IntegrationTests.csproj
 dotnet test backend/E2ETests/E2ETests.csproj
 ```
 
+The integration suite includes PostgreSQL Testcontainers coverage. It applies the real EF Core migrations to a temporary PostgreSQL container, so Docker Desktop must be running before executing it.
+
+```powershell
+docker info
+dotnet test backend/IntegrationTests/IntegrationTests.csproj --filter "FullyQualifiedName~PostgreSqlIntegrationTests"
+```
+
 Smoke tests in `E2ETests` are meant for a running application, for example after `docker compose up` or after deployment.
 
 To build the containers, wait for the backend and frontend, run the full test solution, and clean up automatically:

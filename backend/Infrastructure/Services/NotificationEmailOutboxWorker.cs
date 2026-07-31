@@ -29,6 +29,10 @@ public sealed class NotificationEmailOutboxWorker : BackgroundService
             {
                 await ProcessPendingMessagesAsync(stoppingToken);
             }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                return;
+            }
             catch (Exception exception)
             {
                 _logger.LogError(exception, "Notification email outbox worker failed while processing messages");
