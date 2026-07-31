@@ -33,7 +33,18 @@ public class ProjectTasksController : ControllerBase
         }
 
         var result = await _projectTaskService.GetProjectTasksAsync(new ProjectTaskQuery(
-            ownerId, projectId, request.PageNumber, request.PageSize, request.Search));
+            ownerId,
+            projectId,
+            request.PageNumber,
+            request.PageSize,
+            request.Search,
+            request.Status,
+            request.Priority,
+            request.AssignedUserId,
+            request.Label,
+            request.DueBefore,
+            request.SortBy,
+            request.SortDirection));
         return ToActionResult(result, page => new PagedProjectTaskResponse(
             page.Items.Select(MapTask).ToList(), page.PageNumber, page.PageSize, page.TotalCount));
     }

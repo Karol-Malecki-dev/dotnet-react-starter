@@ -11,6 +11,7 @@ import type {
   ProjectMemberRole,
   ProjectActivityDto,
   ProjectDashboardDto,
+  ProjectTaskQuery,
   ProjectTaskCommentDto,
   ProjectTaskAttachmentDto,
   ProjectInvitationDto,
@@ -72,6 +73,8 @@ interface ProjectsContextValue {
   taskTotalPages?: number;
   setTaskPage?: (page: number) => void;
   setTaskSearch?: (search: string) => void;
+  taskFilters?: Omit<ProjectTaskQuery, 'pageNumber' | 'pageSize' | 'search'>;
+  setTaskFilters?: (filters: Partial<Omit<ProjectTaskQuery, 'pageNumber' | 'pageSize' | 'search'>>) => void;
 }
 
 const ProjectsContext = createContext<ProjectsContextValue | undefined>(undefined);
@@ -99,6 +102,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
   const [projectScope, setProjectScopeState] = useState<'all' | 'owned' | 'member'>('all');
   const [taskPage, setTaskPage] = useState(1);
   const [taskSearch, setTaskSearch] = useState('');
+  const [taskFilters, setTaskFiltersState] = useState<Omit<ProjectTaskQuery, 'pageNumber' | 'pageSize' | 'search'>>({});
   const [taskTotalPages, setTaskTotalPages] = useState(0);
 
   const loadProjects = useCallback(async (loadArchived = includeArchived, scope = projectScope) => {
@@ -126,7 +130,12 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      const response = await projectApi.getTasks(projectId, taskPage, 20, taskSearch);
+      const response = await projectApi.getTasks(projectId, {
+        pageNumber: taskPage,
+        pageSize: 20,
+        search: taskSearch,
+        ...taskFilters,
+      });
       setTasks(response.data?.items ?? []);
       setTaskTotalPages(response.data?.totalPages ?? 0);
     } catch (caughtError) {
@@ -135,7 +144,12 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     } finally {
       setTasksLoading(false);
     }
-  }, [taskPage, taskSearch]);
+  }, [taskFilters, taskPage, taskSearch]);
+
+  const setTaskFilters = useCallback((filters: Partial<Omit<ProjectTaskQuery, 'pageNumber' | 'pageSize' | 'search'>>) => {
+    setTaskFiltersState((currentFilters) => ({ ...currentFilters, ...filters }));
+    setTaskPage(1);
+  }, []);
 
   const loadMembers = useCallback(async (projectId: string) => {
     try {
@@ -575,6 +589,8 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     taskTotalPages,
     setTaskPage,
     setTaskSearch,
+    taskFilters,
+    setTaskFilters,
   }), [
     projects,
     selectedProject,
@@ -624,6 +640,8 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     taskPage,
     taskSearch,
     taskTotalPages,
+    taskFilters,
+    setTaskFilters,
   ]);
 
   return <ProjectsContext.Provider value={value}>{children}</ProjectsContext.Provider>;

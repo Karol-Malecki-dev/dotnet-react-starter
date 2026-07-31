@@ -12,6 +12,30 @@ export enum ProjectTaskPriority {
   High = 3,
 }
 
+export enum ProjectTaskSortBy {
+  DueDate = 'DueDate',
+  CreatedAt = 'CreatedAt',
+  Priority = 'Priority',
+}
+
+export enum SortDirection {
+  Ascending = 'Ascending',
+  Descending = 'Descending',
+}
+
+export interface ProjectTaskQuery {
+  pageNumber?: number;
+  pageSize?: number;
+  search?: string;
+  status?: ProjectTaskStatus;
+  priority?: ProjectTaskPriority;
+  assignedUserId?: string;
+  label?: string;
+  dueBefore?: string;
+  sortBy?: ProjectTaskSortBy;
+  sortDirection?: SortDirection;
+}
+
 export enum ProjectMemberRole {
   Owner = 1,
   Member = 2,

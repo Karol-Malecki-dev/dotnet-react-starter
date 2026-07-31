@@ -374,16 +374,17 @@ describe('Projects page', () => {
     expect(screen.queryByRole('heading', { name: 'Add task' })).not.toBeInTheDocument();
   });
 
-  it('filters tasks by status and priority', () => {
-    const doneTask = { ...task, id: 'task-2', title: 'Ship release', status: ProjectTaskStatus.Done, priority: ProjectTaskPriority.Low };
-    mockedUseProjects.mockReturnValue(createContextValue({ tasks: [task, doneTask] }));
+  it('updates the server task query when task filters change', () => {
+    const setTaskFilters = jest.fn();
+    mockedUseProjects.mockReturnValue(createContextValue({ setTaskFilters }));
     render(<Projects />);
 
     fireEvent.change(screen.getAllByLabelText('Status')[0], { target: { value: String(ProjectTaskStatus.Done) } });
-    fireEvent.change(screen.getAllByLabelText('Priority')[0], { target: { value: String(ProjectTaskPriority.Low) } });
+    const priorityFilters = screen.getAllByLabelText('Priority');
+    fireEvent.change(priorityFilters[priorityFilters.length - 1], { target: { value: String(ProjectTaskPriority.Low) } });
 
-    expect(screen.queryByText('Prepare wireframes')).not.toBeInTheDocument();
-    expect(screen.getByText('Ship release')).toBeInTheDocument();
+    expect(setTaskFilters).toHaveBeenCalledWith({ status: ProjectTaskStatus.Done });
+    expect(setTaskFilters).toHaveBeenCalledWith({ priority: ProjectTaskPriority.Low });
   });
 
   it('submits edited task data with the selected project member', async () => {
