@@ -153,7 +153,7 @@ function TaskItem({ task, canManage, onStatusChange, onDelete, onEdit }: { task:
 export default function Projects() {
   const { projectArchiveEnabled, projectTaskAssignmentEnabled } = useFeatureAvailability();
   const { user } = useAuth();
-  const { projects, selectedProject, tasks, loading, tasksLoading, error, members, availableMembers, activities, activitiesLoading, includeArchived, setIncludeArchived, projectScope, setProjectScope, selectProject, createProject, updateProject, archiveProject, createTask, updateTask, updateTaskStatus, deleteTask, addMember, removeMember, updateMemberRole, clearError, taskPage, taskSearch, taskTotalPages, setTaskPage, setTaskSearch } = useProjects();
+  const { projects, selectedProject, tasks, loading, tasksLoading, error, members, availableMembers, activities, activitiesLoading, dashboard, dashboardLoading, includeArchived, setIncludeArchived, projectScope, setProjectScope, selectProject, createProject, updateProject, archiveProject, createTask, updateTask, updateTaskStatus, deleteTask, addMember, removeMember, updateMemberRole, clearError, taskPage, taskSearch, taskTotalPages, setTaskPage, setTaskSearch } = useProjects();
   const [editing, setEditing] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | ProjectTaskStatus>('all');
@@ -175,6 +175,23 @@ export default function Projects() {
           <div className="projects-content">{selectedProject ? <>
             <div className="card project-heading"><div><p className="eyebrow">Selected project</p><h2>{selectedProject.name}</h2><p>{selectedProject.description || 'No description'}</p>{selectedProject.isArchived ? <span className="priority priority--high">Archived</span> : null}</div><div className="hero__actions">{isProjectOwner && !selectedProject.isArchived ? <button className="button button--ghost" type="button" onClick={() => setEditing((value) => !value)}>{editing ? 'Close editor' : 'Edit'}</button> : null}{projectArchiveEnabled && isProjectOwner && !selectedProject.isArchived ? <button className="button button--danger" type="button" onClick={() => { if (window.confirm(`Archive ${selectedProject.name}?`)) void archiveProject(selectedProject.id); }}>Archive</button> : null}</div></div>
             {editing ? <div className="card"><ProjectForm project={selectedProject} onCancel={() => setEditing(false)} onSubmit={async (name, description) => { await updateProject(selectedProject.id, { name, description }); setEditing(false); }} /></div> : null}
+            <section className="dashboard" aria-labelledby="dashboard-heading">
+              <div className="dashboard__header"><div><p className="eyebrow">Project dashboard</p><h2 id="dashboard-heading">Work at a glance</h2></div></div>
+              {dashboardLoading ? <p className="page-note">Loading dashboard...</p> : !dashboard ? <p className="page-note">Dashboard data is unavailable.</p> : <>
+                <div className="dashboard__metrics" aria-label="Task status summary">
+                  <div><span>Total</span><strong>{dashboard.totalTasks}</strong></div>
+                  <div><span>To do</span><strong>{dashboard.todoTasks}</strong></div>
+                  <div><span>In progress</span><strong>{dashboard.inProgressTasks}</strong></div>
+                  <div><span>Done</span><strong>{dashboard.doneTasks}</strong></div>
+                </div>
+                <div className="dashboard__content">
+                  <div><h3>Priority</h3><dl className="dashboard__priority"><div><dt>High</dt><dd>{dashboard.highPriorityTasks}</dd></div><div><dt>Normal</dt><dd>{dashboard.normalPriorityTasks}</dd></div><div><dt>Low</dt><dd>{dashboard.lowPriorityTasks}</dd></div></dl></div>
+                  <div><h3>Past due</h3>{dashboard.overdueTasks.length === 0 ? <p className="page-note">Nothing overdue.</p> : <ul className="dashboard__task-list">{dashboard.overdueTasks.map((task) => <li key={task.id}><strong>{task.title}</strong><small>Due {new Date(task.dueDate!).toLocaleDateString()}</small></li>)}</ul>}</div>
+                  <div><h3>Next 7 days</h3>{dashboard.upcomingTasks.length === 0 ? <p className="page-note">Nothing due soon.</p> : <ul className="dashboard__task-list">{dashboard.upcomingTasks.map((task) => <li key={task.id}><strong>{task.title}</strong><small>Due {new Date(task.dueDate!).toLocaleDateString()}</small></li>)}</ul>}</div>
+                  <div><h3>Latest activity</h3>{dashboard.recentActivities.length === 0 ? <p className="page-note">No activity yet.</p> : <ul className="dashboard__activity-list">{dashboard.recentActivities.map((activity) => <li key={activity.id}><strong>{activity.actorDisplayName}</strong><span>{activity.description}</span></li>)}</ul>}</div>
+                </div>
+              </>}
+            </section>
             {!selectedProject.isArchived && projectTaskAssignmentEnabled && isProjectOwner ? <MemberPanel members={members} availableMembers={availableMembers} ownerId={selectedProject.ownerId} onAdd={addMember} onRemove={removeMember} onRoleChange={updateMemberRole} /> : null}
             {!selectedProject.isArchived && selectedProject.currentUserRole !== ProjectMemberRole.Viewer ? <div className="card"><h2>Add task</h2><TaskForm members={members} assignmentEnabled={projectTaskAssignmentEnabled} onSubmit={createTask} /></div> : null}
             <div className="card"><label className="field__label" htmlFor="task-search">Search tasks</label><input id="task-search" value={taskSearch ?? ''} onChange={(event) => { setTaskSearch?.(event.target.value); setTaskPage?.(1); }} /><div className="hero__actions"><button className="button button--ghost" type="button" disabled={!taskPage || taskPage <= 1} onClick={() => setTaskPage?.((taskPage ?? 1) - 1)}>Previous</button><span className="role-badge">Page {taskPage ?? 1} of {taskTotalPages ?? 0}</span><button className="button button--ghost" type="button" disabled={!taskTotalPages || (taskPage ?? 1) >= taskTotalPages} onClick={() => setTaskPage?.((taskPage ?? 1) + 1)}>Next</button></div></div>

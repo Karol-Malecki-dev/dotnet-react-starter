@@ -107,6 +107,18 @@ public class ProjectsController : ControllerBase
         return ToActionResult(result, value => value);
     }
 
+    [HttpGet("{projectId:guid}/dashboard")]
+    public async Task<IActionResult> GetDashboard(Guid projectId)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return Unauthorized(ApiResponse<ProjectDashboardView>.Error(401, "User not authenticated"));
+        }
+
+        var result = await _projectService.GetProjectDashboardAsync(userId, projectId);
+        return ToActionResult(result, value => value);
+    }
+
     [HttpGet("{projectId:guid}/members/available")]
     public async Task<IActionResult> GetAvailableMembers(Guid projectId)
     {

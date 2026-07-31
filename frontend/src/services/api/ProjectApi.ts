@@ -7,6 +7,7 @@ import type {
   ProjectMemberUsersResponse,
   ProjectMemberResponse,
   ProjectActivitiesResponse,
+  ProjectDashboardResponse,
   ProjectTaskResponse,
   ProjectTasksResponse,
   ProjectsResponse,
@@ -75,6 +76,10 @@ export class ProjectApi {
 
   getActivity(projectId: string, pageNumber = 1, pageSize = 20): Promise<ProjectActivitiesResponse> {
     return this.client.get<ProjectActivitiesResponse>(`/projects/${projectId}/activity?pageNumber=${pageNumber}&pageSize=${pageSize}`);
+  }
+
+  getDashboard(projectId: string): Promise<ProjectDashboardResponse> {
+    return this.client.get<ProjectDashboardResponse>(`/projects/${projectId}/dashboard`);
   }
 
   addMember(projectId: string, userId: string): Promise<ProjectMemberResponse> {
