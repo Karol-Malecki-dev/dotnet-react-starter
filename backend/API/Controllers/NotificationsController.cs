@@ -71,6 +71,31 @@ public sealed class NotificationsController : ControllerBase
         return StatusCode(result.StatusCode, result);
     }
 
+    [HttpGet("email-preference")]
+    public async Task<ActionResult<ApiResponse<NotificationEmailPreferenceDto>>> GetEmailPreference()
+    {
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return Unauthorized(ApiResponse<NotificationEmailPreferenceDto>.Error(401, "User not authenticated"));
+        }
+
+        var result = await _notificationService.GetEmailPreferenceAsync(userId);
+        return StatusCode(result.StatusCode, result);
+    }
+
+    [HttpPatch("email-preference")]
+    public async Task<ActionResult<ApiResponse<NotificationEmailPreferenceDto>>> UpdateEmailPreference(
+        [FromBody] UpdateNotificationEmailPreferenceDto request)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return Unauthorized(ApiResponse<NotificationEmailPreferenceDto>.Error(401, "User not authenticated"));
+        }
+
+        var result = await _notificationService.UpdateEmailPreferenceAsync(userId, request.IsEmailEnabled);
+        return StatusCode(result.StatusCode, result);
+    }
+
     private bool TryGetCurrentUserId(out Guid userId)
     {
         var value = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value

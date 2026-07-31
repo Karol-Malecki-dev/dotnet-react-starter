@@ -27,7 +27,17 @@ export interface NotificationPageDto {
   unreadCount: number;
 }
 
+export interface NotificationEmailPreferenceDto {
+  isEmailEnabled: boolean;
+}
+
+export interface UpdateNotificationEmailPreferenceRequest {
+  isEmailEnabled: boolean;
+}
+
 export type GetNotificationsResponse = ApiResponse<NotificationPageDto>;
 export type GetUnreadCountResponse = ApiResponse<number>;
 export type MarkNotificationReadResponse = ApiResponse<NotificationDto>;
 export type MarkAllNotificationsReadResponse = ApiResponse<number>;
+export type GetNotificationEmailPreferenceResponse = ApiResponse<NotificationEmailPreferenceDto>;
+export type UpdateNotificationEmailPreferenceResponse = ApiResponse<NotificationEmailPreferenceDto>;

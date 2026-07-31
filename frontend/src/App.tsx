@@ -1,6 +1,7 @@
 import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { RuntimeConfigProvider } from './context/RuntimeConfigContext';
+import { NotificationsProvider } from './context/NotificationsContext';
 import { AppBootstrapGate } from './components/UI/AppBootstrapGate';
 import { AppShell } from './components/AppShell';
 
@@ -10,7 +11,9 @@ export default function App() {
       <RuntimeConfigProvider>
         <AuthProvider>
           <AppBootstrapGate>
-            <AppShell />
+            <NotificationsProvider>
+              <AppShell />
+            </NotificationsProvider>
           </AppBootstrapGate>
         </AuthProvider>
       </RuntimeConfigProvider>

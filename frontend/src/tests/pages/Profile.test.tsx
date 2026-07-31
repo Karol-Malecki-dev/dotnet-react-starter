@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import Profile from '../../pages/Profile';
 import { useAuth } from '../../hooks/useAuth';
-import { authApi, userApi } from '../../services/api';
+import { authApi, notificationApi, userApi } from '../../services/api';
 
 import { vi } from 'vitest';
 
@@ -14,10 +14,15 @@ vi.mock('../../services/api', () => ({
     getUserSecurity: jest.fn(),
     updateTwoFactorPreference: jest.fn(),
   },
+  notificationApi: {
+    getEmailPreference: jest.fn(),
+    updateEmailPreference: jest.fn(),
+  },
 }));
 const mockedUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 const mockedAuthApi = authApi as jest.Mocked<typeof authApi>;
 const mockedUserApi = userApi as jest.Mocked<typeof userApi>;
+const mockedNotificationApi = notificationApi as jest.Mocked<typeof notificationApi>;
 
 describe('Profile page', () => {
   beforeEach(() => {
@@ -30,6 +35,13 @@ describe('Profile page', () => {
         isEmailConfirmed: true,
         isTwoFactorEnabled: false,
       },
+      errors: null,
+      timestamp: new Date().toISOString(),
+    });
+    mockedNotificationApi.getEmailPreference.mockResolvedValue({
+      statusCode: 200,
+      message: 'Notification preference loaded',
+      data: { isEmailEnabled: true },
       errors: null,
       timestamp: new Date().toISOString(),
     });
@@ -179,5 +191,40 @@ describe('Profile page', () => {
       expect(mockedAuthApi.resendConfirmation).toHaveBeenCalledWith({ email: 'test@example.com' });
     });
     expect(await screen.findByText(/confirmation email sent/i)).toBeInTheDocument();
+  });
+
+  it('updates the notification email preference', async () => {
+    mockedNotificationApi.updateEmailPreference.mockResolvedValue({
+      statusCode: 200,
+      message: 'Notification preference updated',
+      data: { isEmailEnabled: false },
+      errors: null,
+      timestamp: new Date().toISOString(),
+    });
+    mockedUseAuth.mockReturnValue({
+      user: {
+        id: 'user-1',
+        email: 'test@example.com',
+        displayName: 'Old Name',
+        role: 'User',
+      },
+      tokens: { accessToken: 'access', expiresIn: 900 },
+      updateProfile: jest.fn(),
+      changePassword: jest.fn(),
+    } as any);
+
+    render(<Profile />);
+
+    const emailNotificationsCheckbox = await screen.findByRole('checkbox', {
+      name: /email notifications/i,
+    });
+    expect(emailNotificationsCheckbox).toBeChecked();
+
+    fireEvent.click(emailNotificationsCheckbox);
+
+    await waitFor(() => {
+      expect(mockedNotificationApi.updateEmailPreference).toHaveBeenCalledWith({ isEmailEnabled: false });
+    });
+    expect(emailNotificationsCheckbox).not.toBeChecked();
   });
 });

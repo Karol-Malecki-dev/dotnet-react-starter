@@ -132,5 +132,9 @@ export type {
   GetUnreadCountResponse,
   MarkNotificationReadResponse,
   MarkAllNotificationsReadResponse,
+  NotificationEmailPreferenceDto,
+  UpdateNotificationEmailPreferenceRequest,
+  GetNotificationEmailPreferenceResponse,
+  UpdateNotificationEmailPreferenceResponse,
 } from './notifications';
 

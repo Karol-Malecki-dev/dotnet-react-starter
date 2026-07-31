@@ -25,6 +25,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<PasswordResetRequest> PasswordResetRequests => Set<PasswordResetRequest>();
 
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<NotificationEmailPreference> NotificationEmailPreferences => Set<NotificationEmailPreference>();
+    public DbSet<NotificationEmailOutboxMessage> NotificationEmailOutboxMessages => Set<NotificationEmailOutboxMessage>();
 
     public DbSet<Project> Projects => Set<Project>();
 

@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { authApi, userApi } from '../services/api';
+import { authApi, notificationApi, userApi } from '../services/api';
 import type { AuthUser, UpdateUserRequest, UserSecurity } from '../types';
 import { getApiErrorMessage } from '../utils/helpers';
 
@@ -43,9 +43,56 @@ export default function Profile() {
   const [resendingConfirmation, setResendingConfirmation] = useState(false);
   const [securityMessage, setSecurityMessage] = useState<string | null>(null);
   const [securityError, setSecurityError] = useState<string | null>(null);
+  const [isNotificationEmailEnabled, setIsNotificationEmailEnabled] = useState<boolean | null>(null);
+  const [loadingNotificationPreference, setLoadingNotificationPreference] = useState(false);
+  const [updatingNotificationPreference, setUpdatingNotificationPreference] = useState(false);
+  const [notificationPreferenceError, setNotificationPreferenceError] = useState<string | null>(null);
 
   useEffect(() => {
     setProfile(createProfileState(user));
+  }, [user]);
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    const loadNotificationPreference = async () => {
+      if (!user) {
+        setIsNotificationEmailEnabled(null);
+        return;
+      }
+
+      setLoadingNotificationPreference(true);
+      setNotificationPreferenceError(null);
+
+      try {
+        const response = await notificationApi.getEmailPreference();
+        if (!response.data) {
+          throw new Error('Notification preference response missing data');
+        }
+
+        if (isCurrent) {
+          setIsNotificationEmailEnabled(response.data.isEmailEnabled);
+        }
+      } catch (caughtError) {
+        if (isCurrent) {
+          setNotificationPreferenceError(
+            getApiErrorMessage(caughtError, {
+              defaultMessage: 'Unable to load notification settings right now.',
+            }),
+          );
+        }
+      } finally {
+        if (isCurrent) {
+          setLoadingNotificationPreference(false);
+        }
+      }
+    };
+
+    void loadNotificationPreference();
+
+    return () => {
+      isCurrent = false;
+    };
   }, [user]);
 
   useEffect(() => {
@@ -219,6 +266,27 @@ export default function Profile() {
     }
   };
 
+  const handleNotificationEmailPreferenceChange = async (isEmailEnabled: boolean) => {
+    setUpdatingNotificationPreference(true);
+    setNotificationPreferenceError(null);
+
+    try {
+      const response = await notificationApi.updateEmailPreference({ isEmailEnabled });
+      if (!response.data) {
+        throw new Error('Notification preference update response missing data');
+      }
+      setIsNotificationEmailEnabled(response.data.isEmailEnabled);
+    } catch (caughtError) {
+      setNotificationPreferenceError(
+        getApiErrorMessage(caughtError, {
+          defaultMessage: 'Unable to update notification settings right now.',
+        }),
+      );
+    } finally {
+      setUpdatingNotificationPreference(false);
+    }
+  };
+
   return (
     <section className="page-shell">
       <div className="page-shell__header">
@@ -373,6 +441,26 @@ export default function Profile() {
                 ) : null}
                 {securityMessage ? <p className="form__success">{securityMessage}</p> : null}
               </div>
+            ) : null}
+          </article>
+
+          <article className="card stack">
+            <div className="stack stack--tight">
+              <h2>Notification delivery</h2>
+              <p className="page-note">Choose whether in-app project and task notifications are also delivered by email.</p>
+            </div>
+            {loadingNotificationPreference ? <p role="status">Loading notification settings...</p> : null}
+            {notificationPreferenceError ? <p className="form__error" role="alert">{notificationPreferenceError}</p> : null}
+            {isNotificationEmailEnabled !== null ? (
+              <label className="field field--inline">
+                <span className="field__label">Email notifications</span>
+                <input
+                  type="checkbox"
+                  checked={isNotificationEmailEnabled}
+                  onChange={(event) => void handleNotificationEmailPreferenceChange(event.target.checked)}
+                  disabled={updatingNotificationPreference}
+                />
+              </label>
             ) : null}
           </article>
         </div>

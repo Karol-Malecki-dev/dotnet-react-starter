@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useFeatureAvailability } from '../../hooks/useFeatureAvailability';
 import { QuickSearchBar, type QuickSearchItem } from './QuickSearchBar';
+import { NotificationBell } from './NotificationBell';
 
 export function Navbar() {
   const { isAuthenticated, user, logout } = useAuth();
@@ -65,6 +66,7 @@ export function Navbar() {
       <div className="navbar__actions">
         {isAuthenticated && user ? (
           <>
+            <NotificationBell />
             <span className="navbar__user">
               {user.displayName}
               <span className={`role-badge ${isAdmin ? 'role-badge--admin' : ''}`}>{user.role}</span>

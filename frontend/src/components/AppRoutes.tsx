@@ -8,6 +8,7 @@ import ForgotPassword from '../pages/ForgotPassword';
 import Home from '../pages/Home';
 import Login from '../pages/Login';
 import NotFound from '../pages/NotFound';
+import Notifications from '../pages/Notifications';
 import Profile from '../pages/Profile';
 import Projects from '../pages/Projects';
 import Register from '../pages/Register';
@@ -36,6 +37,7 @@ export function AppRoutes() {
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={dashboardOverviewEnabled ? <Dashboard /> : <Navigate to="/" replace />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/notifications" element={<Notifications />} />
         <Route path="/projects" element={projectsEnabled ? <ProjectsProvider><Projects /></ProjectsProvider> : <Navigate to="/" replace />} />
       </Route>
 
