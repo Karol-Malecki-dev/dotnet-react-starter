@@ -109,36 +109,9 @@ public class ProjectTasksApiIntegrationTests
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             dbContext.ProjectTasks.AddRange(
-                new ProjectTask
-                {
-                    ProjectId = projectId,
-                    Title = "Normal release task",
-                    AssignedUserId = assigneeId,
-                    CreatedByUserId = ownerId,
-                    Priority = ProjectTaskPriority.Normal,
-                    DueDate = now.AddDays(2),
-                    Labels = [new ProjectTaskLabel { Name = "release" }]
-                },
-                new ProjectTask
-                {
-                    ProjectId = projectId,
-                    Title = "High release task",
-                    AssignedUserId = assigneeId,
-                    CreatedByUserId = ownerId,
-                    Priority = ProjectTaskPriority.High,
-                    DueDate = now.AddDays(1),
-                    Labels = [new ProjectTaskLabel { Name = "release" }]
-                },
-                new ProjectTask
-                {
-                    ProjectId = projectId,
-                    Title = "Unrelated task",
-                    AssignedUserId = ownerId,
-                    CreatedByUserId = ownerId,
-                    Priority = ProjectTaskPriority.Low,
-                    DueDate = now.AddDays(5),
-                    Labels = [new ProjectTaskLabel { Name = "design" }]
-                });
+                ProjectTask.Create(projectId, "Normal release task", null, ProjectTaskPriority.Normal, now.AddDays(2), assigneeId, ownerId, ["release"]),
+                ProjectTask.Create(projectId, "High release task", null, ProjectTaskPriority.High, now.AddDays(1), assigneeId, ownerId, ["release"]),
+                ProjectTask.Create(projectId, "Unrelated task", null, ProjectTaskPriority.Low, now.AddDays(5), ownerId, ownerId, ["design"]));
             await dbContext.SaveChangesAsync();
         }
 
@@ -495,32 +468,15 @@ public class ProjectTasksApiIntegrationTests
             IsTaskDeadlineReminderEmailEnabled = false,
             UpdatedAt = DateTime.UtcNow
         });
-        dbContext.ProjectTasks.AddRange(
-            new ProjectTask
-            {
-                ProjectId = projectId,
-                Title = "Upcoming deadline",
-                AssignedUserId = assigneeId,
-                CreatedByUserId = ownerId,
-                DueDate = DateTime.UtcNow.AddHours(12)
-            },
-            new ProjectTask
-            {
-                ProjectId = projectId,
-                Title = "Overdue task",
-                AssignedUserId = assigneeId,
-                CreatedByUserId = ownerId,
-                DueDate = DateTime.UtcNow.AddHours(-2)
-            },
-            new ProjectTask
-            {
-                ProjectId = projectId,
-                Title = "Completed task",
-                AssignedUserId = assigneeId,
-                CreatedByUserId = ownerId,
-                DueDate = DateTime.UtcNow.AddHours(6),
-                Status = ProjectTaskStatus.Done
-            });
+        var upcomingTask = ProjectTask.Create(
+            projectId, "Upcoming deadline", null, ProjectTaskPriority.Normal, DateTime.UtcNow.AddHours(12), assigneeId, ownerId);
+        var overdueTask = ProjectTask.Create(
+            projectId, "Overdue task", null, ProjectTaskPriority.Normal, DateTime.UtcNow.AddHours(-2), assigneeId, ownerId);
+        var completedTask = ProjectTask.Create(
+            projectId, "Completed task", null, ProjectTaskPriority.Normal, DateTime.UtcNow.AddHours(6), assigneeId, ownerId);
+        completedTask.ChangeStatus(ProjectTaskStatus.Done);
+
+        dbContext.ProjectTasks.AddRange(upcomingTask, overdueTask, completedTask);
         await dbContext.SaveChangesAsync();
 
         var processor = scope.ServiceProvider.GetRequiredService<IProjectTaskDeadlineReminderService>();

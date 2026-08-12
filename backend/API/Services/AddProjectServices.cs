@@ -1,12 +1,14 @@
 ﻿using API.Configurations;
 using API.Filters;
 using Application.Features.Projects;
+using Application.Features.ProjectManagement.Tasks;
 using Application.Interfaces;
 using Application.Services;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Domain.Interfaces;
 using Infrastructure.Data;
+using Infrastructure.ProjectManagement.Tasks;
 using Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
@@ -165,7 +167,11 @@ namespace API.Services
             services.AddHostedService<ProjectTaskDeadlineReminderWorker>();
             services.AddScoped<IAdminService, DatabaseAdminService>();
             services.AddScoped<IProjectApplicationService, DatabaseProjectService>();
-            services.AddScoped<IProjectTaskApplicationService, DatabaseProjectTaskService>();
+            services.AddScoped<IProjectTaskAccess, EfProjectTaskAccess>();
+            services.AddScoped<IProjectTaskQueryStore, EfProjectTaskQueryStore>();
+            services.AddScoped<IProjectTaskCommandStore, EfProjectTaskCommandStore>();
+            services.AddScoped<IProjectTaskQueryService, DatabaseProjectTaskQueryService>();
+            services.AddScoped<IProjectTaskCommandService, DatabaseProjectTaskCommandService>();
             services.AddScoped<IProjectTaskCommentApplicationService, DatabaseProjectTaskCommentService>();
             services.AddSingleton<IProjectTaskAttachmentStorage, LocalProjectTaskAttachmentStorage>();
             services.AddScoped<IProjectTaskAttachmentApplicationService, DatabaseProjectTaskAttachmentService>();

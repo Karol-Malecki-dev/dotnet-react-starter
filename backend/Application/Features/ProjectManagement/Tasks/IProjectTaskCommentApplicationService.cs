@@ -1,4 +1,6 @@
-namespace Application.Features.Projects;
+using Application.Features.Projects;
+
+namespace Application.Features.ProjectManagement.Tasks;
 
 public interface IProjectTaskCommentApplicationService
 {

@@ -1,5 +1,6 @@
 using API.Contracts.Projects;
 using Application.Features.Projects;
+using Application.Features.ProjectManagement.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Responses;
@@ -13,14 +14,17 @@ namespace API.Controllers;
 [Authorize]
 public class ProjectTasksController : ControllerBase
 {
-    private readonly IProjectTaskApplicationService _projectTaskService;
+    private readonly IProjectTaskQueryService _projectTaskQueryService;
+    private readonly IProjectTaskCommandService _projectTaskCommandService;
     private readonly IProjectTaskAttachmentApplicationService _attachmentService;
 
     public ProjectTasksController(
-        IProjectTaskApplicationService projectTaskService,
+        IProjectTaskQueryService projectTaskQueryService,
+        IProjectTaskCommandService projectTaskCommandService,
         IProjectTaskAttachmentApplicationService attachmentService)
     {
-        _projectTaskService = projectTaskService;
+        _projectTaskQueryService = projectTaskQueryService;
+        _projectTaskCommandService = projectTaskCommandService;
         _attachmentService = attachmentService;
     }
 
@@ -32,7 +36,7 @@ public class ProjectTasksController : ControllerBase
             return Unauthorized(ApiResponse<PagedProjectTaskResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectTaskService.GetProjectTasksAsync(new ProjectTaskQuery(
+        var result = await _projectTaskQueryService.GetProjectTasksAsync(new ProjectTaskQuery(
             ownerId,
             projectId,
             request.PageNumber,
@@ -57,7 +61,7 @@ public class ProjectTasksController : ControllerBase
             return Unauthorized(ApiResponse<ProjectTaskResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectTaskService.GetProjectTaskAsync(ownerId, projectId, taskId);
+        var result = await _projectTaskQueryService.GetProjectTaskAsync(ownerId, projectId, taskId);
         return ToActionResult(result, MapTask);
     }
 
@@ -69,7 +73,7 @@ public class ProjectTasksController : ControllerBase
             return Unauthorized(ApiResponse<ProjectTaskResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectTaskService.CreateProjectTaskAsync(new CreateProjectTaskCommand(
+        var result = await _projectTaskCommandService.CreateProjectTaskAsync(new CreateProjectTaskCommand(
             ownerId, projectId, request.Title, request.Description, request.Priority, request.DueDate, request.AssignedUserId, request.Labels ?? []));
         return ToActionResult(result, MapTask);
     }
@@ -82,7 +86,7 @@ public class ProjectTasksController : ControllerBase
             return Unauthorized(ApiResponse<ProjectTaskResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectTaskService.UpdateProjectTaskAsync(new UpdateProjectTaskCommand(
+        var result = await _projectTaskCommandService.UpdateProjectTaskAsync(new UpdateProjectTaskCommand(
             ownerId, projectId, taskId, request.Title, request.Description, request.Priority, request.DueDate, request.AssignedUserId, request.Labels ?? []));
         return ToActionResult(result, MapTask);
     }
@@ -95,7 +99,7 @@ public class ProjectTasksController : ControllerBase
             return Unauthorized(ApiResponse<ProjectTaskResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectTaskService.UpdateProjectTaskStatusAsync(new UpdateProjectTaskStatusCommand(
+        var result = await _projectTaskCommandService.UpdateProjectTaskStatusAsync(new UpdateProjectTaskStatusCommand(
             ownerId, projectId, taskId, request.Status));
         return ToActionResult(result, MapTask);
     }
@@ -108,7 +112,7 @@ public class ProjectTasksController : ControllerBase
             return Unauthorized(ApiResponse<bool>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectTaskService.DeleteProjectTaskAsync(ownerId, projectId, taskId);
+        var result = await _projectTaskCommandService.DeleteProjectTaskAsync(ownerId, projectId, taskId);
         return ToActionResult(result, value => value);
     }
 

@@ -132,6 +132,51 @@ nie wyszukuje zadania wyłącznie po `taskId`; każde zapytanie filtruje jednocz
 po `projectId`, właścicielu projektu i aktywnym stanie projektu. Dzięki temu
 identyfikator zadania nie może ominąć kontroli dostępu.
 
+### ProjectManagement.Tasks As A Modular-Monolith Feature
+
+`ProjectManagement.Tasks` jest pierwszą feature boundary rozwijaną w kierunku
+modularnego monolitu. Moduł pozostaje częścią jednego procesu i jednej bazy danych,
+ale jego przypadki użycia komunikują się z persistence przez wąskie porty zdefiniowane
+w `Application`.
+
+Przepływ dla odczytu listy zadań wygląda następująco:
+
+```text
+ProjectTasksController
+	|
+IProjectTaskQueryService
+	|
+IProjectTaskAccess + IProjectTaskQueryStore
+	|
+EfProjectTaskAccess + EfProjectTaskQueryStore
+	|
+ApplicationDbContext / PostgreSQL
+```
+
+Komendy używają analogicznego podziału:
+
+```text
+ProjectTasksController
+	|
+IProjectTaskCommandService
+	|
+IProjectTaskAccess + IProjectTaskCommandStore
+	|
+EfProjectTaskAccess + EfProjectTaskCommandStore
+	|
+ApplicationDbContext / PostgreSQL
+```
+
+`IProjectTaskAccess`, `IProjectTaskQueryStore` i `IProjectTaskCommandStore` są
+portami przypadków użycia, a nie generycznym repository. Dzięki temu kontrakty
+opisują rzeczywiste potrzeby funkcji: kontrolę dostępu, listowanie z filtrami oraz
+zapis zmian zadania. Implementacje EF pozostają w `Infrastructure`, a kontrolery
+nie znają `ApplicationDbContext`.
+
+Rozdzielenie query i command nie oznacza wprowadzenia MediatR, RabbitMQ ani event
+busa. Jest to lokalny podział odpowiedzialności w ramach modularnego monolitu,
+który zachowuje istniejące endpointy, migracje i model relacyjny.
+
 Przypisanie zadania jest dodatkowo walidowane względem aktywnego członkostwa
 w projekcie. Zarządzanie członkami jest dostępne wyłącznie właścicielowi projektu,
 a usunięcie członka czyści jego przypisania do zadań.
@@ -211,6 +256,12 @@ Projekt ma kilka poziomów testów:
 - `backend/IntegrationTests/` - testy integracyjne API i warstwy persistence
 - `backend/E2ETests/` - smoke tests uruchamiane przeciw działającej aplikacji
 - `frontend/src/tests/` i testy przy komponentach - testy React + RTL/Vitest
+
+Testy usług `ProjectTask` używają mockowanych portów Application i sprawdzają
+reguły orkiestracji, statusy oraz kolejność decyzji dostępu. Testy integracyjne
+sprawdzają rzeczywistą konfigurację API i persistence. Test PostgreSQL wymaga
+działającego Docker Desktop, ponieważ uruchamia kontener `postgres:16-alpine`
+przez Testcontainers.
 
 ## Recommended Reading Order
 

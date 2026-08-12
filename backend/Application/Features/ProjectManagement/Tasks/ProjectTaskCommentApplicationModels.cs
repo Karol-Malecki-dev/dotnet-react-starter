@@ -1,4 +1,4 @@
-namespace Application.Features.Projects;
+namespace Application.Features.ProjectManagement.Tasks;
 
 /// <summary>
 /// Read model for a comment displayed in a project task discussion.

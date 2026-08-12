@@ -90,6 +90,31 @@ Jeśli feature wymaga nowej tabeli:
 
 Warto pilnować, żeby relacje i indeksy były jawne i czytelne, szczególnie dla rekordów tokenów, challenge i danych użytkownika.
 
+## Modular Monolith Feature Boundary
+
+Dla funkcji należących do zarządzania projektami stosuj granicę feature zamiast
+bezpośredniego używania `ApplicationDbContext` w serwisie aplikacyjnym.
+
+Rekomendowany podział:
+
+1. Kontrakty przypadków użycia umieść w `Application/Features/<Feature>/`.
+2. Reguły domenowe trzymaj w encji lub agregacie w `Domain/`.
+3. Zdefiniuj małe porty persistence opisujące konkretne potrzeby funkcji.
+4. Implementacje portów EF umieść w `Infrastructure/<Feature>/`.
+5. Zarejestruj porty i implementacje w composition root.
+6. Testuj serwis aplikacyjny przez mocki portów, a zapis i zapytania EF przez testy integracyjne.
+
+Dla `ProjectManagement.Tasks` aktualne porty to:
+
+- `IProjectTaskAccess` - aktywna rola użytkownika i pobranie zadania z etykietami,
+- `IProjectTaskQueryStore` - filtrowanie, sortowanie i paginacja listy zadań,
+- `IProjectTaskCommandStore` - zapis zadania, etykiet, aktywności i zmian.
+
+Nie twórz generycznego `IRepository<T>` tylko po to, aby ukryć EF Core. Port powinien
+wynikać z przypadku użycia i przyjmować typy oraz operacje potrzebne konkretnej
+funkcji. Nie dodawaj MediatR, event busa ani brokera wiadomości bez wymagania
+wynikającego z rzeczywistego przypadku biznesowego.
+
 ## Naming Conventions
 
 Praktyczne zasady:
@@ -218,6 +243,12 @@ dotnet ef migrations add AddProjectTasks `
 5. Nested controller pod `/api/projects/{projectId}/tasks`.
 6. Testy cyklu życia zadania, własności, archiwizacji i walidacji.
 7. Dopiero po stabilizacji API integracja z frontendem.
+
+Po pierwszym wdrożeniu funkcji wykonaj również:
+
+8. Testy jednostkowe serwisów aplikacyjnych przez porty.
+9. Testy integracyjne z rzeczywistym providerem, jeśli zmiana dotyka persistence.
+10. Aktualizację dokumentacji granicy modułu i przepływu zależności.
 
 ## Which Document To Open Next
 

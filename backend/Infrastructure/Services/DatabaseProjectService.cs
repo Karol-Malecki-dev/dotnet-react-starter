@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using Application.Features.ProjectManagement.Tasks;
 using Application.Interfaces;
 using Domain.Entities;
 using Domain.Enums;
@@ -272,8 +273,7 @@ public sealed class DatabaseProjectService : IProjectApplicationService
 
         foreach (var task in assignedTasks)
         {
-            task.AssignedUserId = null;
-            task.UpdatedAt = DateTime.UtcNow;
+            task.Unassign();
         }
 
         _dbContext.ProjectMembers.Remove(member);
