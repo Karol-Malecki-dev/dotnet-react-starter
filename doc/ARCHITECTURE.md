@@ -109,6 +109,8 @@ Relacje są proste i czytelne:
 - `Project` jest aggregate rootem dla `ProjectTask`
 - `ProjectTask` należy do jednego `Project` przez wymagany `ProjectId`
 - `ProjectTask` może mieć opcjonalnego przypisanego członka projektu przez `AssignedUserId`
+- `ProjectTask` może mieć etykiety, załączniki i termin wykonania
+- przypomnienia terminów tworzą powiadomienia, a dostarczanie emailowe przechodzi przez outbox
 - usunięcie projektu kaskadowo usuwa jego zadania
 - usunięcie przypisanego użytkownika ustawia `AssignedUserId` na `NULL`
 
@@ -156,7 +158,20 @@ DELETE /api/projects/{projectId}/members/{userId}
 
 Szczegółowy workflow dodawania tej funkcji znajduje się w `doc/ADDING_FEATURES.md`.
 
-To oznacza, że baza jest obecnie zorientowana głównie wokół auth i kont użytkowników, a nie rozbudowanej domeny biznesowej.
+Model obejmuje zarówno auth i konta użytkowników, jak i rozwijaną domenę zarządzania projektami oraz zadaniami. Kolejne funkcje powinny respektować granicę projektu jako aggregate root oraz istniejące kontrole członkostwa i ról.
+
+## Observability And Background Work
+
+API używa middleware korelacji żądań oraz Seriloga. Nagłówek `X-Correlation-ID` jest zwracany klientowi i trafia do log contextu, co pozwala połączyć wpisy dotyczące jednego żądania.
+
+Health endpoints mają rozdzielone odpowiedzialności:
+
+- `/health/live` nie wykonuje zależności zewnętrznych i służy do liveness;
+- `/health/ready` sprawdza połączenie z bazą;
+- `/health` agreguje podstawową gotowość API i bazy, bez stanu workerów;
+- `/health/workers` raportuje świeżość ostatnich cykli workerów.
+
+Workery `NotificationEmailOutboxWorker` i `ProjectTaskDeadlineReminderWorker` są hostowanymi usługami infrastruktury. Ich stan jest przechowywany w pamięci procesu, więc endpoint worker health opisuje bieżącą instancję aplikacji i nie zastępuje trwałego monitoringu ani kolejki rozproszonej.
 
 ## Runtime Configuration as a Project Pattern
 

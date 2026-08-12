@@ -23,7 +23,7 @@ The following areas were verified:
 - Result: **55/55 passed**
 
 ### Integration Tests
-- Result: **42/42 passed**
+- Result: **60/60 passed** in the current backend integration suite; the JWT scenarios listed below remain covered.
 
 Verified scenarios:
 - login returns an access token and a refresh token,
