@@ -2,7 +2,7 @@
 
 ## Scope
 
-This audit records the verification state of the `.NET 9 + React 19` starter after the frontend migration from Create React App to Vite and Vitest.
+This audit records the verification state of the `.NET 9 + React 19` starter after the frontend migration from Create React App to Vite and Vitest, plus the PostgreSQL integration-test and observability work.
 
 The audit covers documentation consistency, build and test evidence, dependency risk, Docker packaging, and known release limitations. It is not a penetration test or a certification of production security.
 
@@ -11,13 +11,24 @@ The audit covers documentation consistency, build and test evidence, dependency 
 | Area | Verification | Result | Status |
 |---|---|---:|---|
 | Backend unit tests | `dotnet test backend/UnitTests/UnitTests.csproj` | 55/55 passed | Verified |
-| Backend integration tests | `dotnet test backend/IntegrationTests/IntegrationTests.csproj` | 42/42 passed | Verified |
+| Backend integration tests | `dotnet test backend/IntegrationTests/IntegrationTests.csproj` | 60/60 passed | Verified on 2026-07-31 |
 | Frontend tests | `npm run test:once` in `frontend/` | 62/62 passed | Verified after Vite migration |
 | Frontend production build | `npm run build` in `frontend/` | Passed | Verified after Vite migration |
 | Frontend Docker image | `docker build -f frontend/Dockerfile ... frontend` | Passed | Verified after Vite migration |
 | Docker Compose E2E/smoke tests | `scripts/Invoke-E2ETests.ps1` | 100/100 passed | Verified after Vite migration |
 
-All verification rows were confirmed during the release validation on 2026-07-26. The frontend tests, production build, frontend image build, and Docker Compose E2E suite were run after the Vite migration.
+The frontend tests, production build, frontend image build, and Docker Compose E2E suite were verified after the Vite migration on 2026-07-26. The backend integration suite, including the PostgreSQL Testcontainers test and observability endpoints, was reverified on 2026-07-31.
+
+## Observability Verification
+
+| Area | Contract | Result | Status |
+|---|---|---:|---|
+| Liveness | `/health/live` does not depend on the database | HTTP 200 | Verified |
+| Readiness | `/health/ready` checks database connectivity | HTTP 200 with PostgreSQL | Verified |
+| Worker health | `/health/workers` exposes worker freshness status | HTTP 200 after worker startup | Verified |
+| Request correlation | `X-Correlation-ID` is propagated to the response and Serilog context | Verified | Verified |
+
+The worker state is process-local and intentionally does not replace centralized metrics, distributed tracing, or durable job monitoring.
 
 ## Toolchain State
 
@@ -42,6 +53,7 @@ This repository is ready for a release candidate validation, but the following p
 
 - The CD workflow publishes Docker images to GHCR but does not deploy them to a hosting platform.
 - Production secrets, database migrations, CORS, cookies, TLS, monitoring, rollback, and hosting configuration must be reviewed for the target environment.
+- The current health checks provide endpoint-level probes, but centralized metrics, traces, alerting, and durable worker monitoring still require environment-specific configuration.
 - Docker Compose defaults are intended for local development and smoke testing, not as production secrets.
 - The React Router vulnerabilities require a separate, controlled React Router v7 migration decision.
 
@@ -53,6 +65,9 @@ Before tagging a final release, run and record:
 Set-Location backend
 dotnet test UnitTests/UnitTests.csproj
 dotnet test IntegrationTests/IntegrationTests.csproj
+
+# Requires Docker Desktop; verifies real EF Core migrations against PostgreSQL.
+dotnet test IntegrationTests/IntegrationTests.csproj --filter "FullyQualifiedName~PostgreSqlIntegrationTests"
 
 Set-Location ../frontend
 npm ci

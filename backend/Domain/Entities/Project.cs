@@ -10,7 +10,6 @@ public class Project
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public bool IsArchived { get; set; }
 
-    public ICollection<ProjectTask> Tasks { get; set; } = [];
     public ICollection<ProjectMember> Members { get; set; } = [];
     public ICollection<ProjectInvitation> Invitations { get; set; } = [];
 }

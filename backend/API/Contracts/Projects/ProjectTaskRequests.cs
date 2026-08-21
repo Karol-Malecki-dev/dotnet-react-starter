@@ -1,4 +1,4 @@
-using Application.Features.Projects;
+using Application.Features.ProjectManagement.Tasks;
 using Domain.Enums;
 
 namespace API.Contracts.Projects;

@@ -14,11 +14,15 @@ namespace API.Controllers;
 [Authorize]
 public class ProjectsController : ControllerBase
 {
-    private readonly IProjectApplicationService _projectService;
+    private readonly IProjectManagementService _projectService;
+    private readonly IProjectMembershipApplicationService _membershipService;
 
-    public ProjectsController(IProjectApplicationService projectService)
+    public ProjectsController(
+        IProjectManagementService projectService,
+        IProjectMembershipApplicationService membershipService)
     {
         _projectService = projectService;
+        _membershipService = membershipService;
     }
 
     [HttpGet]
@@ -91,7 +95,7 @@ public class ProjectsController : ControllerBase
             return Unauthorized(ApiResponse<List<ProjectMemberResponse>>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectService.GetProjectMembersAsync(ownerId, projectId);
+        var result = await _membershipService.GetProjectMembersAsync(ownerId, projectId);
         return ToActionResult(result, members => members.Select(MapMember).ToList());
     }
 
@@ -127,7 +131,7 @@ public class ProjectsController : ControllerBase
             return Unauthorized(ApiResponse<List<ProjectMemberUserResponse>>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectService.GetAvailableProjectMembersAsync(ownerId, projectId);
+        var result = await _membershipService.GetAvailableProjectMembersAsync(ownerId, projectId);
         return ToActionResult(result, users => users.Select(MapMemberUser).ToList());
     }
 
@@ -139,7 +143,7 @@ public class ProjectsController : ControllerBase
             return Unauthorized(ApiResponse<ProjectMemberResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectService.AddProjectMemberAsync(ownerId, projectId, request.UserId);
+        var result = await _membershipService.AddProjectMemberAsync(ownerId, projectId, request.UserId);
         return ToActionResult(result, MapMember);
     }
 
@@ -151,7 +155,7 @@ public class ProjectsController : ControllerBase
             return Unauthorized(ApiResponse<bool>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectService.RemoveProjectMemberAsync(ownerId, projectId, userId);
+        var result = await _membershipService.RemoveProjectMemberAsync(ownerId, projectId, userId);
         return ToActionResult(result, value => value);
     }
 
@@ -163,7 +167,7 @@ public class ProjectsController : ControllerBase
             return Unauthorized(ApiResponse<ProjectMemberResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectService.UpdateProjectMemberRoleAsync(ownerId, projectId, userId, request.Role);
+        var result = await _membershipService.UpdateProjectMemberRoleAsync(ownerId, projectId, userId, request.Role);
         return ToActionResult(result, MapMember);
     }
 

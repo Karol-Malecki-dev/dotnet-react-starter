@@ -1,6 +1,6 @@
 using Domain.Enums;
 
-namespace Application.Features.Projects;
+namespace Application.Features.ProjectManagement.Tasks;
 
 public sealed record ProjectTaskView(
     Guid Id,

@@ -17,6 +17,8 @@ Backend odpowiada za:
 - role-based authorization
 - dostarczanie runtime feature flags dla frontendu
 - persistence przez EF Core i PostgreSQL
+- projekty, zadania, członkowie, załączniki, etykiety, terminy i powiadomienia
+- health checks, korelacja żądań i cykliczne workery infrastrukturalne
 
 ## Backend Layers
 
@@ -98,6 +100,19 @@ Najważniejsze sekcje konfiguracji:
 - `EmailDelivery`
 - `UiFeatures`
 
+## Health Checks And Request Correlation
+
+API udostępnia osobne sygnały operacyjne:
+
+- `GET /health` sprawdza API i bazę danych, z pominięciem workerów;
+- `GET /health/live` sprawdza liveness procesu;
+- `GET /health/ready` uruchamia `DatabaseHealthCheck` i sprawdza możliwość połączenia z bazą;
+- `GET /health/workers` sprawdza ostatni stan workerów outbox i przypomnień o terminach.
+
+Middleware `CorrelationIdMiddleware` odczytuje `X-Correlation-ID` z żądania albo używa identyfikatora wygenerowanego przez ASP.NET Core. Wartość trafia do nagłówka odpowiedzi i kontekstu Seriloga, dzięki czemu można śledzić żądanie w logach.
+
+Workery zapisują ostatni sukces lub błąd w singletonowym `BackgroundWorkerHealthState`. Brak pierwszego raportu albo przekroczenie maksymalnego wieku raportu oznacza stan niezdrowy na `/health/workers`; nie blokuje to liveness procesu.
+
 Ważne zasady:
 
 - sekrety nie trafiają do repozytorium
@@ -131,7 +146,7 @@ Typowy flow logowania:
 
 ## Database Model
 
-Aktualny model bazy jest skupiony na auth i użytkownikach.
+Aktualny model bazy obejmuje auth, użytkowników oraz domenę projektów i zadań.
 
 Najważniejsze DbSety:
 
@@ -140,6 +155,13 @@ Najważniejsze DbSety:
 - `EmailConfirmationTokens`
 - `EmailTwoFactorChallenges`
 - `PasswordResetRequests`
+- `Projects`
+- `ProjectMembers`
+- `ProjectTasks`
+- `ProjectTaskAttachments`
+- `ProjectTaskLabels`
+- `Notifications`
+- `NotificationEmailOutboxMessages`
 
 Warto zwrócić uwagę na kilka decyzji:
 

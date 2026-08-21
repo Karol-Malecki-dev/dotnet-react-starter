@@ -10,6 +10,8 @@ Full-stack starter przygotowany z myślą o nauce wzorców stosowanych w aplikac
 - autoryzacja oparta na rolach dla operacji administracyjnych, projektów i zadań;
 - walidacja formularzy przez React Hook Form i Zod;
 - centralna obsługa wyjątków, Serilog i health check API;
+- endpointy liveness, readiness i kondycji workerów oraz korelacja żądań przez `X-Correlation-ID`;
+- projekty, zadania, członkowie, załączniki, etykiety, terminy i powiadomienia;
 - PostgreSQL, Mailpit i reverse proxy w lokalnym środowisku Docker Compose;
 - testy jednostkowe, integracyjne, frontendowe oraz Docker smoke/E2E;
 - GitHub Actions dla walidacji kodu i publikowania obrazów do GHCR.
@@ -77,6 +79,8 @@ Lokalne adresy:
 - frontend: http://localhost:3000;
 - API: http://localhost:5000;
 - health check: http://localhost:5000/health;
+- readiness: http://localhost:5000/health/ready;
+- worker health: http://localhost:5000/health/workers;
 - Swagger: http://localhost:5000/swagger;
 - Mailpit: http://localhost:8025.
 
@@ -101,6 +105,17 @@ npm start
 
 Przy lokalnym uruchomieniu frontendu ustaw `VITE_API_URL=http://localhost:5000` w `frontend/.env.development.local`.
 
+Każda odpowiedź API zawiera nagłówek `X-Correlation-ID`. Możesz przekazać własną wartość w żądaniu, aby znaleźć powiązane wpisy w logach; bez niego API wygeneruje identyfikator żądania.
+
+## Operacje i health checks
+
+- `GET /health` sprawdza API i bazę danych, ale nie blokuje się na workerach podczas ich pierwszego cyklu.
+- `GET /health/live` sprawdza wyłącznie, czy proces API działa.
+- `GET /health/ready` sprawdza, czy baza danych przyjmuje połączenia.
+- `GET /health/workers` sprawdza świeżość i wynik ostatniego cyklu workerów outbox oraz przypomnień.
+
+`/health/live` nadaje się do probe liveness, `/health/ready` do probe readiness, a `/health/workers` do osobnego monitoringu zadań w tle.
+
 ## Uwierzytelnianie
 
 Projekt zawiera następujący przepływ:
@@ -122,6 +137,13 @@ Backend:
 ```powershell
 dotnet test backend/UnitTests/UnitTests.csproj
 dotnet test backend/IntegrationTests/IntegrationTests.csproj
+```
+
+Testy integracyjne obejmują także Testcontainers PostgreSQL i uruchamiają prawdziwe migracje EF Core. Przed tym testem musi działać Docker Desktop:
+
+```powershell
+docker info
+dotnet test backend/IntegrationTests/IntegrationTests.csproj --filter "FullyQualifiedName~PostgreSqlIntegrationTests"
 ```
 
 Smoke testy E2E wymagają uruchomionego środowiska:

@@ -239,14 +239,9 @@ public class ProjectsApiIntegrationTests
     {
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        dbContext.ProjectTasks.Add(new ProjectTask
-        {
-            ProjectId = projectId,
-            Title = title,
-            Status = status,
-            Priority = priority,
-            DueDate = dueDate
-        });
+        var task = ProjectTask.Create(projectId, title, null, priority, dueDate, null, null);
+        task.ChangeStatus(status);
+        dbContext.ProjectTasks.Add(task);
         await dbContext.SaveChangesAsync();
     }
 }

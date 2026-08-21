@@ -109,6 +109,8 @@ Relacje są proste i czytelne:
 - `Project` jest aggregate rootem dla `ProjectTask`
 - `ProjectTask` należy do jednego `Project` przez wymagany `ProjectId`
 - `ProjectTask` może mieć opcjonalnego przypisanego członka projektu przez `AssignedUserId`
+- `ProjectTask` może mieć etykiety, załączniki i termin wykonania
+- przypomnienia terminów tworzą powiadomienia, a dostarczanie emailowe przechodzi przez outbox
 - usunięcie projektu kaskadowo usuwa jego zadania
 - usunięcie przypisanego użytkownika ustawia `AssignedUserId` na `NULL`
 
@@ -129,6 +131,52 @@ Bezpieczeństwo zadań jest dziedziczone przez granicę projektu. Serwis zadanio
 nie wyszukuje zadania wyłącznie po `taskId`; każde zapytanie filtruje jednocześnie
 po `projectId`, właścicielu projektu i aktywnym stanie projektu. Dzięki temu
 identyfikator zadania nie może ominąć kontroli dostępu.
+
+### ProjectManagement.Tasks As A Modular-Monolith Feature
+
+`ProjectManagement.Tasks` jest pierwszą feature boundary rozwijaną w kierunku
+modularnego monolitu. Moduł pozostaje częścią jednego procesu i jednej bazy danych,
+ale jego przypadki użycia komunikują się z persistence przez wąskie porty zdefiniowane
+w `Application`.
+
+Przepływ dla odczytu listy zadań wygląda następująco:
+
+```text
+ProjectTasksController
+	|
+IProjectTaskQueryService
+	|
+IProjectTaskAccess + IProjectTaskQueryStore
+	|
+EfProjectTaskAccess + EfProjectTaskQueryStore
+	|
+ApplicationDbContext / PostgreSQL
+```
+
+Komendy używają analogicznego podziału:
+
+```text
+ProjectTasksController
+	|
+IProjectTaskCommandService
+	|
+IProjectTaskAccess + IProjectTaskCommandStore
+	|
+EfProjectTaskAccess + EfProjectTaskCommandStore
+	|
+ApplicationDbContext / PostgreSQL
+```
+
+`IProjectTaskAccess`, `IProjectTaskQueryStore`, `IProjectTaskCommandStore` oraz
+`IProjectMembershipStore` są portami przypadków użycia, a nie generycznym repository.
+Dzięki temu kontrakty
+opisują rzeczywiste potrzeby funkcji: kontrolę dostępu, listowanie z filtrami oraz
+zapis zmian zadania. Implementacje EF pozostają w `Infrastructure`, a kontrolery
+nie znają `ApplicationDbContext`.
+
+Rozdzielenie query i command nie oznacza wprowadzenia MediatR, RabbitMQ ani event
+busa. Jest to lokalny podział odpowiedzialności w ramach modularnego monolitu,
+który zachowuje istniejące endpointy, migracje i model relacyjny.
 
 Przypisanie zadania jest dodatkowo walidowane względem aktywnego członkostwa
 w projekcie. Zarządzanie członkami jest dostępne wyłącznie właścicielowi projektu,
@@ -156,7 +204,20 @@ DELETE /api/projects/{projectId}/members/{userId}
 
 Szczegółowy workflow dodawania tej funkcji znajduje się w `doc/ADDING_FEATURES.md`.
 
-To oznacza, że baza jest obecnie zorientowana głównie wokół auth i kont użytkowników, a nie rozbudowanej domeny biznesowej.
+Model obejmuje zarówno auth i konta użytkowników, jak i rozwijaną domenę zarządzania projektami oraz zadaniami. Kolejne funkcje powinny respektować granicę projektu jako aggregate root oraz istniejące kontrole członkostwa i ról.
+
+## Observability And Background Work
+
+API używa middleware korelacji żądań oraz Seriloga. Nagłówek `X-Correlation-ID` jest zwracany klientowi i trafia do log contextu, co pozwala połączyć wpisy dotyczące jednego żądania.
+
+Health endpoints mają rozdzielone odpowiedzialności:
+
+- `/health/live` nie wykonuje zależności zewnętrznych i służy do liveness;
+- `/health/ready` sprawdza połączenie z bazą;
+- `/health` agreguje podstawową gotowość API i bazy, bez stanu workerów;
+- `/health/workers` raportuje świeżość ostatnich cykli workerów.
+
+Workery `NotificationEmailOutboxWorker` i `ProjectTaskDeadlineReminderWorker` są hostowanymi usługami infrastruktury. Ich stan jest przechowywany w pamięci procesu, więc endpoint worker health opisuje bieżącą instancję aplikacji i nie zastępuje trwałego monitoringu ani kolejki rozproszonej.
 
 ## Runtime Configuration as a Project Pattern
 
@@ -196,6 +257,12 @@ Projekt ma kilka poziomów testów:
 - `backend/IntegrationTests/` - testy integracyjne API i warstwy persistence
 - `backend/E2ETests/` - smoke tests uruchamiane przeciw działającej aplikacji
 - `frontend/src/tests/` i testy przy komponentach - testy React + RTL/Vitest
+
+Testy usług `ProjectTask` używają mockowanych portów Application i sprawdzają
+reguły orkiestracji, statusy oraz kolejność decyzji dostępu. Testy integracyjne
+sprawdzają rzeczywistą konfigurację API i persistence. Test PostgreSQL wymaga
+działającego Docker Desktop, ponieważ uruchamia kontener `postgres:16-alpine`
+przez Testcontainers.
 
 ## Recommended Reading Order
 

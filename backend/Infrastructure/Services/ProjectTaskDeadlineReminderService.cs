@@ -31,7 +31,7 @@ public sealed class ProjectTaskDeadlineReminderService : IProjectTaskDeadlineRem
                 && task.DueDate.HasValue
                 && task.DueDate.Value <= horizon
                 && task.Status != ProjectTaskStatus.Done
-                && !task.Project.IsArchived
+                && _dbContext.Projects.Any(project => project.Id == task.ProjectId && !project.IsArchived)
                 && task.AssignedUser!.IsActive)
             .Select(task => new { task.Id, task.ProjectId, task.Title, task.AssignedUserId, task.DueDate })
             .ToListAsync(cancellationToken);

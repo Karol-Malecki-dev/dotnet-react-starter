@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using Application.Features.ProjectManagement.Tasks;
 using Domain.Entities;
 using Domain.Enums;
 using Infrastructure.Data;
@@ -126,5 +127,7 @@ public sealed class DatabaseProjectTaskCommentService : IProjectTaskCommentAppli
         => await GetProjectRoleAsync(userId, projectId) is not null;
 
     private Task<bool> TaskBelongsToProjectAsync(Guid projectId, Guid taskId)
-        => _dbContext.ProjectTasks.AnyAsync(task => task.Id == taskId && task.ProjectId == projectId && !task.Project.IsArchived);
+        => _dbContext.ProjectTasks.AnyAsync(task => task.Id == taskId
+            && task.ProjectId == projectId
+            && _dbContext.Projects.Any(project => project.Id == projectId && !project.IsArchived));
 }

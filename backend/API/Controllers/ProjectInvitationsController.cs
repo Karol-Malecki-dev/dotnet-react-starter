@@ -16,11 +16,11 @@ namespace API.Controllers;
 [Authorize]
 public sealed class ProjectInvitationsController : ControllerBase
 {
-    private readonly IProjectApplicationService _projectService;
+    private readonly IProjectInvitationApplicationService _invitationService;
 
-    public ProjectInvitationsController(IProjectApplicationService projectService)
+    public ProjectInvitationsController(IProjectInvitationApplicationService invitationService)
     {
-        _projectService = projectService;
+        _invitationService = invitationService;
     }
 
     /// <summary>Returns all invitations for a project. Only the project owner can use this endpoint.</summary>
@@ -32,7 +32,7 @@ public sealed class ProjectInvitationsController : ControllerBase
             return Unauthorized(ApiResponse<IReadOnlyList<ProjectInvitationResponse>>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectService.GetProjectInvitationsAsync(userId, projectId);
+        var result = await _invitationService.GetProjectInvitationsAsync(userId, projectId);
         return ToActionResult(result, invitations => invitations.Select(MapInvitation).ToList());
     }
 
@@ -45,7 +45,7 @@ public sealed class ProjectInvitationsController : ControllerBase
             return Unauthorized(ApiResponse<CreatedProjectInvitationResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectService.CreateProjectInvitationAsync(new CreateProjectInvitationCommand(userId, projectId, request.Email, request.Role));
+        var result = await _invitationService.CreateProjectInvitationAsync(new CreateProjectInvitationCommand(userId, projectId, request.Email, request.Role));
         return ToActionResult(result, created => new CreatedProjectInvitationResponse(MapInvitation(created.Invitation), created.Token));
     }
 
@@ -58,7 +58,7 @@ public sealed class ProjectInvitationsController : ControllerBase
             return Unauthorized(ApiResponse<IReadOnlyList<ProjectInvitationResponse>>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectService.GetMyProjectInvitationsAsync(userId);
+        var result = await _invitationService.GetMyProjectInvitationsAsync(userId);
         return ToActionResult(result, invitations => invitations.Select(MapInvitation).ToList());
     }
 
@@ -71,7 +71,7 @@ public sealed class ProjectInvitationsController : ControllerBase
             return Unauthorized(ApiResponse<ProjectInvitationResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectService.AcceptProjectInvitationAsync(userId, request.Token);
+        var result = await _invitationService.AcceptProjectInvitationAsync(userId, request.Token);
         return ToActionResult(result, MapInvitation);
     }
 
@@ -84,7 +84,7 @@ public sealed class ProjectInvitationsController : ControllerBase
             return Unauthorized(ApiResponse<ProjectInvitationResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectService.DeclineProjectInvitationAsync(userId, request.Token);
+        var result = await _invitationService.DeclineProjectInvitationAsync(userId, request.Token);
         return ToActionResult(result, MapInvitation);
     }
 

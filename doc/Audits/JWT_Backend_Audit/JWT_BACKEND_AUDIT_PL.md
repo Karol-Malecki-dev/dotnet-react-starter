@@ -23,7 +23,7 @@ Zweryfikowano:
 - Wynik: **55/55 passed**
 
 ### Testy integracyjne
-- Wynik: **42/42 passed**
+- Wynik: **60/60 passed** w aktualnym zestawie testów integracyjnych backendu; scenariusze JWT wymienione poniżej pozostają objęte testami.
 
 Przetestowane scenariusze:
 - logowanie zwraca access token i refresh token,

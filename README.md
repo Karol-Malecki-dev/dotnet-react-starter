@@ -179,6 +179,11 @@ dotnet test backend/IntegrationTests/IntegrationTests.csproj
 dotnet test backend/E2ETests/E2ETests.csproj
 ```
 
+Test `PostgreSqlIntegrationTests` uruchamia PostgreSQL przez Testcontainers,
+dlatego przed wykonaniem pełnego zestawu `IntegrationTests` Docker Desktop musi
+działać i udostępniać poprawnie skonfigurowany endpoint Docker Engine. Pozostałe
+testy integracyjne korzystają z kontrolowanego store'a in-memory.
+
 The integration suite includes PostgreSQL Testcontainers coverage. It applies the real EF Core migrations to a temporary PostgreSQL container, so Docker Desktop must be running before executing it.
 
 ```powershell
