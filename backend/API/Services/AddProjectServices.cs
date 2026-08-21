@@ -166,7 +166,16 @@ namespace API.Services
             services.AddScoped<IProjectTaskDeadlineReminderService, ProjectTaskDeadlineReminderService>();
             services.AddHostedService<ProjectTaskDeadlineReminderWorker>();
             services.AddScoped<IAdminService, DatabaseAdminService>();
-            services.AddScoped<IProjectApplicationService, DatabaseProjectService>();
+            services.AddScoped<DatabaseProjectService>();
+            services.AddScoped<DatabaseProjectManagementService>();
+            services.AddScoped<DatabaseProjectMembershipApplicationService>();
+            services.AddScoped<DatabaseProjectInvitationApplicationService>();
+            services.AddScoped<IProjectApplicationService>(serviceProvider => serviceProvider.GetRequiredService<DatabaseProjectService>());
+            services.AddScoped<IProjectManagementService>(serviceProvider => serviceProvider.GetRequiredService<DatabaseProjectManagementService>());
+            services.AddScoped<IProjectMembershipApplicationService>(serviceProvider => serviceProvider.GetRequiredService<DatabaseProjectMembershipApplicationService>());
+            services.AddScoped<IProjectInvitationApplicationService>(serviceProvider => serviceProvider.GetRequiredService<DatabaseProjectInvitationApplicationService>());
+            services.AddScoped<IProjectMembershipStore, EfProjectMembershipStore>();
+            services.AddScoped<IProjectInvitationStore, EfProjectInvitationStore>();
             services.AddScoped<IProjectTaskAccess, EfProjectTaskAccess>();
             services.AddScoped<IProjectTaskQueryStore, EfProjectTaskQueryStore>();
             services.AddScoped<IProjectTaskCommandStore, EfProjectTaskCommandStore>();

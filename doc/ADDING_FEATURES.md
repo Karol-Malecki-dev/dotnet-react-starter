@@ -109,6 +109,7 @@ Dla `ProjectManagement.Tasks` aktualne porty to:
 - `IProjectTaskAccess` - aktywna rola użytkownika i pobranie zadania z etykietami,
 - `IProjectTaskQueryStore` - filtrowanie, sortowanie i paginacja listy zadań,
 - `IProjectTaskCommandStore` - zapis zadania, etykiet, aktywności i zmian.
+- `IProjectMembershipStore` - odczyt i zmiana członkostwa oraz czyszczenie przypisań zadań.
 
 Nie twórz generycznego `IRepository<T>` tylko po to, aby ukryć EF Core. Port powinien
 wynikać z przypadku użycia i przyjmować typy oraz operacje potrzebne konkretnej

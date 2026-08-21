@@ -167,8 +167,9 @@ EfProjectTaskAccess + EfProjectTaskCommandStore
 ApplicationDbContext / PostgreSQL
 ```
 
-`IProjectTaskAccess`, `IProjectTaskQueryStore` i `IProjectTaskCommandStore` są
-portami przypadków użycia, a nie generycznym repository. Dzięki temu kontrakty
+`IProjectTaskAccess`, `IProjectTaskQueryStore`, `IProjectTaskCommandStore` oraz
+`IProjectMembershipStore` są portami przypadków użycia, a nie generycznym repository.
+Dzięki temu kontrakty
 opisują rzeczywiste potrzeby funkcji: kontrolę dostępu, listowanie z filtrami oraz
 zapis zmian zadania. Implementacje EF pozostają w `Infrastructure`, a kontrolery
 nie znają `ApplicationDbContext`.
