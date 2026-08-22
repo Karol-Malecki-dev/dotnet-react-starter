@@ -2,6 +2,7 @@
 using Application.Interfaces;
 using Domain.Entities;
 using Domain.Entities.JWT;
+using Domain.Enums;
 using Domain.Interfaces;
 using Domain.ValueObjects;
 using Microsoft.AspNetCore.Authorization;
@@ -552,6 +553,40 @@ namespace API.Controllers
         }
 
         /// <summary>
+        /// Revokes every active refresh-token session for the authenticated user.
+        /// </summary>
+        /// <returns>An empty successful response after all sessions are revoked.</returns>
+        /// <response code="200">All active refresh-token sessions were revoked and the current cookie was deleted.</response>
+        /// <response code="401">The caller is not authenticated or the token does not identify a valid user.</response>
+        /// <response code="500">An unexpected server error occurred.</response>
+        /// <remarks>The access token remains valid until its normal expiration because access-token revocation is not persisted by this slice.</remarks>
+        [HttpPost("logout-all")]
+        [Authorize]
+        public async Task<IActionResult> LogoutAll()
+        {
+            if (!TryGetCurrentUserId(out var userId))
+            {
+                return Unauthorized(ApiResponse<object>.Error(401, "User not authenticated", null));
+            }
+
+            try
+            {
+                _logger.LogInformation("🚪 Logout-all request from user: {UserId}", userId);
+
+                await _jwtTokenService.RevokeAllUserTokensAsync(userId, RevocationReason.UserLogout);
+                ClearRefreshTokenCookie();
+
+                _logger.LogInformation("✓ All refresh sessions revoked for user: {UserId}", userId);
+                return Ok(new ApiResponse(200, "All sessions logged out successfully"));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Logout-all error for user {UserId}", userId);
+                return StatusCode(500, ApiResponse.Error(500, "Internal server error", null));
+            }
+        }
+
+        /// <summary>
         /// Returns the profile of the currently authenticated user.
         /// </summary>
         /// <returns>Current user profile data without credential or token secrets.</returns>
@@ -644,7 +679,7 @@ namespace API.Controllers
         /// <response code="400">The request is invalid, the passwords are equal, or the current password is incorrect.</response>
         /// <response code="401">The caller is not authenticated or the token does not identify a valid user.</response>
         /// <response code="500">An unexpected server error occurred.</response>
-        /// <remarks>Requires a valid JWT access token. The endpoint does not issue or remove a refresh-token cookie.</remarks>
+        /// <remarks>Requires a valid JWT access token and removes the current refresh-token cookie after success.</remarks>
         [HttpPost("change-password")]
         [Authorize]
         public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequestDto request)
@@ -673,6 +708,7 @@ namespace API.Controllers
                     return BadRequest(ApiResponse<object>.Error(400, "Current password is invalid", null));
                 }
 
+                ClearRefreshTokenCookie();
                 return Ok(ApiResponse<object?>.Success(null, "Password changed successfully", 200));
             }
             catch (Exception ex)
@@ -904,7 +940,7 @@ namespace API.Controllers
         /// <response code="200">The password was reset successfully.</response>
         /// <response code="400">The request is invalid, the reset type is unsupported, or the token is invalid or expired.</response>
         /// <response code="500">An unexpected server error occurred.</response>
-        /// <remarks>This anonymous endpoint does not issue or remove a refresh-token cookie.</remarks>
+        /// <remarks>This anonymous endpoint removes the current browser's refresh-token cookie after success.</remarks>
         [HttpPost("reset-password")]
         [AllowAnonymous]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequestDto request)
@@ -930,6 +966,7 @@ namespace API.Controllers
                     return BadRequest(ApiResponse<object>.Error(400, "Invalid token or email", null));
                 }
 
+                ClearRefreshTokenCookie();
                 return Ok(ApiResponse<object?>.Success(null, "Password reset successful", 200));
             }
             catch (Exception ex)

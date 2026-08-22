@@ -113,8 +113,11 @@ public class JwtTokenServiceTests
             Email = "refresh@example.com",
             DisplayName = "Refresh User",
             Role = UserRole.User,
+            IsActive = true,
             IsEmailConfirmed = true
         };
+        context.Users.Add(user);
+        await context.SaveChangesAsync();
 
         var originalTokens = await service.GenerateTokensAsync(user);
         var refreshedTokens = await service.RefreshTokensAsync(originalTokens.RefreshToken);
@@ -125,6 +128,80 @@ public class JwtTokenServiceTests
 
         var oldToken = await context.RefreshTokens.OrderBy(x => x.CreatedAt).FirstAsync();
         Assert.NotNull(oldToken.RevokedAt);
+    }
+
+    [Fact]
+    public async Task RefreshTokensAsync_Uses_current_user_state_and_preserves_token_family()
+    {
+        var options = UnitTestHelper.CreateInMemoryDatabaseOptions("JwtTokenServiceTestsCurrentUserState");
+        await using var context = new ApplicationDbContext(options);
+        var service = CreateService(context);
+
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "current-state@example.com",
+            DisplayName = "Original Name",
+            Role = UserRole.User,
+            IsActive = true,
+            IsEmailConfirmed = true,
+            CreatedAt = DateTime.UtcNow
+        };
+        context.Users.Add(user);
+        await context.SaveChangesAsync();
+
+        var originalTokens = await service.GenerateTokensAsync(user);
+        user.DisplayName = "Updated Name";
+        user.Role = UserRole.Admin;
+        user.IsEmailConfirmed = false;
+        await context.SaveChangesAsync();
+
+        var refreshedTokens = await service.RefreshTokensAsync(originalTokens.RefreshToken);
+
+        Assert.NotNull(refreshedTokens);
+
+        var refreshTokens = await context.RefreshTokens
+            .OrderBy(token => token.CreatedAt)
+            .ToListAsync();
+        var originalToken = Assert.Single(refreshTokens, token => token.RevokedAt.HasValue);
+        var successorToken = Assert.Single(refreshTokens, token => !token.RevokedAt.HasValue);
+
+        Assert.Equal(originalToken.FamilyId, successorToken.FamilyId);
+        Assert.Equal(user.Id, successorToken.UserId);
+        Assert.Equal(user.Email, successorToken.UserEmail);
+        Assert.Equal(user.DisplayName, successorToken.UserDisplayName);
+        Assert.Equal(user.Role, successorToken.UserRole);
+        Assert.Equal(user.IsEmailConfirmed, successorToken.IsEmailConfirmed);
+    }
+
+    [Fact]
+    public async Task RefreshTokensAsync_Returns_null_when_user_is_inactive()
+    {
+        var options = UnitTestHelper.CreateInMemoryDatabaseOptions("JwtTokenServiceTestsInactiveUser");
+        await using var context = new ApplicationDbContext(options);
+        var service = CreateService(context);
+
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "inactive-refresh@example.com",
+            DisplayName = "Inactive Refresh User",
+            Role = UserRole.User,
+            IsActive = true,
+            IsEmailConfirmed = true,
+            CreatedAt = DateTime.UtcNow
+        };
+        context.Users.Add(user);
+        await context.SaveChangesAsync();
+
+        var tokens = await service.GenerateTokensAsync(user);
+        user.IsActive = false;
+        await context.SaveChangesAsync();
+
+        var refreshedTokens = await service.RefreshTokensAsync(tokens.RefreshToken);
+
+        Assert.Null(refreshedTokens);
+        Assert.Single(await context.RefreshTokens.ToListAsync());
     }
 
     [Fact]
@@ -213,8 +290,11 @@ public class JwtTokenServiceTests
             Email = "reuse-refresh@example.com",
             DisplayName = "Reuse Refresh User",
             Role = UserRole.User,
+            IsActive = true,
             IsEmailConfirmed = true
         };
+        context.Users.Add(user);
+        await context.SaveChangesAsync();
 
         var originalTokens = await service.GenerateTokensAsync(user);
 
@@ -223,5 +303,53 @@ public class JwtTokenServiceTests
 
         Assert.NotNull(firstRefresh);
         Assert.Null(secondRefresh);
+
+        var storedTokens = await context.RefreshTokens.ToListAsync();
+        Assert.Equal(2, storedTokens.Count);
+        Assert.DoesNotContain(storedTokens, token => !token.RevokedAt.HasValue);
+        Assert.Contains(storedTokens, token => token.RevocationReason == RevocationReason.RefreshTokenReplay);
+    }
+
+    [Fact]
+    public async Task RefreshTokensAsync_Allows_only_one_successor_for_concurrent_requests()
+    {
+        var databaseName = "JwtTokenServiceTestsConcurrentRefresh";
+        await using (var setupContext = new ApplicationDbContext(UnitTestHelper.CreateInMemoryDatabaseOptions(databaseName)))
+        {
+            var user = new User
+            {
+                Id = Guid.NewGuid(),
+                Email = "concurrent-refresh@example.com",
+                DisplayName = "Concurrent Refresh User",
+                Role = UserRole.User,
+                IsActive = true,
+                IsEmailConfirmed = true,
+                CreatedAt = DateTime.UtcNow
+            };
+            setupContext.Users.Add(user);
+            await setupContext.SaveChangesAsync();
+
+            var setupService = CreateService(setupContext);
+            var initialTokens = await setupService.GenerateTokensAsync(user);
+
+            await using var firstContext = new ApplicationDbContext(UnitTestHelper.CreateInMemoryDatabaseOptions(databaseName));
+            await using var secondContext = new ApplicationDbContext(UnitTestHelper.CreateInMemoryDatabaseOptions(databaseName));
+            var firstService = CreateService(firstContext);
+            var secondService = CreateService(secondContext);
+
+            var refreshResults = await Task.WhenAll(
+                firstService.RefreshTokensAsync(initialTokens.RefreshToken),
+                secondService.RefreshTokensAsync(initialTokens.RefreshToken));
+
+            Assert.Single(refreshResults, tokens => tokens is not null);
+        }
+
+        await using var verificationContext = new ApplicationDbContext(UnitTestHelper.CreateInMemoryDatabaseOptions(databaseName));
+        var storedTokens = await verificationContext.RefreshTokens.ToListAsync();
+
+        Assert.Equal(2, storedTokens.Count);
+        Assert.Single(storedTokens, token => token.RevocationReason == RevocationReason.TokenRotated);
+        Assert.Single(storedTokens, token => token.RevocationReason == RevocationReason.RefreshTokenReplay);
+        Assert.DoesNotContain(storedTokens, token => !token.RevokedAt.HasValue);
     }
 }

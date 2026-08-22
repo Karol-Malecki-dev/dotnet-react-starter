@@ -1,5 +1,6 @@
 using Domain.Entities;
 using Domain.Entities.JWT;
+using Domain.Enums;
 using System.Security.Claims;
 
 namespace Domain.Interfaces
@@ -28,6 +29,11 @@ namespace Domain.Interfaces
         /// Revoke a refresh token (add to blacklist)
         /// </summary>
         Task RevokeTokenAsync(string refreshToken);
+
+        /// <summary>
+        /// Revokes all active refresh-token sessions for a user.
+        /// </summary>
+        Task RevokeAllUserTokensAsync(Guid userId, RevocationReason reason);
 
         /// <summary>
         /// Check if a refresh token is revoked

@@ -33,6 +33,21 @@ namespace Domain.Enums
         /// <summary>
         /// Token was rotated - replaced by a new token during refresh.
         /// </summary>
-        TokenRotated = 5
+        TokenRotated = 5,
+
+        /// <summary>
+        /// A rotated token was replayed and the whole token family was revoked.
+        /// </summary>
+        RefreshTokenReplay = 6,
+
+        /// <summary>
+        /// All refresh-token sessions were revoked after a password change.
+        /// </summary>
+        PasswordChanged = 7,
+
+        /// <summary>
+        /// All refresh-token sessions were revoked after a password reset.
+        /// </summary>
+        PasswordReset = 8
     }
 }

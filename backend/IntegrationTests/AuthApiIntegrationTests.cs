@@ -5,12 +5,15 @@ using Domain.Enums;
 using Domain.Enums.Auth;
 using Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using OtpNet;
 using Shared.Responses;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using API.Controllers;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace IntegrationTests;
 
@@ -169,6 +172,247 @@ public class AuthApiIntegrationTests
 
         Assert.Equal(System.Net.HttpStatusCode.Unauthorized, secondRefreshResponse.StatusCode);
         Assert.NotEqual(initialCookie, rotatedCookie);
+
+        using var successorClient = _factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
+        {
+            HandleCookies = false
+        });
+        successorClient.DefaultRequestHeaders.Add("Cookie", rotatedCookie);
+
+        var successorRefreshResponse = await successorClient.PostAsync("/api/auth/refresh-token", null);
+
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, successorRefreshResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task RefreshToken_Returns_unauthorized_when_user_is_deactivated_after_login()
+    {
+        const string email = "inactive.refresh@example.com";
+        await SeedUserAsync(email, "password123", "Inactive Refresh", UserRole.User);
+
+        var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new
+        {
+            Email = email,
+            Password = "password123"
+        });
+        loginResponse.EnsureSuccessStatusCode();
+        var initialCookie = GetRefreshTokenCookie(loginResponse);
+
+        await UpdateUserAsync(email, user => user.IsActive = false);
+
+        using var inactiveClient = _factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
+        {
+            HandleCookies = false
+        });
+        inactiveClient.DefaultRequestHeaders.Add("Cookie", initialCookie);
+
+        var refreshResponse = await inactiveClient.PostAsync("/api/auth/refresh-token", null);
+
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, refreshResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task RefreshToken_Uses_current_user_role_after_role_change()
+    {
+        const string email = "role.refresh@example.com";
+        await SeedUserAsync(email, "password123", "Role Refresh", UserRole.User);
+
+        var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new
+        {
+            Email = email,
+            Password = "password123"
+        });
+        loginResponse.EnsureSuccessStatusCode();
+
+        await UpdateUserAsync(email, user => user.Role = UserRole.Admin);
+
+        var refreshResponse = await _client.PostAsync("/api/auth/refresh-token", null);
+        refreshResponse.EnsureSuccessStatusCode();
+        var refreshApiResponse = await refreshResponse.Content.ReadFromJsonAsync<ApiResponse<AuthTokenResponse>>();
+        Assert.NotNull(refreshApiResponse?.Data);
+
+        var accessToken = new JwtSecurityTokenHandler().ReadJwtToken(refreshApiResponse.Data.AccessToken);
+        Assert.Contains(accessToken.Claims, claim =>
+            (claim.Type == "role" || claim.Type == ClaimTypes.Role)
+            && claim.Value == UserRole.Admin.ToString());
+    }
+
+    [Fact]
+    public async Task ChangePassword_Rejects_the_previous_refresh_session()
+    {
+        const string email = "change.session@example.com";
+        await SeedUserAsync(email, "password123", "Change Session", UserRole.User);
+
+        var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new
+        {
+            Email = email,
+            Password = "password123"
+        });
+        loginResponse.EnsureSuccessStatusCode();
+        var oldCookie = GetRefreshTokenCookie(loginResponse);
+        var loginApiResponse = await loginResponse.Content.ReadFromJsonAsync<ApiResponse<AuthTokenResponse>>();
+        Assert.NotNull(loginApiResponse?.Data);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", loginApiResponse.Data.AccessToken);
+        var changeResponse = await _client.PostAsJsonAsync("/api/auth/change-password", new
+        {
+            CurrentPassword = "password123",
+            NewPassword = "newPassword123"
+        });
+        changeResponse.EnsureSuccessStatusCode();
+
+        using var oldSessionClient = _factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
+        {
+            HandleCookies = false
+        });
+        oldSessionClient.DefaultRequestHeaders.Add("Cookie", oldCookie);
+
+        var refreshResponse = await oldSessionClient.PostAsync("/api/auth/refresh-token", null);
+
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, refreshResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task PasswordReset_Rejects_the_previous_refresh_session()
+    {
+        const string email = "reset.session@example.com";
+        _factory.EmailSender.Clear();
+        await SeedUserAsync(email, "password123", "Reset Session", UserRole.User);
+
+        var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new
+        {
+            Email = email,
+            Password = "password123"
+        });
+        loginResponse.EnsureSuccessStatusCode();
+        var oldCookie = GetRefreshTokenCookie(loginResponse);
+
+        var forgotResponse = await _client.PostAsJsonAsync("/api/auth/forgot-password", new
+        {
+            Email = email,
+            ResetType = ResetType.Link
+        });
+        forgotResponse.EnsureSuccessStatusCode();
+
+        var resetLink = new Uri(_factory.EmailSender.LatestPasswordResetLink!);
+        var parameters = resetLink.Query
+            .TrimStart('?')
+            .Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Select(part => part.Split('=', 2))
+            .ToDictionary(
+                parts => parts[0],
+                parts => parts.Length > 1 ? Uri.UnescapeDataString(parts[1]) : string.Empty,
+                StringComparer.OrdinalIgnoreCase);
+
+        var resetResponse = await _client.PostAsJsonAsync("/api/auth/reset-password", new
+        {
+            Email = email,
+            ResetType = ResetType.Link,
+            Token = parameters["token"],
+            NewPassword = "newPassword123"
+        });
+        resetResponse.EnsureSuccessStatusCode();
+
+        using var oldSessionClient = _factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
+        {
+            HandleCookies = false
+        });
+        oldSessionClient.DefaultRequestHeaders.Add("Cookie", oldCookie);
+
+        var refreshResponse = await oldSessionClient.PostAsync("/api/auth/refresh-token", null);
+
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, refreshResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task RefreshToken_Allows_only_one_successor_for_concurrent_requests()
+    {
+        const string email = "concurrent.api.refresh@example.com";
+        await SeedUserAsync(email, "password123", "Concurrent API Refresh", UserRole.User);
+
+        var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new
+        {
+            Email = email,
+            Password = "password123"
+        });
+        loginResponse.EnsureSuccessStatusCode();
+        var initialCookie = GetRefreshTokenCookie(loginResponse);
+
+        using var firstClient = _factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
+        {
+            HandleCookies = false
+        });
+        using var secondClient = _factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
+        {
+            HandleCookies = false
+        });
+        firstClient.DefaultRequestHeaders.Add("Cookie", initialCookie);
+        secondClient.DefaultRequestHeaders.Add("Cookie", initialCookie);
+
+        var responses = await Task.WhenAll(
+            firstClient.PostAsync("/api/auth/refresh-token", null),
+            secondClient.PostAsync("/api/auth/refresh-token", null));
+
+        Assert.Single(responses, response => response.IsSuccessStatusCode);
+        Assert.Single(responses, response => response.StatusCode == System.Net.HttpStatusCode.Unauthorized);
+
+        var successfulResponse = responses.Single(response => response.IsSuccessStatusCode);
+        var successorCookie = GetRefreshTokenCookie(successfulResponse);
+        using var successorClient = _factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
+        {
+            HandleCookies = false
+        });
+        successorClient.DefaultRequestHeaders.Add("Cookie", successorCookie);
+
+        var successorRefreshResponse = await successorClient.PostAsync("/api/auth/refresh-token", null);
+
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, successorRefreshResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task LogoutAll_Rejects_refresh_sessions_from_all_devices()
+    {
+        const string email = "logout.all@example.com";
+        await SeedUserAsync(email, "password123", "Logout All", UserRole.User);
+
+        var firstLoginResponse = await _client.PostAsJsonAsync("/api/auth/login", new
+        {
+            Email = email,
+            Password = "password123"
+        });
+        firstLoginResponse.EnsureSuccessStatusCode();
+        var firstCookie = GetRefreshTokenCookie(firstLoginResponse);
+
+        var secondLoginResponse = await _client.PostAsJsonAsync("/api/auth/login", new
+        {
+            Email = email,
+            Password = "password123"
+        });
+        secondLoginResponse.EnsureSuccessStatusCode();
+        var secondCookie = GetRefreshTokenCookie(secondLoginResponse);
+        var secondLoginApiResponse = await secondLoginResponse.Content.ReadFromJsonAsync<ApiResponse<AuthTokenResponse>>();
+        Assert.NotNull(secondLoginApiResponse?.Data);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", secondLoginApiResponse.Data.AccessToken);
+        var logoutAllResponse = await _client.PostAsync("/api/auth/logout-all", null);
+        logoutAllResponse.EnsureSuccessStatusCode();
+
+        using var firstSessionClient = _factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
+        {
+            HandleCookies = false
+        });
+        using var secondSessionClient = _factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
+        {
+            HandleCookies = false
+        });
+        firstSessionClient.DefaultRequestHeaders.Add("Cookie", firstCookie);
+        secondSessionClient.DefaultRequestHeaders.Add("Cookie", secondCookie);
+
+        var refreshResponses = await Task.WhenAll(
+            firstSessionClient.PostAsync("/api/auth/refresh-token", null),
+            secondSessionClient.PostAsync("/api/auth/refresh-token", null));
+
+        Assert.All(refreshResponses, response => Assert.Equal(System.Net.HttpStatusCode.Unauthorized, response.StatusCode));
     }
 
     [Fact]
@@ -567,6 +811,16 @@ public class AuthApiIntegrationTests
 
         user.PasswordHash = passwordHasher.HashPassword(user, password);
         dbContext.Users.Add(user);
+        await dbContext.SaveChangesAsync();
+    }
+
+    private async Task UpdateUserAsync(string email, Action<User> update)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var user = await dbContext.Users.SingleAsync(candidate => candidate.Email == email);
+
+        update(user);
         await dbContext.SaveChangesAsync();
     }
 
