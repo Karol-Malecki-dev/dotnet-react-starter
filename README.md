@@ -241,13 +241,14 @@ For local Docker runs, transactional emails are delivered to Mailpit. Open http:
 - [doc/EMAIL_2FA_FLOWS.md](doc/EMAIL_2FA_FLOWS.md)
 - [doc/CI_CD.md](doc/CI_CD.md)
 - [docker/DOCKER_COMPOSE.md](docker/DOCKER_COMPOSE.md)
+- [doc/ROADMAP/00_ROADMAP_OVERVIEW.md](doc/ROADMAP/00_ROADMAP_OVERVIEW.md)
+- [backend/DEVELOPMENT_ROADMAP.md](backend/DEVELOPMENT_ROADMAP.md)
 
 ## Suggested Next Steps
 
-- Add full profile editing and change-password flows
-- Add a hosting-specific deployment job after choosing the target platform
-- Expand admin user management and filtering
-- Evaluate a controlled React Router v7 upgrade after reviewing its breaking changes
+- Execute V2: stabilization and security hardening
+- Add the focused tests and ADRs required by the roadmap before starting new infrastructure work
+- Choose a hosting target after the auth and data consistency foundations are stable
 
 ## License
 
