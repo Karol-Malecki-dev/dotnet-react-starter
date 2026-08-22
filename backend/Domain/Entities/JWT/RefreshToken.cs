@@ -23,6 +23,8 @@ namespace Domain.Entities.JWT
 
         public string TokenHash { get; set; } = string.Empty;
 
+        public string ConcurrencyStamp { get; set; } = string.Empty;
+
         /// <summary>
         /// IP address from which the token was created (for audit trail).
         /// </summary>
