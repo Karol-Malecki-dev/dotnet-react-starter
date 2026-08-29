@@ -20,25 +20,25 @@ public sealed class DatabaseProjectTaskQueryService : IProjectTaskQueryService
         _queryStore = queryStore;
     }
 
-    public async Task<ProjectOperationResult<PagedProjectTaskView>> GetProjectTasksAsync(ProjectTaskQuery query)
+    public async Task<ProjectOperationResult<PagedProjectTaskView>> GetProjectTasksAsync(ProjectTaskQuery query, CancellationToken cancellationToken = default)
     {
-        if (await _projectTaskAccess.GetActiveProjectRoleAsync(query.UserId, query.ProjectId) is null)
+        if (await _projectTaskAccess.GetActiveProjectRoleAsync(query.UserId, query.ProjectId, cancellationToken) is null)
         {
             return ProjectOperationResult<PagedProjectTaskView>.Failure(ProjectOperationStatus.NotFound, "Project not found");
         }
 
-        var page = await _queryStore.QueryAsync(query);
+        var page = await _queryStore.QueryAsync(query, cancellationToken);
         return ProjectOperationResult<PagedProjectTaskView>.Success(page);
     }
 
-    public async Task<ProjectOperationResult<ProjectTaskView>> GetProjectTaskAsync(Guid userId, Guid projectId, Guid taskId)
+    public async Task<ProjectOperationResult<ProjectTaskView>> GetProjectTaskAsync(Guid userId, Guid projectId, Guid taskId, CancellationToken cancellationToken = default)
     {
-        if (await _projectTaskAccess.GetActiveProjectRoleAsync(userId, projectId) is null)
+        if (await _projectTaskAccess.GetActiveProjectRoleAsync(userId, projectId, cancellationToken) is null)
         {
             return ProjectOperationResult<ProjectTaskView>.Failure(ProjectOperationStatus.NotFound, "Project task not found");
         }
 
-        var task = await _projectTaskAccess.GetTaskWithLabelsAsync(projectId, taskId);
+        var task = await _projectTaskAccess.GetTaskWithLabelsAsync(projectId, taskId, cancellationToken);
         return task is null
             ? ProjectOperationResult<ProjectTaskView>.Failure(ProjectOperationStatus.NotFound, "Project task not found")
             : ProjectOperationResult<ProjectTaskView>.Success(MapToView(task));

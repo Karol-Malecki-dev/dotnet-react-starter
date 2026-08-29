@@ -25,15 +25,15 @@ public sealed class DatabaseProjectTaskCommandService : IProjectTaskCommandServi
         _notificationService = notificationService;
     }
 
-    public async Task<ProjectOperationResult<ProjectTaskView>> CreateProjectTaskAsync(CreateProjectTaskCommand command)
+    public async Task<ProjectOperationResult<ProjectTaskView>> CreateProjectTaskAsync(CreateProjectTaskCommand command, CancellationToken cancellationToken = default)
     {
-        var role = await _projectTaskAccess.GetActiveProjectRoleAsync(command.OwnerId, command.ProjectId);
+        var role = await _projectTaskAccess.GetActiveProjectRoleAsync(command.OwnerId, command.ProjectId, cancellationToken);
         if (role is null)
         {
             return ProjectOperationResult<ProjectTaskView>.Failure(ProjectOperationStatus.NotFound, "Project not found");
         }
 
-        var assignedUserError = await ValidateAssignedUserAsync(command.ProjectId, command.AssignedUserId);
+        var assignedUserError = await ValidateAssignedUserAsync(command.ProjectId, command.AssignedUserId, cancellationToken);
         if (assignedUserError is not null)
         {
             return ProjectOperationResult<ProjectTaskView>.Failure(ProjectOperationStatus.ValidationError, assignedUserError);
@@ -51,21 +51,21 @@ public sealed class DatabaseProjectTaskCommandService : IProjectTaskCommandServi
         {
             AddActivity(task.ProjectId, command.OwnerId, "task.assigned", $"assigned the task '{task.Title}'.", task.Id);
         }
-        await _commandStore.SaveChangesAsync();
+        await _commandStore.SaveChangesAsync(cancellationToken);
 
-        await NotifyAssigneeAsync(task, null, command.OwnerId);
+        await NotifyAssigneeAsync(task, null, command.OwnerId, cancellationToken);
         return ProjectOperationResult<ProjectTaskView>.Success(MapToView(task), "Project task created", 201);
     }
 
-    public async Task<ProjectOperationResult<ProjectTaskView>> UpdateProjectTaskAsync(UpdateProjectTaskCommand command)
+    public async Task<ProjectOperationResult<ProjectTaskView>> UpdateProjectTaskAsync(UpdateProjectTaskCommand command, CancellationToken cancellationToken = default)
     {
-        var taskResult = await GetEditableTaskAsync(command.OwnerId, command.ProjectId, command.TaskId, "You cannot edit this task");
+        var taskResult = await GetEditableTaskAsync(command.OwnerId, command.ProjectId, command.TaskId, "You cannot edit this task", cancellationToken);
         if (!taskResult.IsSuccess)
         {
             return ProjectOperationResult<ProjectTaskView>.Failure(taskResult.Status, taskResult.Message);
         }
 
-        var assignedUserError = await ValidateAssignedUserAsync(command.ProjectId, command.AssignedUserId);
+        var assignedUserError = await ValidateAssignedUserAsync(command.ProjectId, command.AssignedUserId, cancellationToken);
         if (assignedUserError is not null)
         {
             return ProjectOperationResult<ProjectTaskView>.Failure(ProjectOperationStatus.ValidationError, assignedUserError);
@@ -87,15 +87,15 @@ public sealed class DatabaseProjectTaskCommandService : IProjectTaskCommandServi
             AddActivity(task.ProjectId, command.OwnerId, task.AssignedUserId.HasValue ? "task.assigned" : "task.unassigned",
                 task.AssignedUserId.HasValue ? $"assigned the task '{task.Title}'." : $"unassigned the task '{task.Title}'.", task.Id);
         }
-        await _commandStore.SaveChangesAsync();
+        await _commandStore.SaveChangesAsync(cancellationToken);
 
-        await NotifyAssigneeAsync(task, previousAssignedUserId, command.OwnerId);
+        await NotifyAssigneeAsync(task, previousAssignedUserId, command.OwnerId, cancellationToken);
         return ProjectOperationResult<ProjectTaskView>.Success(MapToView(task), "Project task updated");
     }
 
-    public async Task<ProjectOperationResult<ProjectTaskView>> UpdateProjectTaskStatusAsync(UpdateProjectTaskStatusCommand command)
+    public async Task<ProjectOperationResult<ProjectTaskView>> UpdateProjectTaskStatusAsync(UpdateProjectTaskStatusCommand command, CancellationToken cancellationToken = default)
     {
-        var taskResult = await GetEditableTaskAsync(command.OwnerId, command.ProjectId, command.TaskId, "You cannot change this task status");
+        var taskResult = await GetEditableTaskAsync(command.OwnerId, command.ProjectId, command.TaskId, "You cannot change this task status", cancellationToken);
         if (!taskResult.IsSuccess)
         {
             return ProjectOperationResult<ProjectTaskView>.Failure(taskResult.Status, taskResult.Message);
@@ -108,32 +108,32 @@ public sealed class DatabaseProjectTaskCommandService : IProjectTaskCommandServi
         {
             AddActivity(task.ProjectId, command.OwnerId, "task.status-changed", $"changed the status of '{task.Title}' to {task.Status}.", task.Id);
         }
-        await _commandStore.SaveChangesAsync();
+        await _commandStore.SaveChangesAsync(cancellationToken);
         return ProjectOperationResult<ProjectTaskView>.Success(MapToView(task), "Project task status updated");
     }
 
-    public async Task<ProjectOperationResult<bool>> DeleteProjectTaskAsync(Guid userId, Guid projectId, Guid taskId)
+    public async Task<ProjectOperationResult<bool>> DeleteProjectTaskAsync(Guid userId, Guid projectId, Guid taskId, CancellationToken cancellationToken = default)
     {
-        var taskResult = await GetEditableTaskAsync(userId, projectId, taskId, "You cannot delete this task");
+        var taskResult = await GetEditableTaskAsync(userId, projectId, taskId, "You cannot delete this task", cancellationToken);
         if (!taskResult.IsSuccess)
         {
             return ProjectOperationResult<bool>.Failure(taskResult.Status, taskResult.Message);
         }
 
         _commandStore.RemoveTask(taskResult.Value!);
-        await _commandStore.SaveChangesAsync();
+        await _commandStore.SaveChangesAsync(cancellationToken);
         return ProjectOperationResult<bool>.Success(true, "Project task deleted");
     }
 
-    private async Task<ProjectOperationResult<ProjectTask>> GetEditableTaskAsync(Guid userId, Guid projectId, Guid taskId, string forbiddenMessage)
+    private async Task<ProjectOperationResult<ProjectTask>> GetEditableTaskAsync(Guid userId, Guid projectId, Guid taskId, string forbiddenMessage, CancellationToken cancellationToken)
     {
-        var role = await _projectTaskAccess.GetActiveProjectRoleAsync(userId, projectId);
+        var role = await _projectTaskAccess.GetActiveProjectRoleAsync(userId, projectId, cancellationToken);
         if (role is null)
         {
             return ProjectOperationResult<ProjectTask>.Failure(ProjectOperationStatus.NotFound, "Project task not found");
         }
 
-        var task = await _projectTaskAccess.GetTaskWithLabelsAsync(projectId, taskId);
+        var task = await _projectTaskAccess.GetTaskWithLabelsAsync(projectId, taskId, cancellationToken);
         if (task is null)
         {
             return ProjectOperationResult<ProjectTask>.Failure(ProjectOperationStatus.NotFound, "Project task not found");
@@ -147,19 +147,19 @@ public sealed class DatabaseProjectTaskCommandService : IProjectTaskCommandServi
         return ProjectOperationResult<ProjectTask>.Success(task);
     }
 
-    private async Task<string?> ValidateAssignedUserAsync(Guid projectId, Guid? assignedUserId)
+    private async Task<string?> ValidateAssignedUserAsync(Guid projectId, Guid? assignedUserId, CancellationToken cancellationToken)
     {
         if (!assignedUserId.HasValue)
         {
             return null;
         }
 
-        return await _commandStore.IsActiveProjectMemberAsync(projectId, assignedUserId.Value)
+        return await _commandStore.IsActiveProjectMemberAsync(projectId, assignedUserId.Value, cancellationToken)
             ? null
             : "Assigned user is not an active member of this project";
     }
 
-    private async Task NotifyAssigneeAsync(ProjectTask task, Guid? previousAssignedUserId, Guid actorUserId)
+    private async Task NotifyAssigneeAsync(ProjectTask task, Guid? previousAssignedUserId, Guid actorUserId, CancellationToken cancellationToken)
     {
         if (!task.AssignedUserId.HasValue || task.AssignedUserId == previousAssignedUserId || task.AssignedUserId == actorUserId)
         {
@@ -167,7 +167,8 @@ public sealed class DatabaseProjectTaskCommandService : IProjectTaskCommandServi
         }
 
         await _notificationService.CreateAsync(task.AssignedUserId.Value, NotificationType.TaskAssigned,
-            "You were assigned a task", $"You were assigned the task '{task.Title}'.", "ProjectTask", task.Id, task.ProjectId);
+            "You were assigned a task", $"You were assigned the task '{task.Title}'.", "ProjectTask", task.Id, task.ProjectId,
+            cancellationToken: cancellationToken);
     }
 
     private void AddActivity(Guid projectId, Guid actorUserId, string type, string description, Guid projectTaskId)

@@ -12,23 +12,8 @@ namespace API.Filters
         {
             if (!context.ModelState.IsValid)
             {
-                var errors = context.ModelState
-                    .Where(x => x.Value is { Errors.Count: > 0 })
-                    .ToDictionary(
-                        k => k.Key,
-                        v => v.Value?.Errors
-                            .Select(e => e.ErrorMessage)
-                            .Where(message => !string.IsNullOrWhiteSpace(message))
-                            .ToArray()
-                            ?? []
-                    );
-
-                context.Result = new BadRequestObjectResult(new
-                {
-                    statusCode = 400,
-                    message = "Validation failed",
-                    errors = errors
-                });
+                context.Result = new BadRequestObjectResult(ValidationResponseFactory.Create(context.ModelState));
+                return;
             }
 
             base.OnActionExecuting(context);

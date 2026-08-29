@@ -17,7 +17,7 @@ public sealed class DatabaseNotificationService : INotificationService
         _dbContext = dbContext;
     }
 
-    public async Task<ApiResponse<NotificationPageDto>> GetUserNotificationsAsync(Guid userId, int pageNumber, int pageSize, bool unreadOnly)
+    public async Task<ApiResponse<NotificationPageDto>> GetUserNotificationsAsync(Guid userId, int pageNumber, int pageSize, bool unreadOnly, CancellationToken cancellationToken = default)
     {
         var safePageNumber = Math.Max(pageNumber, 1);
         var safePageSize = Math.Clamp(pageSize, 1, 100);
@@ -30,15 +30,15 @@ public sealed class DatabaseNotificationService : INotificationService
             query = query.Where(notification => notification.ReadAt == null);
         }
 
-        var totalCount = await query.CountAsync();
+        var totalCount = await query.CountAsync(cancellationToken);
         var unreadCount = await _dbContext.Set<Notification>()
-            .CountAsync(notification => notification.UserId == userId && notification.ReadAt == null);
+            .CountAsync(notification => notification.UserId == userId && notification.ReadAt == null, cancellationToken);
         var items = await query
             .OrderByDescending(notification => notification.CreatedAt)
             .Skip((safePageNumber - 1) * safePageSize)
             .Take(safePageSize)
             .Select(notification => MapToDto(notification))
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         return ApiResponse<NotificationPageDto>.Success(new NotificationPageDto
         {
@@ -50,47 +50,47 @@ public sealed class DatabaseNotificationService : INotificationService
         });
     }
 
-    public async Task<ApiResponse<int>> GetUnreadCountAsync(Guid userId)
+    public async Task<ApiResponse<int>> GetUnreadCountAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         var count = await _dbContext.Set<Notification>()
-            .CountAsync(notification => notification.UserId == userId && notification.ReadAt == null);
+            .CountAsync(notification => notification.UserId == userId && notification.ReadAt == null, cancellationToken);
         return ApiResponse<int>.Success(count);
     }
 
-    public async Task<ApiResponse<NotificationDto>> MarkAsReadAsync(Guid userId, Guid notificationId)
+    public async Task<ApiResponse<NotificationDto>> MarkAsReadAsync(Guid userId, Guid notificationId, CancellationToken cancellationToken = default)
     {
         var notification = await _dbContext.Set<Notification>()
-            .FirstOrDefaultAsync(candidate => candidate.Id == notificationId && candidate.UserId == userId);
+            .FirstOrDefaultAsync(candidate => candidate.Id == notificationId && candidate.UserId == userId, cancellationToken);
         if (notification is null)
         {
             return ApiResponse<NotificationDto>.Error(404, "Notification not found");
         }
 
         notification.ReadAt ??= DateTime.UtcNow;
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
         return ApiResponse<NotificationDto>.Success(MapToDto(notification), "Notification marked as read");
     }
 
-    public async Task<ApiResponse<int>> MarkAllAsReadAsync(Guid userId)
+    public async Task<ApiResponse<int>> MarkAllAsReadAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         var notifications = await _dbContext.Set<Notification>()
             .Where(notification => notification.UserId == userId && notification.ReadAt == null)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
         var readAt = DateTime.UtcNow;
         foreach (var notification in notifications)
         {
             notification.ReadAt = readAt;
         }
 
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
         return ApiResponse<int>.Success(notifications.Count, "Notifications marked as read");
     }
 
-    public async Task<ApiResponse<NotificationEmailPreferenceDto>> GetEmailPreferenceAsync(Guid userId)
+    public async Task<ApiResponse<NotificationEmailPreferenceDto>> GetEmailPreferenceAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         var preference = await _dbContext.NotificationEmailPreferences
             .AsNoTracking()
-            .FirstOrDefaultAsync(candidate => candidate.UserId == userId);
+            .FirstOrDefaultAsync(candidate => candidate.UserId == userId, cancellationToken);
 
         return ApiResponse<NotificationEmailPreferenceDto>.Success(new NotificationEmailPreferenceDto
         {
@@ -102,10 +102,11 @@ public sealed class DatabaseNotificationService : INotificationService
     public async Task<ApiResponse<NotificationEmailPreferenceDto>> UpdateEmailPreferenceAsync(
         Guid userId,
         bool? isEmailEnabled,
-        bool? isTaskDeadlineReminderEmailEnabled)
+        bool? isTaskDeadlineReminderEmailEnabled,
+        CancellationToken cancellationToken = default)
     {
         var preference = await _dbContext.NotificationEmailPreferences
-            .FirstOrDefaultAsync(candidate => candidate.UserId == userId);
+            .FirstOrDefaultAsync(candidate => candidate.UserId == userId, cancellationToken);
         if (preference is null)
         {
             preference = new NotificationEmailPreference
@@ -124,7 +125,7 @@ public sealed class DatabaseNotificationService : INotificationService
             preference.UpdatedAt = DateTime.UtcNow;
         }
 
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
         return ApiResponse<NotificationEmailPreferenceDto>.Success(new NotificationEmailPreferenceDto
         {
             IsEmailEnabled = preference.IsEmailEnabled,

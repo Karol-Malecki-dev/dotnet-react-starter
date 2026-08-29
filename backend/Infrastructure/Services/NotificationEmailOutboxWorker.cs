@@ -72,9 +72,14 @@ public sealed class NotificationEmailOutboxWorker : BackgroundService
                     message.User.Email,
                     message.User.DisplayName,
                     message.Notification.Title,
-                    message.Notification.Message);
+                    message.Notification.Message,
+                    cancellationToken);
                 message.ProcessedAt = DateTime.UtcNow;
                 message.LastError = null;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
             }
             catch (Exception exception)
             {

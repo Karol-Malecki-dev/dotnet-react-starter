@@ -12,7 +12,7 @@ public sealed class LoggingNotificationEmailSender : INotificationEmailSender
         _logger = logger;
     }
 
-    public Task SendAsync(string email, string displayName, string title, string message)
+    public Task SendAsync(string email, string displayName, string title, string message, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Prepared notification email '{Title}' for {Email} ({DisplayName}): {Message}", title, email, displayName, message);
         return Task.CompletedTask;

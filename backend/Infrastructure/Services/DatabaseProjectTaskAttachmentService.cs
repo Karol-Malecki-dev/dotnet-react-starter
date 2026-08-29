@@ -37,9 +37,10 @@ public sealed class DatabaseProjectTaskAttachmentService : IProjectTaskAttachmen
     public async Task<ProjectOperationResult<IReadOnlyList<ProjectTaskAttachmentView>>> GetProjectTaskAttachmentsAsync(
         Guid userId,
         Guid projectId,
-        Guid taskId)
+        Guid taskId,
+        CancellationToken cancellationToken = default)
     {
-        if (!await HasProjectAccessAsync(userId, projectId) || !await TaskBelongsToProjectAsync(projectId, taskId))
+        if (!await HasProjectAccessAsync(userId, projectId, cancellationToken) || !await TaskBelongsToProjectAsync(projectId, taskId, cancellationToken))
         {
             return ProjectOperationResult<IReadOnlyList<ProjectTaskAttachmentView>>.Failure(
                 ProjectOperationStatus.NotFound,
@@ -59,16 +60,17 @@ public sealed class DatabaseProjectTaskAttachmentService : IProjectTaskAttachmen
                 attachment.ContentType,
                 attachment.SizeBytes,
                 attachment.CreatedAt))
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         return ProjectOperationResult<IReadOnlyList<ProjectTaskAttachmentView>>.Success(attachments);
     }
 
     public async Task<ProjectOperationResult<ProjectTaskAttachmentView>> CreateProjectTaskAttachmentAsync(
-        CreateProjectTaskAttachmentCommand command)
+        CreateProjectTaskAttachmentCommand command,
+        CancellationToken cancellationToken = default)
     {
-        var role = await GetProjectRoleAsync(command.UserId, command.ProjectId);
-        if (role is null || !await TaskBelongsToProjectAsync(command.ProjectId, command.TaskId))
+        var role = await GetProjectRoleAsync(command.UserId, command.ProjectId, cancellationToken);
+        if (role is null || !await TaskBelongsToProjectAsync(command.ProjectId, command.TaskId, cancellationToken))
         {
             return ProjectOperationResult<ProjectTaskAttachmentView>.Failure(
                 ProjectOperationStatus.NotFound,
@@ -105,7 +107,7 @@ public sealed class DatabaseProjectTaskAttachmentService : IProjectTaskAttachmen
 
         try
         {
-            await _storage.SaveAsync(command.Content, storedFileName);
+            await _storage.SaveAsync(command.Content, storedFileName, cancellationToken);
             _dbContext.ProjectTaskAttachments.Add(attachment);
             _dbContext.ProjectActivities.Add(new ProjectActivity
             {
@@ -115,18 +117,18 @@ public sealed class DatabaseProjectTaskAttachmentService : IProjectTaskAttachmen
                 Type = "task.attachment-added",
                 Description = $"added the attachment '{originalFileName}'."
             });
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync(cancellationToken);
         }
         catch
         {
-            await _storage.DeleteAsync(storedFileName);
+            await _storage.DeleteAsync(storedFileName, CancellationToken.None);
             throw;
         }
 
         var uploaderDisplayName = await _dbContext.Users
             .Where(user => user.Id == command.UserId)
             .Select(user => user.DisplayName)
-            .SingleAsync();
+            .SingleAsync(cancellationToken);
 
         return ProjectOperationResult<ProjectTaskAttachmentView>.Success(
             new ProjectTaskAttachmentView(
@@ -146,22 +148,23 @@ public sealed class DatabaseProjectTaskAttachmentService : IProjectTaskAttachmen
         Guid userId,
         Guid projectId,
         Guid taskId,
-        Guid attachmentId)
+        Guid attachmentId,
+        CancellationToken cancellationToken = default)
     {
-        if (!await HasProjectAccessAsync(userId, projectId) || !await TaskBelongsToProjectAsync(projectId, taskId))
+        if (!await HasProjectAccessAsync(userId, projectId, cancellationToken) || !await TaskBelongsToProjectAsync(projectId, taskId, cancellationToken))
         {
             return ProjectOperationResult<ProjectTaskAttachmentDownload>.Failure(ProjectOperationStatus.NotFound, "Project task not found");
         }
 
         var attachment = await _dbContext.ProjectTaskAttachments
             .AsNoTracking()
-            .FirstOrDefaultAsync(candidate => candidate.Id == attachmentId && candidate.ProjectTaskId == taskId);
+            .FirstOrDefaultAsync(candidate => candidate.Id == attachmentId && candidate.ProjectTaskId == taskId, cancellationToken);
         if (attachment is null)
         {
             return ProjectOperationResult<ProjectTaskAttachmentDownload>.Failure(ProjectOperationStatus.NotFound, "Project task attachment not found");
         }
 
-        var stream = await _storage.OpenReadAsync(attachment.StoredFileName);
+        var stream = await _storage.OpenReadAsync(attachment.StoredFileName, cancellationToken);
         return stream is null
             ? ProjectOperationResult<ProjectTaskAttachmentDownload>.Failure(ProjectOperationStatus.NotFound, "Project task attachment file not found")
             : ProjectOperationResult<ProjectTaskAttachmentDownload>.Success(
@@ -172,16 +175,17 @@ public sealed class DatabaseProjectTaskAttachmentService : IProjectTaskAttachmen
         Guid userId,
         Guid projectId,
         Guid taskId,
-        Guid attachmentId)
+        Guid attachmentId,
+        CancellationToken cancellationToken = default)
     {
-        var role = await GetProjectRoleAsync(userId, projectId);
-        if (role is null || !await TaskBelongsToProjectAsync(projectId, taskId))
+        var role = await GetProjectRoleAsync(userId, projectId, cancellationToken);
+        if (role is null || !await TaskBelongsToProjectAsync(projectId, taskId, cancellationToken))
         {
             return ProjectOperationResult<bool>.Failure(ProjectOperationStatus.NotFound, "Project task not found");
         }
 
         var attachment = await _dbContext.ProjectTaskAttachments
-            .FirstOrDefaultAsync(candidate => candidate.Id == attachmentId && candidate.ProjectTaskId == taskId);
+            .FirstOrDefaultAsync(candidate => candidate.Id == attachmentId && candidate.ProjectTaskId == taskId, cancellationToken);
         if (attachment is null)
         {
             return ProjectOperationResult<bool>.Failure(ProjectOperationStatus.NotFound, "Project task attachment not found");
@@ -201,8 +205,8 @@ public sealed class DatabaseProjectTaskAttachmentService : IProjectTaskAttachmen
             Type = "task.attachment-removed",
             Description = $"removed the attachment '{attachment.OriginalFileName}'."
         });
-        await _dbContext.SaveChangesAsync();
-        await _storage.DeleteAsync(attachment.StoredFileName);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _storage.DeleteAsync(attachment.StoredFileName, cancellationToken);
 
         return ProjectOperationResult<bool>.Success(true, "Project task attachment deleted");
     }
@@ -230,24 +234,24 @@ public sealed class DatabaseProjectTaskAttachmentService : IProjectTaskAttachmen
         return normalizedName.Length > 255 ? "Attachment file name cannot exceed 255 characters" : null;
     }
 
-    private async Task<ProjectMemberRole?> GetProjectRoleAsync(Guid userId, Guid projectId)
+    private async Task<ProjectMemberRole?> GetProjectRoleAsync(Guid userId, Guid projectId, CancellationToken cancellationToken)
     {
         var project = await _dbContext.Projects.AsNoTracking()
-            .FirstOrDefaultAsync(candidate => candidate.Id == projectId && !candidate.IsArchived);
+            .FirstOrDefaultAsync(candidate => candidate.Id == projectId && !candidate.IsArchived, cancellationToken);
         if (project is null) return null;
         if (project.OwnerId == userId) return ProjectMemberRole.Owner;
 
         return await _dbContext.ProjectMembers
             .Where(member => member.ProjectId == projectId && member.UserId == userId && member.User.IsActive)
             .Select(member => (ProjectMemberRole?)member.Role)
-            .FirstOrDefaultAsync();
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
-    private async Task<bool> HasProjectAccessAsync(Guid userId, Guid projectId)
-        => await GetProjectRoleAsync(userId, projectId) is not null;
+    private async Task<bool> HasProjectAccessAsync(Guid userId, Guid projectId, CancellationToken cancellationToken)
+        => await GetProjectRoleAsync(userId, projectId, cancellationToken) is not null;
 
-    private Task<bool> TaskBelongsToProjectAsync(Guid projectId, Guid taskId)
+    private Task<bool> TaskBelongsToProjectAsync(Guid projectId, Guid taskId, CancellationToken cancellationToken)
         => _dbContext.ProjectTasks.AnyAsync(task => task.Id == taskId
             && task.ProjectId == projectId
-            && _dbContext.Projects.Any(project => project.Id == projectId && !project.IsArchived));
+            && _dbContext.Projects.Any(project => project.Id == projectId && !project.IsArchived), cancellationToken);
 }

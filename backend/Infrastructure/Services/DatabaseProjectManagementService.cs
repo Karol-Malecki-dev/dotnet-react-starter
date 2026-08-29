@@ -18,7 +18,7 @@ public sealed class DatabaseProjectManagementService : IProjectManagementService
         _membershipStore = membershipStore;
     }
 
-    public async Task<ProjectOperationResult<List<ProjectView>>> GetUserProjectsAsync(Guid ownerId, bool includeArchived = false, string scope = "all")
+    public async Task<ProjectOperationResult<List<ProjectView>>> GetUserProjectsAsync(Guid ownerId, bool includeArchived = false, string scope = "all", CancellationToken cancellationToken = default)
     {
         var projects = await _dbContext.Projects
             .AsNoTracking()
@@ -38,26 +38,26 @@ public sealed class DatabaseProjectManagementService : IProjectManagementService
                 project.OwnerId == ownerId
                     ? ProjectMemberRole.Owner
                     : project.Members.Where(member => member.UserId == ownerId).Select(member => member.Role).FirstOrDefault()))
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         return ProjectOperationResult<List<ProjectView>>.Success(projects);
     }
 
-    public async Task<ProjectOperationResult<ProjectView>> GetProjectAsync(Guid ownerId, Guid projectId, bool includeArchived = false)
+    public async Task<ProjectOperationResult<ProjectView>> GetProjectAsync(Guid ownerId, Guid projectId, bool includeArchived = false, CancellationToken cancellationToken = default)
     {
         var project = await _dbContext.Projects
             .AsNoTracking()
             .Include(candidate => candidate.Members)
             .FirstOrDefaultAsync(project => project.Id == projectId
                 && (project.OwnerId == ownerId || project.Members.Any(member => member.UserId == ownerId && member.User.IsActive))
-                && (includeArchived || !project.IsArchived));
+                && (includeArchived || !project.IsArchived), cancellationToken);
 
         return project is null
             ? ProjectOperationResult<ProjectView>.Failure(ProjectOperationStatus.NotFound, "Project not found")
             : ProjectOperationResult<ProjectView>.Success(MapToView(project, ownerId));
     }
 
-    public async Task<ProjectOperationResult<ProjectView>> CreateProjectAsync(CreateProjectCommand command)
+    public async Task<ProjectOperationResult<ProjectView>> CreateProjectAsync(CreateProjectCommand command, CancellationToken cancellationToken = default)
     {
         var project = new Project
         {
@@ -74,15 +74,15 @@ public sealed class DatabaseProjectManagementService : IProjectManagementService
             Role = ProjectMemberRole.Owner
         });
         AddActivity(project.Id, command.OwnerId, "project.created", $"created the project '{project.Name}'.");
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return ProjectOperationResult<ProjectView>.Success(MapToView(project, command.OwnerId), "Project created", 201);
     }
 
-    public async Task<ProjectOperationResult<ProjectView>> UpdateProjectAsync(UpdateProjectCommand command)
+    public async Task<ProjectOperationResult<ProjectView>> UpdateProjectAsync(UpdateProjectCommand command, CancellationToken cancellationToken = default)
     {
         var project = await _dbContext.Projects
-            .FirstOrDefaultAsync(project => project.Id == command.ProjectId && project.OwnerId == command.OwnerId);
+            .FirstOrDefaultAsync(project => project.Id == command.ProjectId && project.OwnerId == command.OwnerId, cancellationToken);
 
         if (project is null)
         {
@@ -97,15 +97,15 @@ public sealed class DatabaseProjectManagementService : IProjectManagementService
         project.Name = command.Name.Trim();
         project.Description = NormalizeDescription(command.Description);
         project.UpdatedAt = DateTime.UtcNow;
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return ProjectOperationResult<ProjectView>.Success(MapToView(project), "Project updated");
     }
 
-    public async Task<ProjectOperationResult<bool>> ArchiveProjectAsync(Guid ownerId, Guid projectId)
+    public async Task<ProjectOperationResult<bool>> ArchiveProjectAsync(Guid ownerId, Guid projectId, CancellationToken cancellationToken = default)
     {
         var project = await _dbContext.Projects
-            .FirstOrDefaultAsync(project => project.Id == projectId && project.OwnerId == ownerId);
+            .FirstOrDefaultAsync(project => project.Id == projectId && project.OwnerId == ownerId, cancellationToken);
 
         if (project is null)
         {
@@ -119,14 +119,14 @@ public sealed class DatabaseProjectManagementService : IProjectManagementService
 
         project.IsArchived = true;
         project.UpdatedAt = DateTime.UtcNow;
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return ProjectOperationResult<bool>.Success(true, "Project archived");
     }
 
-    public async Task<ProjectOperationResult<PagedProjectActivityView>> GetProjectActivitiesAsync(Guid userId, Guid projectId, int pageNumber, int pageSize)
+    public async Task<ProjectOperationResult<PagedProjectActivityView>> GetProjectActivitiesAsync(Guid userId, Guid projectId, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
-        if (!await _membershipStore.HasProjectAccessAsync(userId, projectId))
+        if (!await _membershipStore.HasProjectAccessAsync(userId, projectId, cancellationToken))
         {
             return ProjectOperationResult<PagedProjectActivityView>.Failure(ProjectOperationStatus.NotFound, "Project not found");
         }
@@ -134,17 +134,17 @@ public sealed class DatabaseProjectManagementService : IProjectManagementService
         var safePageNumber = Math.Max(pageNumber, 1);
         var safePageSize = Math.Clamp(pageSize, 1, 100);
         var query = _dbContext.ProjectActivities.AsNoTracking().Where(activity => activity.ProjectId == projectId);
-        var totalCount = await query.CountAsync();
+        var totalCount = await query.CountAsync(cancellationToken);
         var items = await query.OrderByDescending(activity => activity.CreatedAt)
             .Skip((safePageNumber - 1) * safePageSize).Take(safePageSize)
             .Select(activity => new ProjectActivityView(activity.Id, activity.Type, activity.Description, activity.ActorUserId, activity.ActorUser.DisplayName, activity.ProjectTaskId, activity.CreatedAt))
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
         return ProjectOperationResult<PagedProjectActivityView>.Success(new PagedProjectActivityView(items, safePageNumber, safePageSize, totalCount));
     }
 
-    public async Task<ProjectOperationResult<ProjectDashboardView>> GetProjectDashboardAsync(Guid userId, Guid projectId)
+    public async Task<ProjectOperationResult<ProjectDashboardView>> GetProjectDashboardAsync(Guid userId, Guid projectId, CancellationToken cancellationToken = default)
     {
-        if (!await _membershipStore.HasProjectAccessAsync(userId, projectId))
+        if (!await _membershipStore.HasProjectAccessAsync(userId, projectId, cancellationToken))
         {
             return ProjectOperationResult<ProjectDashboardView>.Failure(ProjectOperationStatus.NotFound, "Project not found");
         }
@@ -154,13 +154,13 @@ public sealed class DatabaseProjectManagementService : IProjectManagementService
         var tasks = await _dbContext.ProjectTasks.AsNoTracking()
             .Include(task => task.Labels)
             .Where(task => task.ProjectId == projectId)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
         var recentActivities = await _dbContext.ProjectActivities.AsNoTracking()
             .Where(activity => activity.ProjectId == projectId)
             .OrderByDescending(activity => activity.CreatedAt)
             .Take(5)
             .Select(activity => new ProjectActivityView(activity.Id, activity.Type, activity.Description, activity.ActorUserId, activity.ActorUser.DisplayName, activity.ProjectTaskId, activity.CreatedAt))
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         var overdueTasks = tasks.Where(task => task.DueDate.HasValue && task.DueDate.Value.Date < today && task.Status != ProjectTaskStatus.Done)
             .OrderBy(task => task.DueDate).Take(10).Select(MapDashboardTask).ToList();

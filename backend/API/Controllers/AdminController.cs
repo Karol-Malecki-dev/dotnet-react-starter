@@ -21,37 +21,37 @@ namespace API.Controllers
         }
 
         [HttpGet("dashboard-stats")]
-        public async Task<ActionResult<ApiResponse<AdminDashboardStatsDto>>> GetDashboardStatsAsync()
+        public async Task<ActionResult<ApiResponse<AdminDashboardStatsDto>>> GetDashboardStatsAsync(CancellationToken cancellationToken)
         {
-            var result = await _adminService.GetDashboardStatsAsync();
+            var result = await _adminService.GetDashboardStatsAsync(cancellationToken);
             return StatusCode(result.StatusCode, result);
         }
 
         [HttpGet("users")]
-        public async Task<ActionResult<ApiResponse<List<AdminUserListItemDto>>>> GetUsersAsync([FromQuery] AdminUserFilterRequestDto request)
+        public async Task<ActionResult<ApiResponse<List<AdminUserListItemDto>>>> GetUsersAsync([FromQuery] AdminUserFilterRequestDto request, CancellationToken cancellationToken)
         {
-            var result = await _adminService.GetUsersAsync(request);
+            var result = await _adminService.GetUsersAsync(request, cancellationToken);
             return StatusCode(result.StatusCode, result);
         }
 
         [HttpGet("users/{userId:guid}")]
-        public async Task<ActionResult<ApiResponse<AdminUserDetailsDto>>> GetUserDetailsByIdAsync([FromRoute] Guid userId)
+        public async Task<ActionResult<ApiResponse<AdminUserDetailsDto>>> GetUserDetailsByIdAsync([FromRoute] Guid userId, CancellationToken cancellationToken)
         {
-            var result = await _adminService.GetUserDetailsByIdAsync(userId);
+            var result = await _adminService.GetUserDetailsByIdAsync(userId, cancellationToken);
             return StatusCode(result.StatusCode, result);
         }
 
         [HttpGet("users/by-email")]
-        public async Task<ActionResult<ApiResponse<AdminUserDetailsDto>>> GetUserDetailsByEmailAsync([FromQuery] string email)
+        public async Task<ActionResult<ApiResponse<AdminUserDetailsDto>>> GetUserDetailsByEmailAsync([FromQuery] string email, CancellationToken cancellationToken)
         {
-            var result = await _adminService.GetUserDetailsByEmailAsync(email);
+            var result = await _adminService.GetUserDetailsByEmailAsync(email, cancellationToken);
             return StatusCode(result.StatusCode, result);
         }
 
         [HttpPut("users/{userId:guid}")]
-        public async Task<ActionResult<ApiResponse<AdminUserDetailsDto>>> UpdateUserAsync([FromRoute] Guid userId, [FromBody] AdminUpdateUserRequestDto dto)
+        public async Task<ActionResult<ApiResponse<AdminUserDetailsDto>>> UpdateUserAsync([FromRoute] Guid userId, [FromBody] AdminUpdateUserRequestDto dto, CancellationToken cancellationToken)
         {
-            var result = await _adminService.UpdateUserAsync(userId, dto);
+            var result = await _adminService.UpdateUserAsync(userId, dto, cancellationToken);
 
             if (result.StatusCode == 404)
             {
@@ -62,9 +62,9 @@ namespace API.Controllers
         }
 
         [HttpPut("users/{userId:guid}/role")]
-        public async Task<ActionResult<ApiResponse<AdminUserDetailsDto>>> UpdateUserRoleAsync([FromRoute] Guid userId, [FromBody] UserRole newRole)
+        public async Task<ActionResult<ApiResponse<AdminUserDetailsDto>>> UpdateUserRoleAsync([FromRoute] Guid userId, [FromBody] UserRole newRole, CancellationToken cancellationToken)
         {
-            var result = await _adminService.UpdateUserRoleAsync(userId, newRole);
+            var result = await _adminService.UpdateUserRoleAsync(userId, newRole, cancellationToken);
 
             if (result.StatusCode == 404)
             {
@@ -75,9 +75,9 @@ namespace API.Controllers
         }
 
         [HttpPut("users/{userId:guid}/activate")]
-        public async Task<ActionResult<ApiResponse<AdminUserDetailsDto>>> ActivateUserAsync([FromRoute] Guid userId)
+        public async Task<ActionResult<ApiResponse<AdminUserDetailsDto>>> ActivateUserAsync([FromRoute] Guid userId, CancellationToken cancellationToken)
         {
-            var result = await _adminService.ActivateUserAsync(userId);
+            var result = await _adminService.ActivateUserAsync(userId, cancellationToken);
 
             if (result.StatusCode == 404)
             {
@@ -88,9 +88,9 @@ namespace API.Controllers
         }
 
         [HttpPut("users/{userId:guid}/deactivate")]
-        public async Task<ActionResult<ApiResponse<AdminUserDetailsDto>>> DeactivateUserAsync([FromRoute] Guid userId)
+        public async Task<ActionResult<ApiResponse<AdminUserDetailsDto>>> DeactivateUserAsync([FromRoute] Guid userId, CancellationToken cancellationToken)
         {
-            var result = await _adminService.DeactivateUserAsync(userId);
+            var result = await _adminService.DeactivateUserAsync(userId, cancellationToken);
             
             if (result.StatusCode == 404)
             {
@@ -101,9 +101,9 @@ namespace API.Controllers
         }
 
         [HttpDelete("users/{userId:guid}")]
-        public async Task<ActionResult<ApiResponse<AdminUserDetailsDto>>> DeleteUserAsync([FromRoute] Guid userId)
+        public async Task<ActionResult<ApiResponse<AdminUserDetailsDto>>> DeleteUserAsync([FromRoute] Guid userId, CancellationToken cancellationToken)
         {
-            var result = await _adminService.DeleteUserAsync(userId);
+            var result = await _adminService.DeleteUserAsync(userId, cancellationToken);
 
             if (result.StatusCode == 404)
             {

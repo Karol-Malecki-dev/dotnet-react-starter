@@ -89,7 +89,8 @@ public sealed class ProjectTaskDeadlineReminderService : IProjectTaskDeadlineRem
                 "ProjectTask",
                 task.Id,
                 task.ProjectId,
-                deadlineEmailPreferences.GetValueOrDefault(recipientUserId, true));
+                deadlineEmailPreferences.GetValueOrDefault(recipientUserId, true),
+                cancellationToken: cancellationToken);
         }
     }
 }

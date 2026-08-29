@@ -26,148 +26,149 @@ public class ProjectsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetProjects([FromQuery] bool includeArchived = false, [FromQuery] string scope = "all")
+    public async Task<IActionResult> GetProjects([FromQuery] bool includeArchived = false, [FromQuery] string scope = "all", CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var ownerId))
         {
             return Unauthorized(ApiResponse<List<ProjectResponse>>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectService.GetUserProjectsAsync(ownerId, includeArchived, scope);
+        var result = await _projectService.GetUserProjectsAsync(ownerId, includeArchived, scope, cancellationToken);
         return ToActionResult(result, projects => projects.Select(MapProject).ToList());
     }
 
     [HttpGet("{projectId:guid}")]
     public async Task<IActionResult> GetProject(
         Guid projectId,
-        [FromQuery] bool includeArchived = false)
+        [FromQuery] bool includeArchived = false,
+        CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var ownerId))
         {
             return Unauthorized(ApiResponse<ProjectResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectService.GetProjectAsync(ownerId, projectId, includeArchived);
+        var result = await _projectService.GetProjectAsync(ownerId, projectId, includeArchived, cancellationToken);
         return ToActionResult(result, MapProject);
     }
 
     [HttpPost]
-    public async Task<IActionResult> CreateProject(CreateProjectRequest request)
+    public async Task<IActionResult> CreateProject(CreateProjectRequest request, CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var ownerId))
         {
             return Unauthorized(ApiResponse<ProjectResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectService.CreateProjectAsync(new CreateProjectCommand(ownerId, request.Name, request.Description));
+        var result = await _projectService.CreateProjectAsync(new CreateProjectCommand(ownerId, request.Name, request.Description), cancellationToken);
         return ToActionResult(result, MapProject);
     }
 
     [HttpPut("{projectId:guid}")]
-    public async Task<IActionResult> UpdateProject(Guid projectId, UpdateProjectRequest request)
+    public async Task<IActionResult> UpdateProject(Guid projectId, UpdateProjectRequest request, CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var ownerId))
         {
             return Unauthorized(ApiResponse<ProjectResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectService.UpdateProjectAsync(new UpdateProjectCommand(ownerId, projectId, request.Name, request.Description));
+        var result = await _projectService.UpdateProjectAsync(new UpdateProjectCommand(ownerId, projectId, request.Name, request.Description), cancellationToken);
         return ToActionResult(result, MapProject);
     }
 
     [HttpDelete("{projectId:guid}")]
-    public async Task<IActionResult> ArchiveProject(Guid projectId)
+    public async Task<IActionResult> ArchiveProject(Guid projectId, CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var ownerId))
         {
             return Unauthorized(ApiResponse<bool>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectService.ArchiveProjectAsync(ownerId, projectId);
+        var result = await _projectService.ArchiveProjectAsync(ownerId, projectId, cancellationToken);
         return ToActionResult(result, value => value);
     }
 
     [HttpGet("{projectId:guid}/members")]
-    public async Task<IActionResult> GetMembers(Guid projectId)
+    public async Task<IActionResult> GetMembers(Guid projectId, CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var ownerId))
         {
             return Unauthorized(ApiResponse<List<ProjectMemberResponse>>.Error(401, "User not authenticated"));
         }
 
-        var result = await _membershipService.GetProjectMembersAsync(ownerId, projectId);
+        var result = await _membershipService.GetProjectMembersAsync(ownerId, projectId, cancellationToken);
         return ToActionResult(result, members => members.Select(MapMember).ToList());
     }
 
     [HttpGet("{projectId:guid}/activity")]
-    public async Task<IActionResult> GetActivity(Guid projectId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
+    public async Task<IActionResult> GetActivity(Guid projectId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20, CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var userId))
         {
             return Unauthorized(ApiResponse<PagedProjectActivityView>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectService.GetProjectActivitiesAsync(userId, projectId, pageNumber, pageSize);
+        var result = await _projectService.GetProjectActivitiesAsync(userId, projectId, pageNumber, pageSize, cancellationToken);
         return ToActionResult(result, value => value);
     }
 
     [HttpGet("{projectId:guid}/dashboard")]
-    public async Task<IActionResult> GetDashboard(Guid projectId)
+    public async Task<IActionResult> GetDashboard(Guid projectId, CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var userId))
         {
             return Unauthorized(ApiResponse<ProjectDashboardView>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectService.GetProjectDashboardAsync(userId, projectId);
+        var result = await _projectService.GetProjectDashboardAsync(userId, projectId, cancellationToken);
         return ToActionResult(result, value => value);
     }
 
     [HttpGet("{projectId:guid}/members/available")]
-    public async Task<IActionResult> GetAvailableMembers(Guid projectId)
+    public async Task<IActionResult> GetAvailableMembers(Guid projectId, CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var ownerId))
         {
             return Unauthorized(ApiResponse<List<ProjectMemberUserResponse>>.Error(401, "User not authenticated"));
         }
 
-        var result = await _membershipService.GetAvailableProjectMembersAsync(ownerId, projectId);
+        var result = await _membershipService.GetAvailableProjectMembersAsync(ownerId, projectId, cancellationToken);
         return ToActionResult(result, users => users.Select(MapMemberUser).ToList());
     }
 
     [HttpPost("{projectId:guid}/members")]
-    public async Task<IActionResult> AddMember(Guid projectId, AddProjectMemberRequest request)
+    public async Task<IActionResult> AddMember(Guid projectId, AddProjectMemberRequest request, CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var ownerId))
         {
             return Unauthorized(ApiResponse<ProjectMemberResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _membershipService.AddProjectMemberAsync(ownerId, projectId, request.UserId);
+        var result = await _membershipService.AddProjectMemberAsync(ownerId, projectId, request.UserId, cancellationToken);
         return ToActionResult(result, MapMember);
     }
 
     [HttpDelete("{projectId:guid}/members/{userId:guid}")]
-    public async Task<IActionResult> RemoveMember(Guid projectId, Guid userId)
+    public async Task<IActionResult> RemoveMember(Guid projectId, Guid userId, CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var ownerId))
         {
             return Unauthorized(ApiResponse<bool>.Error(401, "User not authenticated"));
         }
 
-        var result = await _membershipService.RemoveProjectMemberAsync(ownerId, projectId, userId);
+        var result = await _membershipService.RemoveProjectMemberAsync(ownerId, projectId, userId, cancellationToken);
         return ToActionResult(result, value => value);
     }
 
     [HttpPatch("{projectId:guid}/members/{userId:guid}/role")]
-    public async Task<IActionResult> UpdateMemberRole(Guid projectId, Guid userId, UpdateProjectMemberRoleRequest request)
+    public async Task<IActionResult> UpdateMemberRole(Guid projectId, Guid userId, UpdateProjectMemberRoleRequest request, CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var ownerId))
         {
             return Unauthorized(ApiResponse<ProjectMemberResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _membershipService.UpdateProjectMemberRoleAsync(ownerId, projectId, userId, request.Role);
+        var result = await _membershipService.UpdateProjectMemberRoleAsync(ownerId, projectId, userId, request.Role, cancellationToken);
         return ToActionResult(result, MapMember);
     }
 

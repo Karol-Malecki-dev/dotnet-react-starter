@@ -55,6 +55,28 @@ public class AuthApiIntegrationTests
     }
 
     [Fact]
+    public async Task Login_Returns_standard_api_response_for_validation_errors()
+    {
+        var response = await _client.PostAsJsonAsync("/api/auth/login", new
+        {
+            Email = string.Empty,
+            Password = string.Empty
+        });
+
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+
+        var apiResponse = await response.Content.ReadFromJsonAsync<ApiResponse<object>>();
+
+        Assert.NotNull(apiResponse);
+        Assert.Equal(400, apiResponse.StatusCode);
+        Assert.Equal("Validation failed", apiResponse.Message);
+        Assert.NotNull(apiResponse.Errors);
+        Assert.Contains(apiResponse.Errors, error => error.Field == "Email");
+        Assert.Contains(apiResponse.Errors, error => error.Field == "Password");
+        Assert.All(apiResponse.Errors, error => Assert.Equal("Validation", error.Code));
+    }
+
+    [Fact]
     public async Task Me_Returns_current_user_when_authorized()
     {
         await SeedUserAsync("test@example.com", "password123", "Test User", UserRole.User);

@@ -36,10 +36,10 @@ services:
     ports:
       - "${BACKEND_HTTP_PORT:-5000}:5000"
     environment:
-      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
       - ASPNETCORE_URLS=${ASPNETCORE_URLS:-http://+:5000}
       - ConnectionStrings__DefaultConnection=${DEFAULT_CONNECTION:-Host=db;Port=5432;Database=dotnetreact;Username=postgres;Password=postgres}
-      - Jwt__Secret=${JWT_SECRET:-local-development-secret-change-before-production-123456789}
+      - Jwt__Secret=${JWT_SECRET:-local-development-only-secret-change-before-production-123456789}
       - Jwt__Issuer=${JWT_ISSUER:-Dotnet-React-Starter-API}
       - Jwt__Audience=${JWT_AUDIENCE:-Dotnet-React-Starter-App}
       - Jwt__AccessTokenExpiresInMinutes=${JWT_ACCESS_TOKEN_EXPIRES_IN_MINUTES:-15}
@@ -47,9 +47,14 @@ services:
       - Jwt__RefreshTokenCookieName=${JWT_REFRESH_TOKEN_COOKIE_NAME:-drs.refreshToken}
       - Jwt__RefreshTokenCookiePath=${JWT_REFRESH_TOKEN_COOKIE_PATH:-/api/auth}
       - Jwt__RefreshTokenCookieSameSite=${JWT_REFRESH_TOKEN_COOKIE_SAME_SITE:-Lax}
-      - Jwt__RefreshTokenCookieSecurePolicy=${JWT_REFRESH_TOKEN_COOKIE_SECURE_POLICY:-Always}
+      - Jwt__RefreshTokenCookieSecurePolicy=${JWT_REFRESH_TOKEN_COOKIE_SECURE_POLICY:-SameAsRequest}
       - Jwt__RefreshTokenCookieIsEssential=${JWT_REFRESH_TOKEN_COOKIE_IS_ESSENTIAL:-true}
       - Jwt__RefreshTokenCookieDomain=${JWT_REFRESH_TOKEN_COOKIE_DOMAIN:-}
+      - DataProtection__KeyRingPath=${DATA_PROTECTION_KEY_RING_PATH:-/home/app/.aspnet/DataProtection-Keys}
+      - DataProtection__ApplicationName=${DATA_PROTECTION_APPLICATION_NAME:-DotnetReactStarter}
+      - ForwardedHeaders__Enabled=${FORWARDED_HEADERS_ENABLED:-true}
+      - ForwardedHeaders__KnownNetworks__0=${FORWARDED_HEADERS_KNOWN_NETWORK_0:-172.28.0.0/16}
+      - ForwardedHeaders__ForwardLimit=${FORWARDED_HEADERS_FORWARD_LIMIT:-1}
       - Cors__AllowCredentials=${CORS_ALLOW_CREDENTIALS:-true}
       - Cors__AllowedOrigins__0=${CORS_ALLOWED_ORIGIN_0:-http://localhost:3000}
       - Cors__AllowedOrigins__1=${CORS_ALLOWED_ORIGIN_1:-http://localhost:5173}
@@ -77,6 +82,8 @@ services:
         condition: service_started
     networks:
       - dotnet-react-network
+    volumes:
+      - data-protection-keys:/home/app/.aspnet/DataProtection-Keys
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:5000/health" ]
       interval: 30s
@@ -109,6 +116,10 @@ services:
 networks:
   dotnet-react-network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
 
 volumes:
   postgres-data:
+  data-protection-keys:

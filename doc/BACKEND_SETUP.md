@@ -100,6 +100,34 @@ Najważniejsze sekcje konfiguracji:
 - `AuthSecurity`
 - `EmailDelivery`
 - `UiFeatures`
+- `DataProtection`
+- `ForwardedHeaders`
+
+### Data Protection And Reverse Proxy
+
+Sekret authenticatora jest chroniony przez ASP.NET Core Data Protection. `ApplicationName`
+jest identyfikatorem aplikacji, a `KeyRingPath` wskazuje katalog kluczy. W produkcji
+`KeyRingPath` musi być ustawiony na absolutną, trwałą lokalizację współdzieloną przez
+instancje aplikacji. Jeśli klucze znikną, istniejące sekrety authenticatora nie będą mogły
+zostać odszyfrowane.
+
+Compose montuje named volume `data-protection-keys` do
+`/home/app/.aspnet/DataProtection-Keys`. Nie używaj `docker compose down -v` podczas
+zwykłego zatrzymywania środowiska, ponieważ usunięcie tego wolumenu unieważni dane
+zaszyfrowane poprzednim key ringiem.
+
+`ForwardedHeaders` włącza obsługę `X-Forwarded-For` i `X-Forwarded-Proto` tylko dla
+jawnie skonfigurowanych `KnownProxies` lub `KnownNetworks`. `ForwardLimit` ogranicza
+liczbę akceptowanych wpisów w łańcuchu. W Docker Compose frontendowy Nginx działa w
+podsieci `172.28.0.0/16`, dlatego lokalny przykład ustawia tę sieć jako zaufaną.
+W produkcji wpisz rzeczywisty zakres reverse proxy i nie używaj zaufania do wszystkich
+adresów.
+
+Bazowy `appsettings.json` zachowuje produkcyjną politykę `CookieSecurePolicy=Always`,
+natomiast `appsettings.Development.json` używa `SameAsRequest`, aby lokalny backend po
+HTTP mógł ustawiać refresh cookie. Walidacja przy starcie odrzuca w produkcji znany
+przykładowy JWT secret, brak trwałego key ringu, niezabezpieczoną politykę cookie,
+niepoprawne originy CORS oraz niepełną konfigurację zaufanego proxy.
 
 ## Health Checks And Request Correlation
 
