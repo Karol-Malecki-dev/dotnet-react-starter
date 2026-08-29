@@ -161,6 +161,7 @@ public sealed class DatabaseProjectManagementService : IProjectManagementService
 
         var today = DateTime.UtcNow.Date;
         var upcomingDeadline = today.AddDays(7);
+        var dayAfterUpcomingDeadline = upcomingDeadline.AddDays(1);
         var taskQuery = _dbContext.ProjectTasks.AsNoTracking()
             .Where(task => task.ProjectId == projectId);
         var taskStats = await taskQuery
@@ -179,7 +180,7 @@ public sealed class DatabaseProjectManagementService : IProjectManagementService
 
         var overdueTasks = await taskQuery
             .Where(task => task.DueDate.HasValue
-                && task.DueDate.Value.Date < today
+                && task.DueDate.Value < today
                 && task.Status != ProjectTaskStatus.Done)
             .OrderBy(task => task.DueDate)
             .Take(10)
@@ -188,8 +189,8 @@ public sealed class DatabaseProjectManagementService : IProjectManagementService
 
         var upcomingTasks = await taskQuery
             .Where(task => task.DueDate.HasValue
-                && task.DueDate.Value.Date >= today
-                && task.DueDate.Value.Date <= upcomingDeadline
+                && task.DueDate.Value >= today
+                && task.DueDate.Value < dayAfterUpcomingDeadline
                 && task.Status != ProjectTaskStatus.Done)
             .OrderBy(task => task.DueDate)
             .Take(10)

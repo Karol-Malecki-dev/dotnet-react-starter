@@ -10,6 +10,7 @@ using Infrastructure.Data;
 using Infrastructure.ProjectManagement.Tasks;
 using Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using System.Net;
 using System.Security.Cryptography;
@@ -177,6 +178,61 @@ public sealed class PostgreSqlIntegrationTests
         var verificationContext = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var persistedTask = await verificationContext.ProjectTasks.SingleAsync(task => task.Id == staleTask.Id);
         Assert.Equal("Writer task update", persistedTask.Title);
+    }
+
+    [Fact]
+    public async Task PostgreSql_project_dashboard_due_date_query_uses_the_task_dashboard_index()
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        await dbContext.Database.OpenConnectionAsync();
+        await using var transaction = await dbContext.Database.BeginTransactionAsync();
+
+        await using (var settingCommand = dbContext.Database.GetDbConnection().CreateCommand())
+        {
+            settingCommand.Transaction = transaction.GetDbTransaction();
+            settingCommand.CommandText = "SET LOCAL enable_seqscan = off;";
+            await settingCommand.ExecuteNonQueryAsync();
+        }
+
+        await using var explainCommand = dbContext.Database.GetDbConnection().CreateCommand();
+        explainCommand.Transaction = transaction.GetDbTransaction();
+        explainCommand.CommandText = """
+            EXPLAIN (FORMAT TEXT)
+            SELECT "Id"
+            FROM "ProjectTasks"
+            WHERE "ProjectId" = @projectId
+              AND "Status" <> 'Done'
+              AND "DueDate" >= @today
+              AND "DueDate" < @nextDay
+            ORDER BY "DueDate"
+            LIMIT 10;
+            """;
+
+        var projectIdParameter = explainCommand.CreateParameter();
+        projectIdParameter.ParameterName = "projectId";
+        projectIdParameter.Value = Guid.NewGuid();
+        explainCommand.Parameters.Add(projectIdParameter);
+
+        var todayParameter = explainCommand.CreateParameter();
+        todayParameter.ParameterName = "today";
+        todayParameter.Value = DateTime.UtcNow.Date;
+        explainCommand.Parameters.Add(todayParameter);
+
+        var nextDayParameter = explainCommand.CreateParameter();
+        nextDayParameter.ParameterName = "nextDay";
+        nextDayParameter.Value = DateTime.UtcNow.Date.AddDays(8);
+        explainCommand.Parameters.Add(nextDayParameter);
+
+        var planLines = new List<string>();
+        await using var reader = await explainCommand.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            planLines.Add(reader.GetString(0));
+        }
+
+        var plan = string.Join(Environment.NewLine, planLines);
+        Assert.Contains("IX_ProjectTasks_ProjectId_Status_DueDate", plan, StringComparison.Ordinal);
     }
 
     [Fact]
