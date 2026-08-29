@@ -18,7 +18,7 @@ Stan na: **2026-08-29**.
 
 | Obszar | Postęp | Status i dowód |
 |---|---:|---|
-| 1. Granica agregatu projektu | 60% | `Project` chroni członkostwo przez metody domenowe, automatycznie tworzy właściciela i ma prywatne settery; granica zadań nadal wymaga osobnego rozstrzygnięcia. |
+| 1. Granica agregatów projektu i zadań | 75% | `Project` chroni członkostwo przez metody domenowe, automatycznie tworzy właściciela i ma prywatne settery; `ProjectTask` został przyjęty jako osobny agregat, a niezależność tokenu projektu potwierdza test integracyjny. |
 | 2. Model użytkownika i value objects | 10% | Istnieją wybrane value objects, ale model użytkownika nie został jeszcze konsekwentnie rozdzielony. |
 | 3. Application services i porty | 50% | Warstwy i feature-specific ports istnieją; część odpowiedzialności nadal wymaga doprecyzowania. |
 | 4. Mapping i kontrakty | 50% | DTO i kontrakty HTTP są obecne oraz dokumentowane; pełne rozdzielenie modeli nie jest zakończone. |
@@ -26,7 +26,7 @@ Stan na: **2026-08-29**.
 | 6. Optimistic concurrency | 50% | `Project` i `ProjectInvitation` mają tokeny wersji, konflikty są mapowane na `409`, a wyścig akceptacji jest testowany na PostgreSQL. |
 | 7. Zapytania dashboardu | 45% | Statystyki dashboardu są agregowane po stronie SQL, a listy overdue/upcoming są pobierane limitowanymi zapytaniami; pomiar planów SQL nadal wymaga wykonania. |
 
-**Postęp V3: 39%**.
+**Postęp V3: 40%**.
 
 Procent obejmuje istniejące fundamenty, nie samą liczbę klas lub endpointów. V3 nie jest jeszcze etapem ukończonym.
 

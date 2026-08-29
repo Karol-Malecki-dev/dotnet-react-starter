@@ -97,6 +97,31 @@ public class ProjectTasksApiIntegrationTests
     }
 
     [Fact]
+    public async Task Project_task_changes_do_not_change_project_concurrency_stamp()
+    {
+        var ownerId = await SeedUserAsync("task.aggregate-owner@example.com", "password123", "Aggregate Owner");
+        var projectId = await SeedProjectAsync(ownerId, "Aggregate boundary project");
+
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var project = await dbContext.Projects.SingleAsync(candidate => candidate.Id == projectId);
+        var originalConcurrencyStamp = project.ConcurrencyStamp;
+        var task = ProjectTask.Create(projectId, "Boundary task", null, ProjectTaskPriority.Normal, null, null, ownerId);
+
+        dbContext.ProjectTasks.Add(task);
+        await dbContext.SaveChangesAsync();
+
+        task.Rename("Updated boundary task");
+        await dbContext.SaveChangesAsync();
+
+        var persistedProject = await dbContext.Projects
+            .AsNoTracking()
+            .SingleAsync(candidate => candidate.Id == projectId);
+
+        Assert.Equal(originalConcurrencyStamp, persistedProject.ConcurrencyStamp);
+    }
+
+    [Fact]
     public async Task Owner_can_filter_and_sort_project_tasks()
     {
         var ownerId = await SeedUserAsync("task.filter-owner@example.com", "password123", "Filter Owner");
