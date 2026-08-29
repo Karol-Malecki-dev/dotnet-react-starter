@@ -165,6 +165,11 @@ unikalny indeks `(ProjectId, UserId)` pozostaje obroną na poziomie bazy. Narusz
 tego indeksu podczas równoległej akceptacji jest mapowane na wynik konfliktu,
 który kontroler zwraca jako `409 Conflict`.
 
+`ProjectTask.ConcurrencyStamp` chroni niezależne zmiany zadania. Aktualizacja danych,
+zmiana statusu i usunięcie wymagają wersji odczytanej przez klienta; po udanym zapisie
+token jest rotowany, a nieaktualna wersja jest mapowana na `409 Conflict` bez
+nadpisania nowszego zapisu.
+
 ### ProjectManagement.Tasks As A Modular-Monolith Feature
 
 `ProjectManagement.Tasks` jest pierwszą feature boundary rozwijaną w kierunku

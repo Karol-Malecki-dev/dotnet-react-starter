@@ -332,8 +332,16 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
       throw new Error('Select a project first');
     }
 
+    const task = tasks.find((candidate) => candidate.id === taskId);
+    if (!task) {
+      throw new Error('Task was not found');
+    }
+
     setError(null);
-    const response = await projectApi.updateTaskStatus(selectedProjectId, taskId, { status });
+    const response = await projectApi.updateTaskStatus(selectedProjectId, taskId, {
+      status,
+      concurrencyStamp: task.concurrencyStamp,
+    });
     if (!response.data) {
       throw new Error(response.message || 'Task status was not updated');
     }
@@ -342,15 +350,20 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     void loadActivities(selectedProjectId);
     void loadDashboard(selectedProjectId);
     return response.data;
-  }, [loadActivities, loadDashboard, selectedProjectId]);
+  }, [loadActivities, loadDashboard, selectedProjectId, tasks]);
 
   const deleteTask = useCallback(async (taskId: string) => {
     if (!selectedProjectId) {
       throw new Error('Select a project first');
     }
 
+    const task = tasks.find((candidate) => candidate.id === taskId);
+    if (!task) {
+      throw new Error('Task was not found');
+    }
+
     setError(null);
-    await projectApi.deleteTask(selectedProjectId, taskId);
+    await projectApi.deleteTask(selectedProjectId, taskId, task.concurrencyStamp);
     setTasks((currentTasks) => currentTasks.filter((task) => task.id !== taskId));
     setTaskComments((currentComments) => {
       const { [taskId]: _, ...remainingComments } = currentComments;
@@ -362,7 +375,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     });
     void loadActivities(selectedProjectId);
     void loadDashboard(selectedProjectId);
-  }, [loadActivities, loadDashboard, selectedProjectId]);
+  }, [loadActivities, loadDashboard, selectedProjectId, tasks]);
 
   const createTaskComment = useCallback(async (taskId: string, content: string) => {
     if (!selectedProjectId) {

@@ -54,8 +54,8 @@ Costs:
 - Rules involving both aggregates require an application or persistence query.
 - A workflow that changes membership and task assignments must define its transaction
   boundary explicitly.
-- A task-level concurrency token may be needed later if lost task edits become a
-  material risk.
+- Independent task mutations need their own concurrency contract so they can reject
+  lost updates without competing on the project version.
 
 ## Decision
 
@@ -93,6 +93,9 @@ The current implementation follows this decision:
 - `Project` exposes member behavior but no task collection or task mutation methods.
 - `ProjectTask` has a private constructor, private state setters and task-specific
   domain methods.
+- `ProjectTask.ConcurrencyStamp` is an EF Core concurrency token. Task update, status
+  change and delete operations require the expected stamp, rotate it after a
+  successful write and map stale writes to `409 Conflict`.
 - Task access checks the active project and loads the task using both `projectId` and
   `taskId`.
 - Task commands use `IProjectTaskAccess` and `IProjectTaskCommandStore` rather than a
@@ -108,12 +111,18 @@ The boundary is covered by
 The test creates and updates a task, then verifies that the project's concurrency
 stamp remains unchanged.
 
+Task lost-update protection is covered by
+`IntegrationTests.ProjectTasksApiIntegrationTests.Task_update_rejects_a_stale_concurrency_stamp`
+and
+`IntegrationTests.PostgreSqlIntegrationTests.PostgreSql_project_task_update_returns_conflict_for_a_stale_version`.
+The latter uses two EF Core contexts and verifies that the first writer remains
+persisted after the stale update is rejected.
+
 Existing authorization, membership and archived-project tests remain the evidence for
 the application-level rules that connect a task to its project.
 
 ## Follow-up decisions
 
-- Add a `ProjectTask` concurrency token if task updates require lost-update detection.
 - Revisit the classification of comments, attachments and reminders if their lifecycle
   or consistency rules become more independent.
 - Define an explicit transaction or outbox policy if member removal gains notifications

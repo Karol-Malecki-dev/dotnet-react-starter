@@ -14,6 +14,7 @@ public sealed record ProjectTaskResponse(
     Guid? CreatedByUserId,
     DateTime CreatedAt,
     DateTime UpdatedAt,
+    string ConcurrencyStamp,
     IReadOnlyList<string> Labels);
 
 public sealed record PagedProjectTaskResponse(

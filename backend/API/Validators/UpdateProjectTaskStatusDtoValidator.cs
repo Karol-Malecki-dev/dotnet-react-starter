@@ -13,5 +13,9 @@ public sealed class UpdateProjectTaskStatusRequestValidator : AbstractValidator<
             .Must(status => status is ProjectTaskStatus.Todo
                 or ProjectTaskStatus.InProgress
                 or ProjectTaskStatus.Done);
+
+        RuleFor(task => task.ConcurrencyStamp)
+            .NotEmpty()
+            .MaximumLength(64);
     }
 }

@@ -46,6 +46,6 @@ public sealed class DatabaseProjectTaskQueryService : IProjectTaskQueryService
 
     private static ProjectTaskView MapToView(ProjectTask task) => new(
         task.Id, task.ProjectId, task.Title, task.Description, task.Status, task.Priority,
-        task.DueDate, task.AssignedUserId, task.CreatedByUserId, task.CreatedAt, task.UpdatedAt,
+        task.DueDate, task.AssignedUserId, task.CreatedByUserId, task.CreatedAt, task.UpdatedAt, task.ConcurrencyStamp,
         task.Labels.OrderBy(label => label.Name).Select(label => label.Name).ToList());
 }

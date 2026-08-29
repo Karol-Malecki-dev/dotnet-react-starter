@@ -30,6 +30,18 @@ public sealed class ProjectTaskTests
     }
 
     [Fact]
+    public void Domain_change_refreshes_the_task_concurrency_stamp()
+    {
+        var task = ProjectTask.Create(Guid.NewGuid(), "Initial title", null, ProjectTaskPriority.Normal, null, null, Guid.NewGuid());
+        var initialStamp = task.ConcurrencyStamp;
+
+        task.Rename("Renamed task");
+
+        Assert.False(string.IsNullOrWhiteSpace(initialStamp));
+        Assert.NotEqual(initialStamp, task.ConcurrencyStamp);
+    }
+
+    [Fact]
     public void Task_domain_methods_change_only_their_respective_state()
     {
         var task = ProjectTask.Create(Guid.NewGuid(), "Initial title", null, ProjectTaskPriority.Normal, null, null, Guid.NewGuid());

@@ -12,5 +12,6 @@ public interface IProjectTaskCommandStore
     void RemoveTask(ProjectTask task);
     void ReplaceTaskLabels(ProjectTask task, IReadOnlyCollection<ProjectTaskLabel> previousLabels);
     void AddActivity(ProjectActivity activity);
+    void ClearChangeTracker();
     Task SaveChangesAsync(CancellationToken cancellationToken = default);
 }

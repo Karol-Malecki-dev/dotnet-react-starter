@@ -3,6 +3,7 @@ using Application.Features.ProjectManagement.Tasks;
 using Application.Interfaces;
 using Domain.Entities;
 using Domain.Enums;
+using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.ProjectManagement.Tasks;
 
@@ -11,6 +12,9 @@ namespace Infrastructure.ProjectManagement.Tasks;
 /// </summary>
 public sealed class DatabaseProjectTaskCommandService : IProjectTaskCommandService
 {
+    private const string ConcurrencyConflictMessage = "Project task was modified concurrently; refresh and retry";
+    private const string ConcurrencyStampRequiredMessage = "Project task concurrency stamp is required";
+
     private readonly IProjectTaskAccess _projectTaskAccess;
     private readonly IProjectTaskCommandStore _commandStore;
     private readonly INotificationService _notificationService;
@@ -65,13 +69,23 @@ public sealed class DatabaseProjectTaskCommandService : IProjectTaskCommandServi
             return ProjectOperationResult<ProjectTaskView>.Failure(taskResult.Status, taskResult.Message);
         }
 
+        var task = taskResult.Value!;
+        if (string.IsNullOrWhiteSpace(command.ExpectedConcurrencyStamp))
+        {
+            return ProjectOperationResult<ProjectTaskView>.Failure(ProjectOperationStatus.ValidationError, ConcurrencyStampRequiredMessage);
+        }
+
+        if (!string.Equals(task.ConcurrencyStamp, command.ExpectedConcurrencyStamp, StringComparison.Ordinal))
+        {
+            return ProjectOperationResult<ProjectTaskView>.Failure(ProjectOperationStatus.Conflict, ConcurrencyConflictMessage);
+        }
+
         var assignedUserError = await ValidateAssignedUserAsync(command.ProjectId, command.AssignedUserId, cancellationToken);
         if (assignedUserError is not null)
         {
             return ProjectOperationResult<ProjectTaskView>.Failure(ProjectOperationStatus.ValidationError, assignedUserError);
         }
 
-        var task = taskResult.Value!;
         var previousAssignedUserId = task.AssignedUserId;
         task.Rename(command.Title);
         task.ChangeDescription(command.Description);
@@ -87,7 +101,15 @@ public sealed class DatabaseProjectTaskCommandService : IProjectTaskCommandServi
             AddActivity(task.ProjectId, command.OwnerId, task.AssignedUserId.HasValue ? "task.assigned" : "task.unassigned",
                 task.AssignedUserId.HasValue ? $"assigned the task '{task.Title}'." : $"unassigned the task '{task.Title}'.", task.Id);
         }
-        await _commandStore.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _commandStore.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            _commandStore.ClearChangeTracker();
+            return ProjectOperationResult<ProjectTaskView>.Failure(ProjectOperationStatus.Conflict, ConcurrencyConflictMessage);
+        }
 
         await NotifyAssigneeAsync(task, previousAssignedUserId, command.OwnerId, cancellationToken);
         return ProjectOperationResult<ProjectTaskView>.Success(MapToView(task), "Project task updated");
@@ -102,17 +124,35 @@ public sealed class DatabaseProjectTaskCommandService : IProjectTaskCommandServi
         }
 
         var task = taskResult.Value!;
+        if (string.IsNullOrWhiteSpace(command.ExpectedConcurrencyStamp))
+        {
+            return ProjectOperationResult<ProjectTaskView>.Failure(ProjectOperationStatus.ValidationError, ConcurrencyStampRequiredMessage);
+        }
+
+        if (!string.Equals(task.ConcurrencyStamp, command.ExpectedConcurrencyStamp, StringComparison.Ordinal))
+        {
+            return ProjectOperationResult<ProjectTaskView>.Failure(ProjectOperationStatus.Conflict, ConcurrencyConflictMessage);
+        }
+
         var previousStatus = task.Status;
         task.ChangeStatus(command.Status);
         if (previousStatus != task.Status)
         {
             AddActivity(task.ProjectId, command.OwnerId, "task.status-changed", $"changed the status of '{task.Title}' to {task.Status}.", task.Id);
         }
-        await _commandStore.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _commandStore.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            _commandStore.ClearChangeTracker();
+            return ProjectOperationResult<ProjectTaskView>.Failure(ProjectOperationStatus.Conflict, ConcurrencyConflictMessage);
+        }
         return ProjectOperationResult<ProjectTaskView>.Success(MapToView(task), "Project task status updated");
     }
 
-    public async Task<ProjectOperationResult<bool>> DeleteProjectTaskAsync(Guid userId, Guid projectId, Guid taskId, CancellationToken cancellationToken = default)
+    public async Task<ProjectOperationResult<bool>> DeleteProjectTaskAsync(Guid userId, Guid projectId, Guid taskId, CancellationToken cancellationToken = default, string? expectedConcurrencyStamp = null)
     {
         var taskResult = await GetEditableTaskAsync(userId, projectId, taskId, "You cannot delete this task", cancellationToken);
         if (!taskResult.IsSuccess)
@@ -120,8 +160,27 @@ public sealed class DatabaseProjectTaskCommandService : IProjectTaskCommandServi
             return ProjectOperationResult<bool>.Failure(taskResult.Status, taskResult.Message);
         }
 
-        _commandStore.RemoveTask(taskResult.Value!);
-        await _commandStore.SaveChangesAsync(cancellationToken);
+        var task = taskResult.Value!;
+        if (string.IsNullOrWhiteSpace(expectedConcurrencyStamp))
+        {
+            return ProjectOperationResult<bool>.Failure(ProjectOperationStatus.ValidationError, ConcurrencyStampRequiredMessage);
+        }
+
+        if (!string.Equals(task.ConcurrencyStamp, expectedConcurrencyStamp, StringComparison.Ordinal))
+        {
+            return ProjectOperationResult<bool>.Failure(ProjectOperationStatus.Conflict, ConcurrencyConflictMessage);
+        }
+
+        _commandStore.RemoveTask(task);
+        try
+        {
+            await _commandStore.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            _commandStore.ClearChangeTracker();
+            return ProjectOperationResult<bool>.Failure(ProjectOperationStatus.Conflict, ConcurrencyConflictMessage);
+        }
         return ProjectOperationResult<bool>.Success(true, "Project task deleted");
     }
 
@@ -185,6 +244,6 @@ public sealed class DatabaseProjectTaskCommandService : IProjectTaskCommandServi
 
     private static ProjectTaskView MapToView(ProjectTask task) => new(
         task.Id, task.ProjectId, task.Title, task.Description, task.Status, task.Priority,
-        task.DueDate, task.AssignedUserId, task.CreatedByUserId, task.CreatedAt, task.UpdatedAt,
+        task.DueDate, task.AssignedUserId, task.CreatedByUserId, task.CreatedAt, task.UpdatedAt, task.ConcurrencyStamp,
         task.Labels.OrderBy(label => label.Name).Select(label => label.Name).ToList());
 }

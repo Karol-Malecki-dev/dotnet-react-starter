@@ -20,6 +20,7 @@ public sealed class ProjectTask
         DueDate = dueDate;
         AssignedUserId = assignedUserId;
         CreatedByUserId = createdByUserId;
+        ConcurrencyStamp = GenerateConcurrencyStamp();
         CreatedAt = DateTime.UtcNow;
         UpdatedAt = CreatedAt;
     }
@@ -35,6 +36,7 @@ public sealed class ProjectTask
     public Guid? AssignedUserId { get; private set; }
     public DateTime CreatedAt { get; private set; }
     public DateTime UpdatedAt { get; private set; }
+    public string ConcurrencyStamp { get; private set; } = string.Empty;
 
     public User? CreatedByUser { get; private set; }
     public User? AssignedUser { get; private set; }
@@ -157,5 +159,12 @@ public sealed class ProjectTask
         return priority;
     }
 
-    private void Touch() => UpdatedAt = DateTime.UtcNow;
+    private void Touch()
+    {
+        UpdatedAt = DateTime.UtcNow;
+        ConcurrencyStamp = GenerateConcurrencyStamp();
+    }
+
+    private static string GenerateConcurrencyStamp()
+        => Guid.NewGuid().ToString("N");
 }

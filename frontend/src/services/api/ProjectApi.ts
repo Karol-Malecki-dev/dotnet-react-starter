@@ -86,8 +86,9 @@ export class ProjectApi {
     );
   }
 
-  deleteTask(projectId: string, taskId: string): Promise<ProjectOperationResponse> {
-    return this.client.delete<ProjectOperationResponse>(`/projects/${projectId}/tasks/${taskId}`);
+  deleteTask(projectId: string, taskId: string, concurrencyStamp: string): Promise<ProjectOperationResponse> {
+    const query = new URLSearchParams({ concurrencyStamp });
+    return this.client.delete<ProjectOperationResponse>(`/projects/${projectId}/tasks/${taskId}?${query.toString()}`);
   }
 
   getTaskComments(projectId: string, taskId: string): Promise<ProjectTaskCommentsResponse> {

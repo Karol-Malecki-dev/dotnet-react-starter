@@ -87,7 +87,7 @@ public class ProjectTasksController : ControllerBase
         }
 
         var result = await _projectTaskCommandService.UpdateProjectTaskAsync(new UpdateProjectTaskCommand(
-            ownerId, projectId, taskId, request.Title, request.Description, request.Priority, request.DueDate, request.AssignedUserId, request.Labels ?? []), cancellationToken);
+            ownerId, projectId, taskId, request.Title, request.Description, request.Priority, request.DueDate, request.AssignedUserId, request.Labels ?? [], request.ConcurrencyStamp), cancellationToken);
         return ToActionResult(result, MapTask);
     }
 
@@ -100,19 +100,19 @@ public class ProjectTasksController : ControllerBase
         }
 
         var result = await _projectTaskCommandService.UpdateProjectTaskStatusAsync(new UpdateProjectTaskStatusCommand(
-            ownerId, projectId, taskId, request.Status), cancellationToken);
+            ownerId, projectId, taskId, request.Status, request.ConcurrencyStamp), cancellationToken);
         return ToActionResult(result, MapTask);
     }
 
     [HttpDelete("{taskId:guid}")]
-    public async Task<IActionResult> DeleteTask(Guid projectId, Guid taskId, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> DeleteTask(Guid projectId, Guid taskId, [FromQuery] string? concurrencyStamp = null, CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var ownerId))
         {
             return Unauthorized(ApiResponse<bool>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectTaskCommandService.DeleteProjectTaskAsync(ownerId, projectId, taskId, cancellationToken);
+        var result = await _projectTaskCommandService.DeleteProjectTaskAsync(ownerId, projectId, taskId, cancellationToken, concurrencyStamp);
         return ToActionResult(result, value => value);
     }
 
@@ -212,6 +212,7 @@ public class ProjectTasksController : ControllerBase
         task.CreatedByUserId,
         task.CreatedAt,
         task.UpdatedAt,
+        task.ConcurrencyStamp,
         task.Labels);
 
     private static ProjectTaskAttachmentResponse MapAttachment(ProjectTaskAttachmentView attachment) => new(

@@ -17,6 +17,7 @@ public sealed class ProjectTaskConfiguration : IEntityTypeConfiguration<ProjectT
         builder.Property(task => task.Description).HasMaxLength(2000);
         builder.Property(task => task.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(task => task.Priority).HasConversion<string>().HasMaxLength(32).IsRequired();
+        builder.Property(task => task.ConcurrencyStamp).IsRequired().HasMaxLength(64).IsConcurrencyToken();
         builder.HasOne<Project>().WithMany().HasForeignKey(task => task.ProjectId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(task => task.AssignedUser).WithMany().HasForeignKey(task => task.AssignedUserId).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne(task => task.CreatedByUser).WithMany().HasForeignKey(task => task.CreatedByUserId).OnDelete(DeleteBehavior.SetNull);
