@@ -24,7 +24,7 @@ Stan na: **2026-08-29**.
 | 4. Mapping i kontrakty | 50% | DTO i kontrakty HTTP są obecne oraz dokumentowane; pełne rozdzielenie modeli nie jest zakończone. |
 | 5. Transakcje i partial failure | 70% | Akceptacja zaproszenia, bezpośrednie dodanie członka oraz usunięcie członka mają relacyjne granice transakcji; usunięcie obejmuje także unassign zadań i aktywność, a rollbacki przy błędzie notification są pokryte dla dwóch workflowów z powiadomieniami. |
 | 6. Optimistic concurrency | 70% | `Project`, `ProjectInvitation` i `ProjectTask` mają tokeny wersji, konflikty są mapowane na `409`, a konflikty zapisów projektu i zadania oraz wyścig akceptacji są testowane na PostgreSQL. |
-| 7. Zapytania dashboardu | 45% | Statystyki dashboardu są agregowane po stronie SQL, a listy overdue/upcoming są pobierane limitowanymi zapytaniami; pomiar planów SQL nadal wymaga wykonania. |
+| 7. Zapytania dashboardu | 60% | Statystyki dashboardu są agregowane po stronie SQL, listy overdue/upcoming używają zakresów dat przyjaznych indeksom i limitów, a test PostgreSQL potwierdza użycie indeksu `IX_ProjectTasks_ProjectId_Status_DueDate`; benchmark obciążeniowy nadal należy do V6. |
 
 **Postęp V3: 40%**.
 
@@ -109,7 +109,9 @@ Nie trzeba dodawać concurrency tokenu do każdej tabeli. Wybór powinien wynika
 
 - zidentyfikować miejsca, gdzie pobierane są całe kolekcje tylko po to, aby policzyć statystyki;
 - zastąpić je projekcjami i agregacjami SQL;
-- porównać plan zapytania przed i po zmianie;
+- używać zakresów zamiast nakładania funkcji na kolumny filtrowane po dacie;
+- dodać indeks tylko po sprawdzeniu planu zapytania;
+- porównać plan zapytania przed i po zmianie, gdy istnieje wiarygodny baseline;
 - zachować czytelność query store.
 
 ## Test plan
