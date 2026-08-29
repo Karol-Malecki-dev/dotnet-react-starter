@@ -69,6 +69,48 @@ public sealed class ProjectMembershipServiceTests
         _membershipStore.Verify(store => store.RemoveMember(It.IsAny<ProjectMember>()), Times.Never);
     }
 
+    [Fact]
+    public async Task Remove_member_unassigns_tasks_and_commits_the_transaction()
+    {
+        var ownerId = Guid.NewGuid();
+        var projectId = Guid.NewGuid();
+        var memberId = Guid.NewGuid();
+        var project = Project.Create(ownerId, "Project");
+        var member = project.AddMember(memberId);
+        var task = ProjectTask.Create(
+            projectId,
+            "Assigned task",
+            null,
+            ProjectTaskPriority.Normal,
+            null,
+            memberId,
+            ownerId);
+        var transaction = new Mock<IProjectTransaction>();
+        transaction.Setup(value => value.CommitAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _membershipStore.Setup(store => store.GetOwnedProjectWithMembersAsync(ownerId, projectId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(project);
+        _membershipStore.Setup(store => store.BeginTransactionAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(transaction.Object);
+        _membershipStore.Setup(store => store.GetAssignedTasksAsync(projectId, memberId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<ProjectTask> { task });
+        _membershipStore.Setup(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        var service = CreateService();
+
+        var result = await service.RemoveProjectMemberAsync(ownerId, projectId, memberId);
+
+        Assert.True(result.IsSuccess);
+        Assert.Null(task.AssignedUserId);
+        _membershipStore.Verify(store => store.RemoveMember(member), Times.Once);
+        _membershipStore.Verify(store => store.AddActivity(It.Is<ProjectActivity>(activity =>
+            activity.ProjectId == projectId
+            && activity.ActorUserId == ownerId
+            && activity.Type == "member.removed")), Times.Once);
+        _membershipStore.Verify(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        transaction.Verify(value => value.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     private DatabaseProjectService CreateService()
         => new(_dbContext, _membershipStore.Object, _invitationStore.Object, _notificationService.Object);
 }

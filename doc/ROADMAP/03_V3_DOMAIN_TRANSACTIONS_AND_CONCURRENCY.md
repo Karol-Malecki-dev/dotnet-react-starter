@@ -22,7 +22,7 @@ Stan na: **2026-08-29**.
 | 2. Model użytkownika i value objects | 10% | Istnieją wybrane value objects, ale model użytkownika nie został jeszcze konsekwentnie rozdzielony. |
 | 3. Application services i porty | 50% | Warstwy i feature-specific ports istnieją; część odpowiedzialności nadal wymaga doprecyzowania. |
 | 4. Mapping i kontrakty | 50% | DTO i kontrakty HTTP są obecne oraz dokumentowane; pełne rozdzielenie modeli nie jest zakończone. |
-| 5. Transakcje i partial failure | 45% | Akceptacja zaproszenia ma relacyjną granicę transakcji obejmującą członkostwo, aktywność, powiadomienie i outbox; pozostałe przypadki wieloetapowe wymagają decyzji. |
+| 5. Transakcje i partial failure | 70% | Akceptacja zaproszenia, bezpośrednie dodanie członka oraz usunięcie członka mają relacyjne granice transakcji; usunięcie obejmuje także unassign zadań i aktywność, a rollbacki przy błędzie notification są pokryte dla dwóch workflowów z powiadomieniami. |
 | 6. Optimistic concurrency | 70% | `Project`, `ProjectInvitation` i `ProjectTask` mają tokeny wersji, konflikty są mapowane na `409`, a konflikty zapisów projektu i zadania oraz wyścig akceptacji są testowane na PostgreSQL. |
 | 7. Zapytania dashboardu | 45% | Statystyki dashboardu są agregowane po stronie SQL, a listy overdue/upcoming są pobierane limitowanymi zapytaniami; pomiar planów SQL nadal wymaga wykonania. |
 
@@ -70,9 +70,16 @@ Procent obejmuje istniejące fundamenty, nie samą liczbę klas lub endpointów.
 Zidentyfikować operacje obejmujące więcej niż jeden zapis, między innymi:
 
 - akceptacja zaproszenia i dodanie członka;
-- zmiana członka oraz wyczyszczenie przypisań zadań;
+- usunięcie członka, wyczyszczenie przypisań zadań i zapis aktywności;
 - zmiana biznesowa, activity i notification/outbox;
 - reset lub zmiana hasła oraz unieważnienie sesji.
+
+Akceptacja zaproszenia, bezpośrednie dodanie członka oraz usunięcie członka używają
+wspólnego portu `IProjectTransaction`. W providerze relacyjnym commit następuje
+dopiero po zapisaniu wszystkich zmian danego workflowu. Dla usunięcia są to
+unassign zadań, usunięcie członkostwa i aktywność. Awaria notification wycofuje cały
+workflow w przepływach, które zapisują notification/outbox; provider InMemory
+zachowuje dotychczasowe zachowanie bez transakcji relacyjnej.
 
 Dla każdej operacji określić:
 
@@ -120,6 +127,7 @@ Nie trzeba dodawać concurrency tokenu do każdej tabeli. Wybór powinien wynika
 - transakcja akceptacji zaproszenia nie zostawia częściowego członkostwa;
 - równoległa akceptacja tego samego zaproszenia kończy się jednym sukcesem i jednym `409`;
 - błąd zapisu notification/outbox ma ustaloną reakcję;
+- usunięcie członka atomowo odpina jego zadania, usuwa membership i zapisuje aktywność;
 - dwa zapisy tej samej wersji zwracają jeden sukces i jeden `409`;
 - constrainty bazy blokują duplikaty;
 - dashboard używa poprawnej agregacji i nie zwraca błędnych statystyk;

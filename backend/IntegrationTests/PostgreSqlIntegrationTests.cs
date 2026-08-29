@@ -315,6 +315,133 @@ public sealed class PostgreSqlIntegrationTests
             .SingleAsync());
     }
 
+    [Fact]
+    public async Task PostgreSql_project_member_addition_rolls_back_when_notification_fails()
+    {
+        var ownerId = Guid.NewGuid();
+        var memberId = Guid.NewGuid();
+        var projectId = Guid.Empty;
+
+        await using (var setupScope = _factory.Services.CreateAsyncScope())
+        {
+            var setupContext = setupScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var project = Project.Create(ownerId, "Member rollback project");
+            projectId = project.Id;
+            setupContext.Users.AddRange(
+                new User
+                {
+                    Id = ownerId,
+                    Email = $"member-rollback-owner-{ownerId:N}@example.com",
+                    DisplayName = "Member Rollback Owner",
+                    Role = UserRole.User,
+                    IsActive = true,
+                    IsEmailConfirmed = true,
+                    CreatedAt = DateTime.UtcNow
+                },
+                new User
+                {
+                    Id = memberId,
+                    Email = $"member-rollback-user-{memberId:N}@example.com",
+                    DisplayName = "Member Rollback User",
+                    Role = UserRole.User,
+                    IsActive = true,
+                    IsEmailConfirmed = true,
+                    CreatedAt = DateTime.UtcNow
+                });
+            setupContext.Projects.Add(project);
+            await setupContext.SaveChangesAsync();
+        }
+
+        await using (var responseScope = _factory.Services.CreateAsyncScope())
+        {
+            var responseContext = responseScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var service = new DatabaseProjectMembershipApplicationService(
+                responseContext,
+                new EfProjectMembershipStore(responseContext),
+                new FailingNotificationService());
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                service.AddProjectMemberAsync(ownerId, projectId, memberId));
+        }
+
+        await using var verificationScope = _factory.Services.CreateAsyncScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal(1, await verificationContext.ProjectMembers.CountAsync(member => member.ProjectId == projectId && member.UserId == ownerId));
+        Assert.Equal(0, await verificationContext.ProjectMembers.CountAsync(member => member.ProjectId == projectId && member.UserId == memberId));
+        Assert.Equal(0, await verificationContext.ProjectActivities.CountAsync(activity => activity.ProjectId == projectId));
+    }
+
+    [Fact]
+    public async Task PostgreSql_project_member_removal_unassigns_tasks_and_persists_activity()
+    {
+        var ownerId = Guid.NewGuid();
+        var memberId = Guid.NewGuid();
+        var projectId = Guid.Empty;
+        var taskId = Guid.Empty;
+
+        await using (var setupScope = _factory.Services.CreateAsyncScope())
+        {
+            var setupContext = setupScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var project = Project.Create(ownerId, "Member removal project");
+            project.AddMember(memberId);
+            var task = ProjectTask.Create(
+                project.Id,
+                "Assigned member task",
+                null,
+                ProjectTaskPriority.Normal,
+                null,
+                memberId,
+                ownerId);
+            projectId = project.Id;
+            taskId = task.Id;
+            setupContext.Users.AddRange(
+                new User
+                {
+                    Id = ownerId,
+                    Email = $"member-removal-owner-{ownerId:N}@example.com",
+                    DisplayName = "Member Removal Owner",
+                    Role = UserRole.User,
+                    IsActive = true,
+                    IsEmailConfirmed = true,
+                    CreatedAt = DateTime.UtcNow
+                },
+                new User
+                {
+                    Id = memberId,
+                    Email = $"member-removal-user-{memberId:N}@example.com",
+                    DisplayName = "Member Removal User",
+                    Role = UserRole.User,
+                    IsActive = true,
+                    IsEmailConfirmed = true,
+                    CreatedAt = DateTime.UtcNow
+                });
+            setupContext.Projects.Add(project);
+            setupContext.ProjectTasks.Add(task);
+            await setupContext.SaveChangesAsync();
+        }
+
+        await using (var responseScope = _factory.Services.CreateAsyncScope())
+        {
+            var responseContext = responseScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var service = new DatabaseProjectMembershipApplicationService(
+                responseContext,
+                new EfProjectMembershipStore(responseContext),
+                responseScope.ServiceProvider.GetRequiredService<INotificationService>());
+
+            var result = await service.RemoveProjectMemberAsync(ownerId, projectId, memberId);
+
+            Assert.True(result.IsSuccess);
+        }
+
+        await using var verificationScope = _factory.Services.CreateAsyncScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.False(await verificationContext.ProjectMembers.AnyAsync(member => member.ProjectId == projectId && member.UserId == memberId));
+        var persistedTask = await verificationContext.ProjectTasks.SingleAsync(task => task.Id == taskId);
+        Assert.Null(persistedTask.AssignedUserId);
+        Assert.Equal(1, await verificationContext.ProjectActivities.CountAsync(activity =>
+            activity.ProjectId == projectId && activity.Type == "member.removed"));
+    }
+
     private async Task SeedUserAsync()
     {
         await using var scope = _factory.Services.CreateAsyncScope();

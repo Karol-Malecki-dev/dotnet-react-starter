@@ -63,6 +63,16 @@ public sealed class EfProjectMembershipStore : IProjectMembershipStore
     public Task<bool> IsMemberAsync(Guid projectId, Guid userId, CancellationToken cancellationToken = default)
         => _dbContext.ProjectMembers.AnyAsync(member => member.ProjectId == projectId && member.UserId == userId, cancellationToken);
 
+    public async Task<IProjectTransaction?> BeginTransactionAsync(CancellationToken cancellationToken = default)
+    {
+        if (!_dbContext.Database.IsRelational())
+        {
+            return null;
+        }
+
+        return new EfProjectTransaction(await _dbContext.Database.BeginTransactionAsync(cancellationToken));
+    }
+
     public Task<ProjectMember?> GetMemberWithUserAsync(Guid projectId, Guid userId, CancellationToken cancellationToken = default)
         => _dbContext.ProjectMembers
             .Include(member => member.User)
