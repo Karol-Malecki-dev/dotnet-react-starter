@@ -1,5 +1,6 @@
 using Domain.Entities;
 using Domain.Enums;
+using Domain.ValueObjects;
 using Infrastructure.Data;
 using Infrastructure.Services;
 using Microsoft.AspNetCore.DataProtection;
@@ -23,10 +24,10 @@ public class DatabaseAuthServiceLockoutTests
 
         var service = CreateService(dbContext, maxFailedLoginAttempts: 3);
 
-        Assert.Null(await service.AuthenticateAsync(user.Email, "wrong-password"));
-        Assert.Null(await service.AuthenticateAsync(user.Email, "wrong-password"));
-        Assert.Null(await service.AuthenticateAsync(user.Email, "wrong-password"));
-        Assert.Null(await service.AuthenticateAsync(user.Email, "correct-password"));
+        Assert.Null(await service.AuthenticateAsync(user.Email.Value, "wrong-password"));
+        Assert.Null(await service.AuthenticateAsync(user.Email.Value, "wrong-password"));
+        Assert.Null(await service.AuthenticateAsync(user.Email.Value, "wrong-password"));
+        Assert.Null(await service.AuthenticateAsync(user.Email.Value, "correct-password"));
 
         var lockedUser = await dbContext.Users.AsNoTracking().SingleAsync();
         Assert.Equal(3, lockedUser.FailedLoginAttempts);
@@ -44,7 +45,7 @@ public class DatabaseAuthServiceLockoutTests
 
         var service = CreateService(dbContext, maxFailedLoginAttempts: 3);
 
-        var authenticatedUser = await service.AuthenticateAsync(user.Email, "correct-password");
+        var authenticatedUser = await service.AuthenticateAsync(user.Email.Value, "correct-password");
 
         Assert.NotNull(authenticatedUser);
         var updatedUser = await dbContext.Users.AsNoTracking().SingleAsync();
@@ -64,7 +65,7 @@ public class DatabaseAuthServiceLockoutTests
 
         var service = CreateService(dbContext, maxFailedLoginAttempts: 3);
 
-        var authenticatedUser = await service.AuthenticateAsync(user.Email, "correct-password");
+        var authenticatedUser = await service.AuthenticateAsync(user.Email.Value, "correct-password");
 
         Assert.NotNull(authenticatedUser);
         var updatedUser = await dbContext.Users.AsNoTracking().SingleAsync();
@@ -125,7 +126,7 @@ public class DatabaseAuthServiceLockoutTests
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Email = email,
+            Email = EmailAddress.Create(email),
             DisplayName = "Test User",
             Role = UserRole.User,
             IsActive = true,

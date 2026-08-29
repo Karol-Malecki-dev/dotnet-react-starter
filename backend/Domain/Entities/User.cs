@@ -1,4 +1,5 @@
 ﻿using Domain.Enums;
+using Domain.ValueObjects;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -13,8 +14,8 @@ namespace Domain.Entities
         /// <summary>Unique identifier for the user (primary key)</summary>
         public Guid Id { get; set; }
 
-        /// <summary>User's email address; used for login and communication (must be unique)</summary>
-        public string Email { get; set; } = string.Empty;
+        /// <summary>User's normalized email address; used for login and communication (must be unique)</summary>
+        public EmailAddress Email { get; set; } = null!;
 
         /// <summary>BCrypt hashed password for secure authentication</summary>
         public string PasswordHash { get; set; } = string.Empty;

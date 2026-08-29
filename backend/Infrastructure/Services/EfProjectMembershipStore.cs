@@ -31,17 +31,29 @@ public sealed class EfProjectMembershipStore : IProjectMembershipStore
             && (project.OwnerId == userId || project.Members.Any(member => member.UserId == userId && member.User.IsActive)), cancellationToken);
 
     public async Task<IReadOnlyList<ProjectMemberView>> GetMembersAsync(Guid projectId, CancellationToken cancellationToken = default)
-        => await _dbContext.ProjectMembers
+    {
+        var members = await _dbContext.ProjectMembers
             .AsNoTracking()
             .Where(member => member.ProjectId == projectId && member.User.IsActive)
             .OrderBy(member => member.User.DisplayName)
-            .Select(member => new ProjectMemberView(
+            .Select(member => new
+            {
                 member.UserId,
                 member.User.DisplayName,
-                member.User.Email,
+                Email = member.User.Email,
+                member.Role,
+                member.AddedAt })
+            .ToListAsync(cancellationToken);
+
+        return members
+            .Select(member => new ProjectMemberView(
+                member.UserId,
+                member.DisplayName,
+                member.Email.Value,
                 member.Role,
                 member.AddedAt))
-            .ToListAsync(cancellationToken);
+            .ToList();
+    }
 
     public async Task<IReadOnlyList<ProjectMemberUserView>> GetAvailableUsersAsync(Guid projectId, CancellationToken cancellationToken = default)
     {
@@ -49,12 +61,15 @@ public sealed class EfProjectMembershipStore : IProjectMembershipStore
             .Where(member => member.ProjectId == projectId)
             .Select(member => member.UserId);
 
-        return await _dbContext.Users
+        var users = await _dbContext.Users
             .AsNoTracking()
             .Where(user => user.IsActive && !memberIds.Contains(user.Id))
             .OrderBy(user => user.DisplayName)
-            .Select(user => new ProjectMemberUserView(user.Id, user.DisplayName, user.Email))
             .ToListAsync(cancellationToken);
+
+        return users
+            .Select(user => new ProjectMemberUserView(user.Id, user.DisplayName, user.Email.Value))
+            .ToList();
     }
 
     public Task<User?> GetActiveUserAsync(Guid userId, CancellationToken cancellationToken = default)

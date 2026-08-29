@@ -2,6 +2,7 @@ using Application.DTOs.Auth;
 using API.Contracts.Projects;
 using Domain.Entities;
 using Domain.Enums;
+using Domain.ValueObjects;
 using Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
@@ -90,7 +91,7 @@ public sealed class ProjectInvitationsApiIntegrationTests
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Email = email,
+            Email = EmailAddress.Create(email),
             DisplayName = displayName,
             Role = UserRole.User,
             IsActive = true,

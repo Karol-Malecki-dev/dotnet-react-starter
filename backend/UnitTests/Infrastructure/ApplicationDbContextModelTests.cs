@@ -1,6 +1,7 @@
 using Domain.Entities;
 using Domain.Entities.Auth;
 using Domain.Entities.JWT;
+using Domain.ValueObjects;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -46,6 +47,33 @@ public sealed class ApplicationDbContextModelTests
         Assert.Equal(256, user.FindProperty(nameof(User.Email))!.GetMaxLength());
         Assert.Contains(user.GetIndexes(), index =>
             index.IsUnique && index.Properties.Single().Name == nameof(User.Email));
+    }
+
+    [Fact]
+    public async Task User_email_converter_persists_canonical_value()
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase($"email-converter-{Guid.NewGuid():N}")
+            .Options;
+
+        await using (var context = new ApplicationDbContext(options))
+        {
+            context.Users.Add(new User
+            {
+                Id = Guid.NewGuid(),
+                Email = EmailAddress.Create(" User@Example.com "),
+                DisplayName = "Email Converter User",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            });
+
+            await context.SaveChangesAsync();
+        }
+
+        await using var verificationContext = new ApplicationDbContext(options);
+        var user = await verificationContext.Users.SingleAsync();
+
+        Assert.Equal("user@example.com", user.Email.Value);
     }
 
     [Fact]

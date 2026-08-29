@@ -63,7 +63,7 @@ Procent opisuje realizację głównych obszarów danego etapu, a nie liczbę lin
 |---|---:|---|---|
 | V1 | 100% | Ukończony | Fundament aplikacji, testy i lokalny workflow są dostępne. |
 | V2 | 96% | Ukończony dla bieżącego zakresu | Hardening auth, API, async i konfiguracji jest zwalidowany; pozostały drobne follow-upy porządkowe. |
-| V3 | 40% | W toku | `Project` i `ProjectMember` mają wyraźniejszą granicę agregatu, `ProjectTask` został rozstrzygnięty jako osobny agregat, akceptacja zaproszeń ma transakcję i concurrency z testami PostgreSQL, a dashboard używa agregacji SQL, zakresów dat i potwierdzonego indeksu PostgreSQL; pozostały kolejne agregaty oraz benchmarki obciążeniowe. |
+| V3 | 40% | W toku | `Project` i `ProjectMember` mają wyraźniejszą granicę agregatu, `ProjectTask` został rozstrzygnięty jako osobny agregat, akceptacja zaproszeń ma transakcję i concurrency z testami PostgreSQL, dashboard używa agregacji SQL, zakresów dat i potwierdzonego indeksu PostgreSQL, a `User.Email` korzysta z przetestowanego domenowego value objectu z konwersją EF do tekstu; pozostały kolejne agregaty oraz benchmarki obciążeniowe. |
 | V4 | 28% | Fundamenty | Istnieją workflowy, załączniki, activity i quick search; brak pełnego audytu, search workspace i browser E2E. |
 | V5 | 41% | W toku | Działają Docker, CI, obrazy i lokalny Compose; brak realnego staging/production, backupu i rollbacku. |
 | V6 | 13% | Planowany | Istnieją podstawy EF, PostgreSQL i workerów; brak baseline'ów, load testów i pomiarów. |

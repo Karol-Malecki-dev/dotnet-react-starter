@@ -3,6 +3,7 @@ using Application.Interfaces;
 using API.Contracts.Projects;
 using Domain.Entities;
 using Domain.Enums;
+using Domain.ValueObjects;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
@@ -592,7 +593,7 @@ public class ProjectTasksApiIntegrationTests
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Email = email,
+            Email = EmailAddress.Create(email),
             DisplayName = displayName,
             Role = UserRole.User,
             IsActive = true,

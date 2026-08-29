@@ -2,6 +2,7 @@ using Application.Features.Projects;
 using Application.Interfaces;
 using Domain.Entities;
 using Domain.Enums;
+using Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using System.Security.Cryptography;
@@ -37,8 +38,12 @@ public sealed class DatabaseProjectInvitationApplicationService : IProjectInvita
             return ProjectOperationResult<CreatedProjectInvitationView>.Failure(ProjectOperationStatus.ValidationError, "Invitation role must be Member or Viewer");
         }
 
-        var email = command.Email.Trim();
-        var invitedUser = await _invitationStore.GetActiveUserByEmailAsync(email, cancellationToken);
+        if (!EmailAddress.TryCreate(command.Email, out var emailAddress) || emailAddress is null)
+        {
+            return ProjectOperationResult<CreatedProjectInvitationView>.Failure(ProjectOperationStatus.ValidationError, "Invitation email has an invalid format");
+        }
+
+        var invitedUser = await _invitationStore.GetActiveUserByEmailAsync(emailAddress.Value, cancellationToken);
         if (invitedUser is null)
         {
             return ProjectOperationResult<CreatedProjectInvitationView>.Failure(ProjectOperationStatus.NotFound, "An active user with this email was not found");
@@ -208,7 +213,7 @@ public sealed class DatabaseProjectInvitationApplicationService : IProjectInvita
             projectName,
             invitation.InvitedUserId,
             invitedUser.DisplayName,
-            invitedUser.Email,
+            invitedUser.Email.Value,
             invitedByDisplayName,
             invitation.Role,
             invitation.Status == ProjectInvitationStatus.Pending && invitation.ExpiresAt <= DateTime.UtcNow ? ProjectInvitationStatus.Expired : invitation.Status,

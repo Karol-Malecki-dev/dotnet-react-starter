@@ -21,7 +21,7 @@ namespace Application.Services
         private static readonly User TestUser = new()
         {
             Id = Guid.Parse("550e8400-e29b-41d4-a716-446655440000"),
-            Email = "test@example.com",
+            Email = EmailAddress.Create("test@example.com"),
             DisplayName = "Test User",
             Role = Domain.Enums.UserRole.User,
             IsActive = true,
@@ -40,7 +40,10 @@ namespace Application.Services
             _logger.LogInformation("🔐 Mock authentication attempt: {Email}", email);
 
             // Mock: accept any password for test@example.com
-            if (email == TestUser.Email && password == "password123")
+            if (EmailAddress.TryCreate(email, out var normalizedEmail)
+                && normalizedEmail is not null
+                && normalizedEmail == TestUser.Email
+                && password == "password123")
             {
                 _logger.LogInformation("✓ Mock authentication successful");
                 return await Task.FromResult(TestUser);
@@ -58,7 +61,7 @@ namespace Application.Services
             var newUser = new User
             {
                 Id = Guid.NewGuid(),
-                Email = email,
+                Email = EmailAddress.Create(email),
                 DisplayName = displayName,
                 Role = Domain.Enums.UserRole.User,
                 IsActive = true,
@@ -79,7 +82,10 @@ namespace Application.Services
 
         public async Task<bool> UserExistsAsync(string email, CancellationToken cancellationToken = default)
         {
-            return await Task.FromResult(email == TestUser.Email);
+            return await Task.FromResult(
+                EmailAddress.TryCreate(email, out var normalizedEmail)
+                && normalizedEmail is not null
+                && normalizedEmail == TestUser.Email);
         }
 
         public async Task<bool> IsEmailConfirmedAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -94,7 +100,11 @@ namespace Application.Services
 
         public async Task<string?> GeneratePasswordResetTokenAsync(string email, CancellationToken cancellationToken = default)
         {
-            return await Task.FromResult(email == TestUser.Email ? Guid.NewGuid().ToString() : null);
+            return await Task.FromResult(
+                EmailAddress.TryCreate(email, out var normalizedEmail)
+                && normalizedEmail is not null
+                    ? Guid.NewGuid().ToString()
+                    : null);
         }
 
         public async Task<bool> ResetPasswordAsync(string email, string resetToken, string newPassword, CancellationToken cancellationToken = default)
@@ -117,7 +127,10 @@ namespace Application.Services
         public async Task<bool> ConfirmEmailConfirmedAsync(string email, CancellationToken cancellationToken = default)
         {
             _logger.LogInformation("✉️ Mock email confirmation check for {Email}", email);
-            return await Task.FromResult(email == TestUser.Email);
+            return await Task.FromResult(
+                EmailAddress.TryCreate(email, out var normalizedEmail)
+                && normalizedEmail is not null
+                && normalizedEmail == TestUser.Email);
         }
 
         public Task<EmailTwoFactorChallengeDelivery?> CreateEmailTwoFactorChallengeAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -130,7 +143,7 @@ namespace Application.Services
             return Task.FromResult<EmailTwoFactorChallengeDelivery?>(new EmailTwoFactorChallengeDelivery(
                 Guid.NewGuid(),
                 TestUser.Id,
-                TestUser.Email,
+                TestUser.Email.Value,
                 TestUser.DisplayName,
                 "123456",
                 DateTime.UtcNow.AddMinutes(10)));
@@ -151,7 +164,7 @@ namespace Application.Services
             return Task.FromResult<EmailTwoFactorChallengeDelivery?>(new EmailTwoFactorChallengeDelivery(
                 challengeId,
                 TestUser.Id,
-                TestUser.Email,
+                TestUser.Email.Value,
                 TestUser.DisplayName,
                 "654321",
                 DateTime.UtcNow.AddMinutes(10)));
@@ -201,7 +214,10 @@ namespace Application.Services
         public async Task<bool> SendPasswordResetEmailAsync(string email, CancellationToken cancellationToken = default)
         {
             _logger.LogInformation("📨 Mock forgot password for {Email}", email);
-            return await Task.FromResult(email == TestUser.Email);
+            return await Task.FromResult(
+                EmailAddress.TryCreate(email, out var normalizedEmail)
+                && normalizedEmail is not null
+                && normalizedEmail == TestUser.Email);
         }
     }
 }

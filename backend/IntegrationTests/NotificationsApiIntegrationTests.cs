@@ -2,6 +2,7 @@ using Application.DTOs.Auth;
 using Application.DTOs.Notification;
 using Domain.Entities;
 using Domain.Enums;
+using Domain.ValueObjects;
 using Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -190,7 +191,7 @@ public sealed class NotificationsApiIntegrationTests
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Email = email,
+            Email = EmailAddress.Create(email),
             DisplayName = displayName,
             Role = UserRole.User,
             IsActive = true,

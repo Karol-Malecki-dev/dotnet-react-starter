@@ -2,6 +2,7 @@
 using Application.DTOs.User;
 using Application.Interfaces;
 using Domain.Enums;
+using Domain.ValueObjects;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Org.BouncyCastle.Ocsp;
@@ -67,7 +68,7 @@ namespace Infrastructure.Services
             var result = new AdminUserDetailsDto
             {
                 Id = user.Id,
-                Email = user.Email,
+                Email = user.Email.Value,
                 DisplayName = user.DisplayName,
                 AvatarUrl = user.AvatarUrl,
                 IsActive = user.IsActive,
@@ -83,14 +84,12 @@ namespace Infrastructure.Services
 
         public async Task<ApiResponse<AdminUserDetailsDto>> GetUserDetailsByEmailAsync(string email, CancellationToken cancellationToken = default)
         {
-            if (string.IsNullOrWhiteSpace(email))
+            if (!EmailAddress.TryCreate(email, out var normalizedEmail) || normalizedEmail is null)
                 return ApiResponse<AdminUserDetailsDto>.Error(400, "Email is required");
-
-            var normalized = email.Trim().ToLowerInvariant();
 
             var user = await _dbContext.Users
                 .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Email.ToLower() == normalized, cancellationToken);
+                .FirstOrDefaultAsync(u => u.Email == normalizedEmail, cancellationToken);
 
             if (user == null)
                 return ApiResponse<AdminUserDetailsDto>.Error(404, "User not found");
@@ -98,7 +97,7 @@ namespace Infrastructure.Services
             var result = new AdminUserDetailsDto
             {
                 Id = user.Id,
-                Email = user.Email,
+                Email = user.Email.Value,
                 DisplayName = user.DisplayName,
                 AvatarUrl = user.AvatarUrl,
                 IsActive = user.IsActive,
@@ -125,12 +124,18 @@ namespace Infrastructure.Services
 
             if(request.Emails is not null && request.Emails.Count > 0)
             {
-                var normalizedEmails = request.Emails.
-                Where(e => !string.IsNullOrWhiteSpace(e)).
-                Select(e => e.Trim().ToLowerInvariant()).
-                ToList();
+                var normalizedEmails = new List<EmailAddress>();
+                foreach (var candidate in request.Emails)
+                {
+                    if (EmailAddress.TryCreate(candidate, out var normalizedEmail) && normalizedEmail is not null)
+                    {
+                        normalizedEmails.Add(normalizedEmail);
+                    }
+                }
 
-                query = query.Where(u => normalizedEmails.Contains(u.Email.ToLowerInvariant()));
+                query = normalizedEmails.Count == 0
+                    ? query.Where(_ => false)
+                    : query.Where(u => normalizedEmails.Contains(u.Email));
             }
             
             if (request.Roles is not null && request.Roles.Count > 0) 
@@ -159,19 +164,21 @@ namespace Infrastructure.Services
                 .OrderBy(u => u.DisplayName)
                 .Skip((safePageNumber - 1) * safePageSize)
                 .Take(safePageSize)
-                .Select(u => new AdminUserListItemDto
-                {
-                    Id = u.Id,
-                    Email = u.Email,
-                    DisplayName = u.DisplayName,
-                    Role = u.Role.ToString(),
-                    IsActive = u.IsActive,
-                    IsEmailConfirmed = u.IsEmailConfirmed,
-                    CreatedAt = u.CreatedAt
-                })
                 .ToListAsync(cancellationToken);
+
+            var userDtos = users.Select(u => new AdminUserListItemDto
+            {
+                Id = u.Id,
+                Email = u.Email.Value,
+                DisplayName = u.DisplayName,
+                Role = u.Role.ToString(),
+                IsActive = u.IsActive,
+                IsEmailConfirmed = u.IsEmailConfirmed,
+                CreatedAt = u.CreatedAt
+            }).ToList();
+
             // return empty list as success when no items match the filter
-            return ApiResponse<List<AdminUserListItemDto>>.Success(users);
+            return ApiResponse<List<AdminUserListItemDto>>.Success(userDtos);
         }
 
         //Update
@@ -184,12 +191,14 @@ namespace Infrastructure.Services
             // basic validation and normalization
             if (!string.IsNullOrWhiteSpace(dto.Email))
             {
-                var normalized = dto.Email.Trim().ToLowerInvariant();
-                var emailInUse = await _dbContext.Users.AnyAsync(u => u.Email.ToLower() == normalized && u.Id != userId, cancellationToken);
+                if (!EmailAddress.TryCreate(dto.Email, out var normalizedEmail) || normalizedEmail is null)
+                    return ApiResponse<AdminUserDetailsDto>.Error(400, "Email has an invalid format");
+
+                var emailInUse = await _dbContext.Users.AnyAsync(u => u.Email == normalizedEmail && u.Id != userId, cancellationToken);
                 if (emailInUse)
                     return ApiResponse<AdminUserDetailsDto>.Error(400, "User with this email already exists");
 
-                user.Email = dto.Email.Trim();
+                user.Email = normalizedEmail;
             }
 
             if (!string.IsNullOrWhiteSpace(dto.DisplayName))
@@ -206,7 +215,7 @@ namespace Infrastructure.Services
             var result = new AdminUserDetailsDto
             {
                 Id = user.Id,
-                Email = user.Email,
+                Email = user.Email.Value,
                 DisplayName = user.DisplayName,
                 AvatarUrl = user.AvatarUrl,
                 IsActive = user.IsActive,
@@ -231,7 +240,7 @@ namespace Infrastructure.Services
             var result = new AdminUserDetailsDto
             {
                 Id = user.Id,
-                Email = user.Email,
+                Email = user.Email.Value,
                 DisplayName = user.DisplayName,
                 AvatarUrl = user.AvatarUrl,
                 IsActive = user.IsActive,
@@ -257,7 +266,7 @@ namespace Infrastructure.Services
             var result = new AdminUserDetailsDto
             {
                 Id = user.Id,
-                Email = user.Email,
+                Email = user.Email.Value,
                 DisplayName = user.DisplayName,
                 AvatarUrl = user.AvatarUrl,
                 IsActive = user.IsActive,
@@ -283,7 +292,7 @@ namespace Infrastructure.Services
             var result = new AdminUserDetailsDto
             {
                 Id = user.Id,
-                Email = user.Email,
+                Email = user.Email.Value,
                 DisplayName = user.DisplayName,
                 AvatarUrl = user.AvatarUrl,
                 IsActive = user.IsActive,
@@ -307,7 +316,7 @@ namespace Infrastructure.Services
             var result = new AdminUserDetailsDto
             {
                 Id = user.Id,
-                Email = user.Email,
+                Email = user.Email.Value,
                 DisplayName = user.DisplayName,
                 AvatarUrl = user.AvatarUrl,
                 IsActive = user.IsActive,

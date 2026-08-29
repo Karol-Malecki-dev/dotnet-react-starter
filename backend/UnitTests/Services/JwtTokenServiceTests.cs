@@ -1,6 +1,7 @@
 using Domain.Entities;
 using Domain.Entities.JWT;
 using Domain.Enums;
+using Domain.ValueObjects;
 using Infrastructure.Data;
 using Infrastructure.Services;
 using Microsoft.AspNetCore.Http;
@@ -37,7 +38,7 @@ public class JwtTokenServiceTests
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Email = "tokenuser@example.com",
+            Email = EmailAddress.Create("tokenuser@example.com"),
             DisplayName = "Token User",
             Role = UserRole.User,
             IsEmailConfirmed = true
@@ -62,7 +63,7 @@ public class JwtTokenServiceTests
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Email = "verify@example.com",
+            Email = EmailAddress.Create("verify@example.com"),
             DisplayName = "Verify User",
             Role = UserRole.User,
             IsEmailConfirmed = true
@@ -72,7 +73,7 @@ public class JwtTokenServiceTests
         var principal = await service.ValidateTokenAsync(tokens.AccessToken);
 
         Assert.NotNull(principal);
-        Assert.Equal(user.Email, principal!.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value);
+        Assert.Equal(user.Email.Value, principal!.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value);
         Assert.Equal(user.Id.ToString(), principal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value);
     }
 
@@ -110,7 +111,7 @@ public class JwtTokenServiceTests
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Email = "refresh@example.com",
+            Email = EmailAddress.Create("refresh@example.com"),
             DisplayName = "Refresh User",
             Role = UserRole.User,
             IsActive = true,
@@ -140,7 +141,7 @@ public class JwtTokenServiceTests
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Email = "current-state@example.com",
+            Email = EmailAddress.Create("current-state@example.com"),
             DisplayName = "Original Name",
             Role = UserRole.User,
             IsActive = true,
@@ -168,7 +169,7 @@ public class JwtTokenServiceTests
 
         Assert.Equal(originalToken.FamilyId, successorToken.FamilyId);
         Assert.Equal(user.Id, successorToken.UserId);
-        Assert.Equal(user.Email, successorToken.UserEmail);
+        Assert.Equal(user.Email.Value, successorToken.UserEmail);
         Assert.Equal(user.DisplayName, successorToken.UserDisplayName);
         Assert.Equal(user.Role, successorToken.UserRole);
         Assert.Equal(user.IsEmailConfirmed, successorToken.IsEmailConfirmed);
@@ -184,7 +185,7 @@ public class JwtTokenServiceTests
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Email = "inactive-refresh@example.com",
+            Email = EmailAddress.Create("inactive-refresh@example.com"),
             DisplayName = "Inactive Refresh User",
             Role = UserRole.User,
             IsActive = true,
@@ -214,7 +215,7 @@ public class JwtTokenServiceTests
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Email = "revoke@example.com",
+            Email = EmailAddress.Create("revoke@example.com"),
             DisplayName = "Revoke User",
             Role = UserRole.User,
             IsEmailConfirmed = true
@@ -239,7 +240,7 @@ public class JwtTokenServiceTests
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Email = "active-refresh@example.com",
+            Email = EmailAddress.Create("active-refresh@example.com"),
             DisplayName = "Active Refresh User",
             Role = UserRole.User,
             IsEmailConfirmed = true
@@ -262,7 +263,7 @@ public class JwtTokenServiceTests
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Email = "revoked-refresh@example.com",
+            Email = EmailAddress.Create("revoked-refresh@example.com"),
             DisplayName = "Revoked Refresh User",
             Role = UserRole.User,
             IsEmailConfirmed = true
@@ -287,7 +288,7 @@ public class JwtTokenServiceTests
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Email = "reuse-refresh@example.com",
+            Email = EmailAddress.Create("reuse-refresh@example.com"),
             DisplayName = "Reuse Refresh User",
             Role = UserRole.User,
             IsActive = true,
@@ -319,7 +320,7 @@ public class JwtTokenServiceTests
             var user = new User
             {
                 Id = Guid.NewGuid(),
-                Email = "concurrent-refresh@example.com",
+                Email = EmailAddress.Create("concurrent-refresh@example.com"),
                 DisplayName = "Concurrent Refresh User",
                 Role = UserRole.User,
                 IsActive = true,
