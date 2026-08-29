@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { authApi, notificationApi, userApi } from '../services/api';
 import type { AuthUser, AuthenticatorSetup, UpdateUserRequest, UserSecurity } from '../types';
@@ -25,7 +26,8 @@ function createProfileState(user: AuthUser | null) {
 }
 
 export default function Profile() {
-  const { user, tokens, updateProfile, changePassword } = useAuth();
+  const { user, tokens, updateProfile, changePassword, logoutAll } = useAuth();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState(() => createProfileState(user));
   const [passwords, setPasswords] = useState({
     currentPassword: '',
@@ -34,6 +36,7 @@ export default function Profile() {
   });
   const [savingProfile, setSavingProfile] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
+  const [loggingOutAll, setLoggingOutAll] = useState(false);
   const [profileMessage, setProfileMessage] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
@@ -223,6 +226,25 @@ export default function Profile() {
       );
     } finally {
       setChangingPassword(false);
+    }
+  };
+
+  const handleLogoutAll = async () => {
+    setLoggingOutAll(true);
+    setSecurityMessage(null);
+    setSecurityError(null);
+
+    try {
+      await logoutAll();
+      navigate('/login', { replace: true });
+    } catch (caughtError) {
+      setSecurityError(
+        getApiErrorMessage(caughtError, {
+          defaultMessage: 'Unable to sign out of all sessions right now.',
+        }),
+      );
+    } finally {
+      setLoggingOutAll(false);
     }
   };
 
@@ -616,6 +638,18 @@ export default function Profile() {
                 {securityMessage ? <p className="form__success">{securityMessage}</p> : null}
               </div>
             ) : null}
+            <div className="stack stack--tight">
+              <h3>Active sessions</h3>
+              <p className="page-note">Revoke refresh sessions on every device. Existing access tokens expire normally.</p>
+              <button
+                className="button button--danger"
+                type="button"
+                onClick={() => void handleLogoutAll()}
+                disabled={loggingOutAll}
+              >
+                {loggingOutAll ? 'Signing out...' : 'Sign out all sessions'}
+              </button>
+            </div>
           </article>
 
           <article className="card stack">
