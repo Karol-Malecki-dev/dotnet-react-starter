@@ -25,8 +25,8 @@ public sealed class ProjectMembershipServiceTests
         var ownerId = Guid.NewGuid();
         var projectId = Guid.NewGuid();
         var userId = Guid.NewGuid();
-        _membershipStore.Setup(store => store.OwnedProjectExistsAsync(ownerId, projectId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
+        _membershipStore.Setup(store => store.GetOwnedProjectWithMembersAsync(ownerId, projectId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Project.Create(ownerId, "Project"));
         _membershipStore.Setup(store => store.GetActiveUserAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new User { Id = userId, DisplayName = "Member", Email = "member@example.com" });
         _membershipStore.Setup(store => store.IsMemberAsync(projectId, userId, It.IsAny<CancellationToken>()))
@@ -44,8 +44,8 @@ public sealed class ProjectMembershipServiceTests
     {
         var ownerId = Guid.NewGuid();
         var projectId = Guid.NewGuid();
-        _membershipStore.Setup(store => store.OwnedProjectExistsAsync(ownerId, projectId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
+        _membershipStore.Setup(store => store.GetOwnedProjectWithMembersAsync(ownerId, projectId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Project.Create(ownerId, "Project"));
         var service = CreateService();
 
         var result = await service.UpdateProjectMemberRoleAsync(ownerId, projectId, ownerId, ProjectMemberRole.Viewer);
@@ -59,8 +59,8 @@ public sealed class ProjectMembershipServiceTests
     {
         var ownerId = Guid.NewGuid();
         var projectId = Guid.NewGuid();
-        _membershipStore.Setup(store => store.OwnedProjectExistsAsync(ownerId, projectId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
+        _membershipStore.Setup(store => store.GetOwnedProjectWithMembersAsync(ownerId, projectId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Project.Create(ownerId, "Project"));
         var service = CreateService();
 
         var result = await service.RemoveProjectMemberAsync(ownerId, projectId, ownerId);

@@ -8,6 +8,7 @@ namespace Application.Features.Projects;
 public interface IProjectMembershipStore
 {
     Task<bool> OwnedProjectExistsAsync(Guid ownerId, Guid projectId, CancellationToken cancellationToken = default);
+    Task<Project?> GetOwnedProjectWithMembersAsync(Guid ownerId, Guid projectId, CancellationToken cancellationToken = default);
     Task<bool> HasProjectAccessAsync(Guid userId, Guid projectId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ProjectMemberView>> GetMembersAsync(Guid projectId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ProjectMemberUserView>> GetAvailableUsersAsync(Guid projectId, CancellationToken cancellationToken = default);

@@ -18,15 +18,15 @@ Stan na: **2026-08-29**.
 
 | Obszar | Postęp | Status i dowód |
 |---|---:|---|
-| 1. Granica agregatu projektu | 25% | Istnieje częściowa enkapsulacja `ProjectTask`; granice `Project` i `ProjectMember` nie są jeszcze rozstrzygnięte. |
+| 1. Granica agregatu projektu | 60% | `Project` chroni członkostwo przez metody domenowe, automatycznie tworzy właściciela i ma prywatne settery; granica zadań nadal wymaga osobnego rozstrzygnięcia. |
 | 2. Model użytkownika i value objects | 10% | Istnieją wybrane value objects, ale model użytkownika nie został jeszcze konsekwentnie rozdzielony. |
 | 3. Application services i porty | 50% | Warstwy i feature-specific ports istnieją; część odpowiedzialności nadal wymaga doprecyzowania. |
 | 4. Mapping i kontrakty | 50% | DTO i kontrakty HTTP są obecne oraz dokumentowane; pełne rozdzielenie modeli nie jest zakończone. |
-| 5. Transakcje i partial failure | 20% | Istnieją wieloetapowe przypadki użycia, ale ich punkty atomowości i kompensacji nie są jeszcze opisane systemowo. |
-| 6. Optimistic concurrency | 10% | Concurrency jest rozwiązane dla refresh tokenów; brakuje tokenów wersji i konfliktów `409` dla domeny. |
-| 7. Zapytania dashboardu | 20% | Dashboard i query stores istnieją, ale nie ma jeszcze udokumentowanego pomiaru i optymalizacji planów SQL. |
+| 5. Transakcje i partial failure | 45% | Akceptacja zaproszenia ma relacyjną granicę transakcji obejmującą członkostwo, aktywność, powiadomienie i outbox; pozostałe przypadki wieloetapowe wymagają decyzji. |
+| 6. Optimistic concurrency | 50% | `Project` i `ProjectInvitation` mają tokeny wersji, konflikty są mapowane na `409`, a wyścig akceptacji jest testowany na PostgreSQL. |
+| 7. Zapytania dashboardu | 45% | Statystyki dashboardu są agregowane po stronie SQL, a listy overdue/upcoming są pobierane limitowanymi zapytaniami; pomiar planów SQL nadal wymaga wykonania. |
 
-**Postęp V3: 26%**.
+**Postęp V3: 39%**.
 
 Procent obejmuje istniejące fundamenty, nie samą liczbę klas lub endpointów. V3 nie jest jeszcze etapem ukończonym.
 
@@ -112,6 +112,7 @@ Nie trzeba dodawać concurrency tokenu do każdej tabeli. Wybór powinien wynika
 ### Integration tests
 
 - transakcja akceptacji zaproszenia nie zostawia częściowego członkostwa;
+- równoległa akceptacja tego samego zaproszenia kończy się jednym sukcesem i jednym `409`;
 - błąd zapisu notification/outbox ma ustaloną reakcję;
 - dwa zapisy tej samej wersji zwracają jeden sukces i jeden `409`;
 - constrainty bazy blokują duplikaty;

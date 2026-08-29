@@ -207,14 +207,8 @@ public sealed class NotificationsApiIntegrationTests
     {
         await using var scope = _factory.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var project = new Project { OwnerId = ownerId, Name = name };
+        var project = Project.Create(ownerId, name);
         dbContext.Projects.Add(project);
-        dbContext.ProjectMembers.Add(new ProjectMember
-        {
-            ProjectId = project.Id,
-            UserId = ownerId,
-            Role = ProjectMemberRole.Owner
-        });
         await dbContext.SaveChangesAsync();
         return project.Id;
     }

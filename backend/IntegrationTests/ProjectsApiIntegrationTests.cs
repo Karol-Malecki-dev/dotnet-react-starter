@@ -65,6 +65,42 @@ public class ProjectsApiIntegrationTests
     }
 
     [Fact]
+    public async Task Project_update_rejects_a_stale_concurrency_stamp()
+    {
+        var ownerId = await SeedUserAsync("project.concurrency-owner@example.com", "password123", "Concurrency Owner");
+        var projectId = await SeedProjectAsync(ownerId, "Concurrency project");
+        var tokens = await LoginAsync("project.concurrency-owner@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+
+        var projectResponse = await _client.GetAsync($"/api/projects/{projectId}");
+        projectResponse.EnsureSuccessStatusCode();
+        var project = await projectResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectResponse>>();
+        Assert.NotNull(project?.Data);
+        Assert.False(string.IsNullOrWhiteSpace(project.Data.ConcurrencyStamp));
+
+        var firstUpdateResponse = await _client.PutAsJsonAsync($"/api/projects/{projectId}", new
+        {
+            Name = "First update",
+            Description = "The current version wins",
+            ConcurrencyStamp = project.Data.ConcurrencyStamp
+        });
+        Assert.Equal(HttpStatusCode.OK, firstUpdateResponse.StatusCode);
+
+        var staleUpdateResponse = await _client.PutAsJsonAsync($"/api/projects/{projectId}", new
+        {
+            Name = "Stale update",
+            Description = "This must be rejected",
+            ConcurrencyStamp = project.Data.ConcurrencyStamp
+        });
+        Assert.Equal(HttpStatusCode.Conflict, staleUpdateResponse.StatusCode);
+
+        var currentProjectResponse = await _client.GetAsync($"/api/projects/{projectId}");
+        currentProjectResponse.EnsureSuccessStatusCode();
+        var currentProject = await currentProjectResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectResponse>>();
+        Assert.Equal("First update", currentProject?.Data?.Name);
+    }
+
+    [Fact]
     public async Task User_cannot_access_another_users_project_and_can_archive_their_own_project()
     {
         var ownerId = await SeedUserAsync("project.archive-owner@example.com", "password123", "Archive Owner");
@@ -224,11 +260,7 @@ public class ProjectsApiIntegrationTests
     {
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var project = new Project
-        {
-            OwnerId = ownerId,
-            Name = name
-        };
+        var project = Project.Create(ownerId, name);
 
         dbContext.Projects.Add(project);
         await dbContext.SaveChangesAsync();

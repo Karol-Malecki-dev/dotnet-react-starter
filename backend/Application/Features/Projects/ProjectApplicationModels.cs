@@ -29,7 +29,7 @@ public sealed record ProjectOperationResult<T>(
 
 public sealed record CreateProjectCommand(Guid OwnerId, string Name, string? Description);
 
-public sealed record UpdateProjectCommand(Guid OwnerId, Guid ProjectId, string Name, string? Description);
+public sealed record UpdateProjectCommand(Guid OwnerId, Guid ProjectId, string Name, string? Description, string? ExpectedConcurrencyStamp = null);
 
 public sealed record ProjectView(
     Guid Id,
@@ -38,6 +38,7 @@ public sealed record ProjectView(
     Guid OwnerId,
     DateTime CreatedAt,
     DateTime UpdatedAt,
+    string ConcurrencyStamp,
     bool IsArchived,
     ProjectMemberRole CurrentUserRole);
 

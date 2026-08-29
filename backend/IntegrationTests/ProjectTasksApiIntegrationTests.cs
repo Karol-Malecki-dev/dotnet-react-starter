@@ -544,18 +544,9 @@ public class ProjectTasksApiIntegrationTests
     {
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var project = new Project
-        {
-            OwnerId = ownerId,
-            Name = name
-        };
+        var project = Project.Create(ownerId, name);
 
         dbContext.Projects.Add(project);
-        dbContext.ProjectMembers.Add(new ProjectMember
-        {
-            ProjectId = project.Id,
-            UserId = ownerId
-        });
         await dbContext.SaveChangesAsync();
         return project.Id;
     }
@@ -564,12 +555,7 @@ public class ProjectTasksApiIntegrationTests
     {
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        dbContext.ProjectMembers.Add(new ProjectMember
-        {
-            ProjectId = projectId,
-            UserId = userId,
-            Role = role
-        });
+        dbContext.ProjectMembers.Add(ProjectMember.Create(projectId, userId, role));
         await dbContext.SaveChangesAsync();
     }
 }

@@ -2,6 +2,8 @@ using Application.Features.Projects;
 using Application.Interfaces;
 using Domain.Entities;
 using Domain.Enums;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -126,6 +128,8 @@ public sealed class DatabaseProjectInvitationApplicationService : IProjectInvita
             return ProjectOperationResult<ProjectInvitationView>.Failure(ProjectOperationStatus.Conflict, "Project invitation has expired");
         }
 
+        await using var transaction = await _invitationStore.BeginTransactionAsync(cancellationToken);
+
         if (responseStatus == ProjectInvitationStatus.Accepted)
         {
             if (await _invitationStore.IsMemberAsync(invitation.ProjectId, userId, cancellationToken))
@@ -133,24 +137,44 @@ public sealed class DatabaseProjectInvitationApplicationService : IProjectInvita
                 return ProjectOperationResult<ProjectInvitationView>.Failure(ProjectOperationStatus.Conflict, "User is already a project member");
             }
 
-            _invitationStore.AddMember(new ProjectMember
+            try
             {
-                ProjectId = invitation.ProjectId,
-                UserId = userId,
-                Role = invitation.Role
-            });
+                var member = invitation.Project.AddMember(userId, invitation.Role);
+                _invitationStore.AddMember(member);
+            }
+            catch (InvalidOperationException)
+            {
+                return ProjectOperationResult<ProjectInvitationView>.Failure(ProjectOperationStatus.Conflict, "User is already a project member");
+            }
         }
 
         invitation.Status = responseStatus;
         invitation.RespondedAt = DateTime.UtcNow;
+        invitation.ConcurrencyStamp = Guid.NewGuid().ToString("N");
         AddActivity(invitation.ProjectId, userId,
             responseStatus == ProjectInvitationStatus.Accepted ? "invitation.accepted" : "invitation.declined",
             responseStatus == ProjectInvitationStatus.Accepted ? "accepted a project invitation." : "declined a project invitation.");
-        await _invitationStore.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _invitationStore.SaveChangesAsync(cancellationToken);
 
-        await _notificationService.CreateAsync(invitation.InvitedByUserId, NotificationType.ProjectInvitation,
-            "Project invitation response", $"{invitation.InvitedUser.DisplayName} {responseStatus.ToString().ToLowerInvariant()} the invitation to '{invitation.Project.Name}'.",
-            "ProjectInvitation", invitation.Id, cancellationToken: cancellationToken);
+            await _notificationService.CreateAsync(invitation.InvitedByUserId, NotificationType.ProjectInvitation,
+                "Project invitation response", $"{invitation.InvitedUser.DisplayName} {responseStatus.ToString().ToLowerInvariant()} the invitation to '{invitation.Project.Name}'.",
+                "ProjectInvitation", invitation.Id, cancellationToken: cancellationToken);
+
+            if (transaction is not null)
+            {
+                await transaction.CommitAsync(cancellationToken);
+            }
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return ProjectOperationResult<ProjectInvitationView>.Failure(ProjectOperationStatus.Conflict, "Project invitation was answered concurrently; refresh and retry");
+        }
+        catch (DbUpdateException exception) when (IsProjectMemberUniquenessViolation(exception))
+        {
+            return ProjectOperationResult<ProjectInvitationView>.Failure(ProjectOperationStatus.Conflict, "User is already a project member");
+        }
 
         return ProjectOperationResult<ProjectInvitationView>.Success(MapInvitation(invitation), "Project invitation updated");
     }
@@ -168,6 +192,11 @@ public sealed class DatabaseProjectInvitationApplicationService : IProjectInvita
 
     private static string HashToken(string token)
         => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
+
+    private static bool IsProjectMemberUniquenessViolation(DbUpdateException exception)
+        => exception.InnerException is PostgresException postgresException
+            && postgresException.SqlState == PostgresErrorCodes.UniqueViolation
+            && postgresException.ConstraintName == "IX_ProjectMembers_ProjectId_UserId";
 
     private static ProjectInvitationView MapInvitation(ProjectInvitation invitation)
         => MapInvitation(invitation, invitation.Project.Name, invitation.InvitedUser, invitation.InvitedByUser.DisplayName);

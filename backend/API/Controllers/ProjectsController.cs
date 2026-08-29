@@ -72,7 +72,12 @@ public class ProjectsController : ControllerBase
             return Unauthorized(ApiResponse<ProjectResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectService.UpdateProjectAsync(new UpdateProjectCommand(ownerId, projectId, request.Name, request.Description), cancellationToken);
+        var result = await _projectService.UpdateProjectAsync(new UpdateProjectCommand(
+            ownerId,
+            projectId,
+            request.Name,
+            request.Description,
+            request.ConcurrencyStamp), cancellationToken);
         return ToActionResult(result, MapProject);
     }
 
@@ -193,6 +198,7 @@ public class ProjectsController : ControllerBase
         project.OwnerId,
         project.CreatedAt,
         project.UpdatedAt,
+        project.ConcurrencyStamp,
         project.IsArchived,
         project.CurrentUserRole);
 

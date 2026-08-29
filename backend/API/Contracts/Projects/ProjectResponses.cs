@@ -9,6 +9,7 @@ public sealed record ProjectResponse(
     Guid OwnerId,
     DateTime CreatedAt,
     DateTime UpdatedAt,
+    string ConcurrencyStamp,
     bool IsArchived,
     ProjectMemberRole CurrentUserRole);
 
