@@ -154,10 +154,10 @@ Jeśli feature wprowadza nowy przepływ, nowy typ danych albo nowy wzorzec archi
 
 ## Project And ProjectTask Feature
 
-Feature zarządzania projektami składa się z dwóch powiązanych pojęć domenowych:
+Feature zarządzania projektami składa się z dwóch powiązanych, ale osobnych agregatów:
 
-- `Project` jest aggregate rootem i należy do jednego użytkownika (`OwnerId`),
-- `ProjectTask` należy do dokładnie jednego projektu (`ProjectId`),
+- `Project` jest aggregate rootem dla członkostwa i należy do jednego użytkownika (`OwnerId`),
+- `ProjectTask` jest osobnym aggregate rootem i przechowuje referencję do dokładnie jednego projektu (`ProjectId`),
 - jeden projekt może mieć wiele zadań,
 - zadanie może być opcjonalnie przypisane do aktywnego użytkownika (`AssignedUserId`).
 - zadanie może mieć do 10 etykiet (`ProjectTaskLabel`), unikalnych w ramach zadania.
@@ -165,9 +165,16 @@ Feature zarządzania projektami składa się z dwóch powiązanych pojęć domen
 Relacja ma następującą postać:
 
 ```text
-User 1 ---- * Project 1 ---- * ProjectTask
-										\---- * ProjectTask ---- 0..1 User (AssignedUser)
+User 1 ---- * Project 1 ---- * ProjectMember
+				 |
+				 | ProjectId reference / FK
+				 |
+				 * ProjectTask ---- 0..1 User (AssignedUser)
 ```
+
+Diagram pokazuje relację danych, a nie własność agregatową. `ProjectTask` nie jest
+ładowany ani zmieniany przez `Project`; reguły wymagające danych z obu agregatów są
+koordynowane przez application service.
 
 ### Backend Contract
 
@@ -212,13 +219,14 @@ danych do przejścia do `/projects` oraz przewinięcia do wskazanego zadania,
 także gdy zadanie nie znajduje się na aktualnej stronie listy.
 
 Każdy endpoint zadań najpierw sprawdza, czy zalogowany użytkownik jest właścicielem
-aktywnego projektu. Samo posiadanie identyfikatora projektu lub zadania nie daje dostępu.
+lub aktywnym członkiem projektu oraz czy projekt nie jest zarchiwizowany. Samo
+posiadanie identyfikatora projektu lub zadania nie daje dostępu.
 
 ### Database Relation
 
 Relację należy konfigurować jawnie w `ApplicationDbContext`:
 
-- `ProjectTask.ProjectId` jest wymaganym kluczem obcym do `Project.Id` i używa cascade delete,
+- `ProjectTask.ProjectId` jest wymaganym kluczem obcym do `Project.Id` i używa cascade delete; FK zapewnia integralność referencyjną, ale nie zmienia granicy agregatu,
 - `ProjectTask.AssignedUserId` jest opcjonalnym kluczem obcym do `User.Id` i używa `SetNull`,
 - `Status` i `Priority` są enumami zapisywanymi jako tekst,
 - `ProjectTaskLabel` używa cascade delete z zadaniem i unikalnego indeksu na `(ProjectTaskId, Name)`,

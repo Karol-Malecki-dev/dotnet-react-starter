@@ -106,8 +106,8 @@ Relacje są proste i czytelne:
 - `Project` należy do jednego `User` przez `OwnerId`
 - `Project` ma członków przez encję `ProjectMember`; właściciel jest dodawany automatycznie
 - `ProjectMember` łączy projekt z aktywnym użytkownikiem i posiada unikalny indeks na `(ProjectId, UserId)`
-- `Project` jest aggregate rootem dla `ProjectTask`
-- `ProjectTask` należy do jednego `Project` przez wymagany `ProjectId`
+- `Project` jest aggregate rootem dla `ProjectMember`
+- `ProjectTask` jest osobnym aggregate rootem powiązanym z `Project` przez wymagany `ProjectId`
 - `ProjectTask` może mieć opcjonalnego przypisanego członka projektu przez `AssignedUserId`
 - `ProjectTask` może mieć etykiety, załączniki i termin wykonania
 - przypomnienia terminów tworzą powiadomienia, a dostarczanie emailowe przechodzi przez outbox
@@ -120,6 +120,12 @@ Relacje są proste i czytelne:
 Archiwizacja jest soft delete: aktywne odczyty pomijają projekt, a aktualizacje
 i tworzenie zadań dla projektu archiwalnego są blokowane.
 
+`Project` i `ProjectTask` są osobnymi aggregate rootami. `ProjectTask.ProjectId` jest
+referencją tożsamościową i kluczem obcym w bazie, ale `Project` nie ładuje ani nie
+mutuje kolekcji zadań jako części własnego modelu domenowego. Zagnieżdżenie endpointów
+zadań pod projektem opisuje nawigację zasobu i kontrolę dostępu, a nie własność
+agregatową.
+
 `ProjectTask` posiada własny cykl życia niezależny od projektu:
 
 - `Todo`, `InProgress`, `Done` jako `ProjectTaskStatus`,
@@ -127,10 +133,10 @@ i tworzenie zadań dla projektu archiwalnego są blokowane.
 - opcjonalny termin wykonania,
 - opcjonalne przypisanie do aktywnego użytkownika.
 
-Bezpieczeństwo zadań jest dziedziczone przez granicę projektu. Serwis zadaniowy
-nie wyszukuje zadania wyłącznie po `taskId`; każde zapytanie filtruje jednocześnie
-po `projectId`, właścicielu projektu i aktywnym stanie projektu. Dzięki temu
-identyfikator zadania nie może ominąć kontroli dostępu.
+Bezpieczeństwo zadań jest sprawdzane w kontekście projektu przez application service.
+Serwis zadaniowy nie wyszukuje zadania wyłącznie po `taskId`; każde zapytanie filtruje
+jednocześnie po `projectId`, właścicielu lub członkostwie użytkownika i aktywnym stanie
+projektu. Dzięki temu identyfikator zadania nie może ominąć kontroli dostępu.
 
 ### Project Invitation Acceptance, Transactions And Concurrency
 
@@ -231,7 +237,7 @@ DELETE /api/projects/{projectId}/members/{userId}
 
 Szczegółowy workflow dodawania tej funkcji znajduje się w `doc/ADDING_FEATURES.md`.
 
-Model obejmuje zarówno auth i konta użytkowników, jak i rozwijaną domenę zarządzania projektami oraz zadaniami. Kolejne funkcje powinny respektować granicę projektu jako aggregate root oraz istniejące kontrole członkostwa i ról.
+Model obejmuje zarówno auth i konta użytkowników, jak i rozwijaną domenę zarządzania projektami oraz zadaniami. Kolejne funkcje powinny respektować osobne granice agregatów `Project` i `ProjectTask` oraz istniejące kontrole członkostwa i ról.
 
 ## Observability And Background Work
 

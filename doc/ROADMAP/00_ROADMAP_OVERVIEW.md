@@ -63,7 +63,7 @@ Procent opisuje realizację głównych obszarów danego etapu, a nie liczbę lin
 |---|---:|---|---|
 | V1 | 100% | Ukończony | Fundament aplikacji, testy i lokalny workflow są dostępne. |
 | V2 | 96% | Ukończony dla bieżącego zakresu | Hardening auth, API, async i konfiguracji jest zwalidowany; pozostały drobne follow-upy porządkowe. |
-| V3 | 39% | W toku | `Project` i `ProjectMember` mają wyraźniejszą granicę agregatu, akceptacja zaproszeń ma transakcję i concurrency z testami PostgreSQL, a dashboard agreguje statystyki po stronie SQL; pozostały kolejne agregaty oraz pomiary planów zapytań. |
+| V3 | 40% | W toku | `Project` i `ProjectMember` mają wyraźniejszą granicę agregatu, `ProjectTask` został rozstrzygnięty jako osobny agregat, akceptacja zaproszeń ma transakcję i concurrency z testami PostgreSQL, a dashboard agreguje statystyki po stronie SQL; pozostały kolejne agregaty oraz pomiary planów zapytań. |
 | V4 | 28% | Fundamenty | Istnieją workflowy, załączniki, activity i quick search; brak pełnego audytu, search workspace i browser E2E. |
 | V5 | 41% | W toku | Działają Docker, CI, obrazy i lokalny Compose; brak realnego staging/production, backupu i rollbacku. |
 | V6 | 13% | Planowany | Istnieją podstawy EF, PostgreSQL i workerów; brak baseline'ów, load testów i pomiarów. |
@@ -100,6 +100,8 @@ Dokument: [02_V2_STABILIZATION_AND_SECURITY.md](02_V2_STABILIZATION_AND_SECURITY
 Następny etap. Odpowiada za dojrzalsze granice domeny, agregaty, transakcje, optimistic concurrency, konflikty `409` i bezpieczne operacje wielozapisowe.
 
 Dokument: [03_V3_DOMAIN_TRANSACTIONS_AND_CONCURRENCY.md](03_V3_DOMAIN_TRANSACTIONS_AND_CONCURRENCY.md)
+
+Decyzja dotycząca granicy `ProjectTask`: [10_ADR_PROJECT_TASK_AGGREGATE_BOUNDARY.md](10_ADR_PROJECT_TASK_AGGREGATE_BOUNDARY.md)
 
 ### V4: Kompletność produktu
 
