@@ -82,9 +82,11 @@ and independent lifecycle decisions remain unchanged.
 
 The member-removal workflow is an application-level coordination case: it loads the
 assigned tasks, unassigns them through `ProjectTask`, removes the member through
-`Project`, and persists the changes together. The operation must keep an explicit
-transaction boundary if it later grows to include additional writes or external side
-effects.
+`Project`, and persists the changes together. The implementation uses the shared
+`IProjectTransaction` boundary so a relational commit occurs only after task
+unassignment, membership removal and activity persistence succeed. If the workflow
+later gains notifications or other external side effects, their outbox policy must
+be defined explicitly.
 
 ## Implementation alignment
 

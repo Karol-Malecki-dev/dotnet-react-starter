@@ -164,6 +164,11 @@ Bezpośrednie dodanie członka przez właściciela używa tego samego portu
 aktywności i notification/outbox, dlatego błąd notification nie zostawia częściowego
 członkostwa ani aktywności. Ten rollback jest również sprawdzany w teście PostgreSQL.
 
+Usunięcie członka również używa tego portu. Granica obejmuje pobranie i unassign jego
+zadań, usunięcie membershipu oraz wpis aktywności, a commit następuje dopiero po
+`SaveChangesAsync()`. Test PostgreSQL sprawdza, że po udanym workflowie członek nie
+istnieje, jego zadania są nieprzypisane, a aktywność została zapisana.
+
 `Project.ConcurrencyStamp` chroni równoległe zmiany agregatu, a
 `ProjectInvitation.ConcurrencyStamp` chroni przejścia stanu zaproszenia. Dodatkowo
 unikalny indeks `(ProjectId, UserId)` pozostaje obroną na poziomie bazy. Naruszenie

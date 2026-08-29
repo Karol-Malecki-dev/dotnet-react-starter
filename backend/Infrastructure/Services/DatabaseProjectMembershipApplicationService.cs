@@ -163,6 +163,8 @@ public sealed class DatabaseProjectMembershipApplicationService : IProjectMember
             return ProjectOperationResult<bool>.Failure(ProjectOperationStatus.NotFound, "Project member not found");
         }
 
+        await using var transaction = await _membershipStore.BeginTransactionAsync(cancellationToken);
+
         var assignedTasks = await _membershipStore.GetAssignedTasksAsync(projectId, userId, cancellationToken);
         foreach (var task in assignedTasks)
         {
@@ -173,6 +175,11 @@ public sealed class DatabaseProjectMembershipApplicationService : IProjectMember
         _membershipStore.RemoveMember(member);
         AddActivity(projectId, ownerId, "member.removed", "removed a project member.");
         await _membershipStore.SaveChangesAsync(cancellationToken);
+
+        if (transaction is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+        }
 
         return ProjectOperationResult<bool>.Success(true, "Project member removed");
     }
