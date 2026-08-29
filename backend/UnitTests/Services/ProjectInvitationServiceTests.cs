@@ -63,7 +63,10 @@ public sealed class ProjectInvitationServiceTests
         _membershipStore.Setup(store => store.OwnedProjectExistsAsync(ownerId, projectId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         _invitationStore.Setup(store => store.GetActiveUserByEmailAsync("member@example.com", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new User { Id = userId, DisplayName = DisplayName.Create("Member"), Email = EmailAddress.Create("member@example.com") });
+            .ReturnsAsync(User.Create(
+                EmailAddress.Create("member@example.com"),
+                DisplayName.Create("Member"),
+                id: userId));
         _invitationStore.Setup(store => store.IsMemberAsync(projectId, userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
         _invitationStore.Setup(store => store.HasPendingInvitationAsync(projectId, userId, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
@@ -183,8 +186,14 @@ public sealed class ProjectInvitationServiceTests
             TokenHash = HashToken(token),
             ExpiresAt = DateTime.UtcNow.AddDays(1),
             Project = project,
-            InvitedUser = new User { Id = recipientId, DisplayName = DisplayName.Create("Recipient"), Email = EmailAddress.Create("recipient@example.com") },
-            InvitedByUser = new User { Id = ownerId, DisplayName = DisplayName.Create("Owner"), Email = EmailAddress.Create("owner@example.com") }
+            InvitedUser = User.Create(
+                EmailAddress.Create("recipient@example.com"),
+                DisplayName.Create("Recipient"),
+                id: recipientId),
+            InvitedByUser = User.Create(
+                EmailAddress.Create("owner@example.com"),
+                DisplayName.Create("Owner"),
+                id: ownerId)
         };
 
     private static string HashToken(string token)

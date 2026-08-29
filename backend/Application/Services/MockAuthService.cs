@@ -18,17 +18,20 @@ namespace Application.Services
         private readonly ILogger<MockAuthService> _logger;
 
         // Hardcoded test users
-        private static readonly User TestUser = new()
+        private static readonly User TestUser = CreateTestUser();
+
+        private static User CreateTestUser()
         {
-            Id = Guid.Parse("550e8400-e29b-41d4-a716-446655440000"),
-            Email = EmailAddress.Create("test@example.com"),
-            DisplayName = DisplayName.Create("Test User"),
-            Role = Domain.Enums.UserRole.User,
-            IsActive = true,
-            IsEmailConfirmed = true,
-            CreatedAt = DateTime.UtcNow,
-            PasswordHash = "hashed_password_123" // In real app, use BCrypt
-        };
+            var user = User.Create(
+                EmailAddress.Create("test@example.com"),
+                DisplayName.Create("Test User"),
+                Domain.Enums.UserRole.User,
+                isActive: true,
+                isEmailConfirmed: true,
+                id: Guid.Parse("550e8400-e29b-41d4-a716-446655440000"));
+            user.SetPasswordHash("hashed_password_123"); // In real app, use BCrypt
+            return user;
+        }
 
         public MockAuthService(ILogger<MockAuthService> logger)
         {
@@ -63,17 +66,13 @@ namespace Application.Services
             }
 
             // Mock: always accept registration
-            var newUser = new User
-            {
-                Id = Guid.NewGuid(),
-                Email = EmailAddress.Create(email),
-                DisplayName = normalizedDisplayName,
-                Role = Domain.Enums.UserRole.User,
-                IsActive = true,
-                IsEmailConfirmed = false,
-                CreatedAt = DateTime.UtcNow,
-                PasswordHash = "hashed_password_" + Guid.NewGuid().ToString().Substring(0, 8)
-            };
+            var newUser = User.Create(
+                EmailAddress.Create(email),
+                normalizedDisplayName,
+                Domain.Enums.UserRole.User,
+                isActive: true,
+                isEmailConfirmed: false);
+            newUser.SetPasswordHash("hashed_password_" + Guid.NewGuid().ToString().Substring(0, 8));
 
             _logger.LogInformation("✓ Mock registration successful for user {UserId}", newUser.Id);
             return await Task.FromResult(newUser);

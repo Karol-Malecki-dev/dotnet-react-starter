@@ -48,7 +48,12 @@ public class AuthControllerTests
     public async Task Login_Returns_ok_when_credentials_are_valid()
     {
         var dto = new LoginUserDto { Email = "test@example.com", Password = "password123" };
-        var user = new User { Id = Guid.NewGuid(), Email = EmailAddress.Create(dto.Email), DisplayName = DisplayName.Create("Test"), Role = UserRole.User, IsEmailConfirmed = true, IsTwoFactorEnabled = false };
+        var user = User.Create(
+            EmailAddress.Create(dto.Email),
+            DisplayName.Create("Test"),
+            UserRole.User,
+            isEmailConfirmed: true,
+            isTwoFactorEnabled: false);
         var tokens = new JwtTokens { AccessToken = "access-token", RefreshToken = "refresh-token", ExpiresIn = 900 };
 
         _controller.ControllerContext = new ControllerContext
@@ -89,7 +94,12 @@ public class AuthControllerTests
     public async Task Login_Returns_forbidden_when_email_is_not_confirmed()
     {
         var dto = new LoginUserDto { Email = "pending@example.com", Password = "password123" };
-        var user = new User { Id = Guid.NewGuid(), Email = EmailAddress.Create(dto.Email), DisplayName = DisplayName.Create("Pending"), Role = UserRole.User, IsEmailConfirmed = false, IsTwoFactorEnabled = false };
+        var user = User.Create(
+            EmailAddress.Create(dto.Email),
+            DisplayName.Create("Pending"),
+            UserRole.User,
+            isEmailConfirmed: false,
+            isTwoFactorEnabled: false);
 
         _authServiceMock.Setup(x => x.AuthenticateAsync(dto.Email, dto.Password, It.IsAny<CancellationToken>())).ReturnsAsync(user);
 
@@ -106,15 +116,12 @@ public class AuthControllerTests
     public async Task Login_Returns_accepted_when_two_factor_is_required()
     {
         var dto = new LoginUserDto { Email = "2fa@example.com", Password = "password123" };
-        var user = new User
-        {
-            Id = Guid.NewGuid(),
-            Email = EmailAddress.Create(dto.Email),
-            DisplayName = DisplayName.Create("Two Factor"),
-            Role = UserRole.User,
-            IsEmailConfirmed = true,
-            IsTwoFactorEnabled = true
-        };
+        var user = User.Create(
+            EmailAddress.Create(dto.Email),
+            DisplayName.Create("Two Factor"),
+            UserRole.User,
+            isEmailConfirmed: true,
+            isTwoFactorEnabled: true);
         var challengeId = Guid.NewGuid();
         var expiresAt = DateTime.UtcNow.AddMinutes(10);
 
@@ -139,7 +146,11 @@ public class AuthControllerTests
     public async Task Register_Returns_created_when_registration_succeeds()
     {
         var dto = new RegisterUserDto { Email = "new@example.com", Password = "password123", FirstName = "New", LastName = "User", CreatedAt = DateTime.UtcNow };
-        var user = new User { Id = Guid.NewGuid(), Email = EmailAddress.Create(dto.Email), DisplayName = DisplayName.Create("New User"), Role = UserRole.User, IsEmailConfirmed = false };
+        var user = User.Create(
+            EmailAddress.Create(dto.Email),
+            DisplayName.Create("New User"),
+            UserRole.User,
+            isEmailConfirmed: false);
 
         _controller.ControllerContext = new ControllerContext
         {
@@ -367,7 +378,10 @@ public class AuthControllerTests
             ChallengeId = challengeId,
             Code = "123456"
         };
-        var user = new User { Id = Guid.NewGuid(), Email = EmailAddress.Create("2fa@example.com"), DisplayName = DisplayName.Create("Two Factor"), Role = UserRole.User };
+        var user = User.Create(
+            EmailAddress.Create("2fa@example.com"),
+            DisplayName.Create("Two Factor"),
+            UserRole.User);
         var tokens = new JwtTokens { AccessToken = "access-token", RefreshToken = "refresh-token", ExpiresIn = 900 };
 
         _controller.ControllerContext = new ControllerContext

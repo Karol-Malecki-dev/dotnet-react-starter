@@ -22,7 +22,7 @@ public class DatabaseAuthServiceTests
     {
         await using var dbContext = CreateDbContext();
         var user = CreateUser();
-        user.PasswordHash = new PasswordHasher<User>().HashPassword(user, "old-password");
+        user.SetPasswordHash(new PasswordHasher<User>().HashPassword(user, "old-password"));
         dbContext.Users.Add(user);
         dbContext.RefreshTokens.Add(CreateRefreshToken(user));
         await dbContext.SaveChangesAsync();
@@ -42,7 +42,7 @@ public class DatabaseAuthServiceTests
     {
         await using var dbContext = CreateDbContext();
         var user = CreateUser();
-        user.PasswordHash = "old-password-hash";
+        user.SetPasswordHash("old-password-hash");
         dbContext.Users.Add(user);
         dbContext.RefreshTokens.Add(CreateRefreshToken(user));
         dbContext.PasswordResetRequests.Add(new PasswordResetRequest
@@ -100,16 +100,12 @@ public class DatabaseAuthServiceTests
             NullLogger<DatabaseAuthService>.Instance);
 
     private static User CreateUser()
-        => new()
-        {
-            Id = Guid.NewGuid(),
-            Email = EmailAddress.Create("sessions@example.com"),
-            DisplayName = DisplayName.Create("Sessions User"),
-            Role = UserRole.User,
-            IsActive = true,
-            IsEmailConfirmed = true,
-            CreatedAt = DateTime.UtcNow
-        };
+        => User.Create(
+            EmailAddress.Create("sessions@example.com"),
+            DisplayName.Create("Sessions User"),
+            UserRole.User,
+            isActive: true,
+            isEmailConfirmed: true);
 
     private static RefreshToken CreateRefreshToken(User user)
         => new()

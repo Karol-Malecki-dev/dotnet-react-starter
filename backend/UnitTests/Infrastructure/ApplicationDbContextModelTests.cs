@@ -73,14 +73,12 @@ public sealed class ApplicationDbContextModelTests
 
         await using (var context = new ApplicationDbContext(options))
         {
-            context.Users.Add(new User
-            {
-                Id = Guid.NewGuid(),
-                Email = EmailAddress.Create(" User@Example.com "),
-                DisplayName = DisplayName.Create("Email Converter User"),
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow
-            });
+            context.Users.Add(User.Create(
+                EmailAddress.Create(" User@Example.com "),
+                DisplayName.Create("Email Converter User"),
+                isActive: true,
+                id: Guid.NewGuid(),
+                createdAt: DateTime.UtcNow));
 
             await context.SaveChangesAsync();
         }
@@ -100,14 +98,12 @@ public sealed class ApplicationDbContextModelTests
 
         await using (var context = new ApplicationDbContext(options))
         {
-            context.Users.Add(new User
-            {
-                Id = Guid.NewGuid(),
-                Email = EmailAddress.Create("display-name@example.com"),
-                DisplayName = DisplayName.Create("  Display   Name "),
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow
-            });
+            context.Users.Add(User.Create(
+                EmailAddress.Create("display-name@example.com"),
+                DisplayName.Create("  Display   Name "),
+                isActive: true,
+                id: Guid.NewGuid(),
+                createdAt: DateTime.UtcNow));
 
             await context.SaveChangesAsync();
         }

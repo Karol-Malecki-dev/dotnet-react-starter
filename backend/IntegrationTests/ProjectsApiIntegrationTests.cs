@@ -240,18 +240,13 @@ public class ProjectsApiIntegrationTests
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var passwordHasher = new PasswordHasher<User>();
-        var user = new User
-        {
-            Id = Guid.NewGuid(),
-            Email = EmailAddress.Create(email),
-            DisplayName = DisplayName.Create(displayName),
-            Role = UserRole.User,
-            IsActive = true,
-            IsEmailConfirmed = true,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        user.PasswordHash = passwordHasher.HashPassword(user, password);
+        var user = User.Create(
+            EmailAddress.Create(email),
+            DisplayName.Create(displayName),
+            UserRole.User,
+            isActive: true,
+            isEmailConfirmed: true);
+        user.SetPasswordHash(passwordHasher.HashPassword(user, password));
         dbContext.Users.Add(user);
         await dbContext.SaveChangesAsync();
         return user.Id;

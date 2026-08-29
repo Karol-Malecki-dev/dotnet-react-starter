@@ -39,7 +39,8 @@ public class DatabaseAuthServiceLockoutTests
     {
         await using var dbContext = CreateDbContext();
         var user = CreateUser("reset@example.com", "correct-password");
-        user.FailedLoginAttempts = 2;
+        user.RecordFailedLogin(DateTime.UtcNow, 3, TimeSpan.FromMinutes(15));
+        user.RecordFailedLogin(DateTime.UtcNow, 3, TimeSpan.FromMinutes(15));
         dbContext.Users.Add(user);
         await dbContext.SaveChangesAsync();
 
@@ -58,8 +59,10 @@ public class DatabaseAuthServiceLockoutTests
     {
         await using var dbContext = CreateDbContext();
         var user = CreateUser("expired@example.com", "correct-password");
-        user.FailedLoginAttempts = 3;
-        user.LockoutEndAt = DateTime.UtcNow.AddMinutes(-1);
+        var expiredAt = DateTime.UtcNow.AddMinutes(-16);
+        user.RecordFailedLogin(expiredAt, 3, TimeSpan.FromMinutes(15));
+        user.RecordFailedLogin(expiredAt, 3, TimeSpan.FromMinutes(15));
+        user.RecordFailedLogin(expiredAt, 3, TimeSpan.FromMinutes(15));
         dbContext.Users.Add(user);
         await dbContext.SaveChangesAsync();
 
@@ -123,18 +126,13 @@ public class DatabaseAuthServiceLockoutTests
 
     private static User CreateUser(string email, string password)
     {
-        var user = new User
-        {
-            Id = Guid.NewGuid(),
-            Email = EmailAddress.Create(email),
-            DisplayName = DisplayName.Create("Test User"),
-            Role = UserRole.User,
-            IsActive = true,
-            IsEmailConfirmed = true,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        user.PasswordHash = new PasswordHasher<User>().HashPassword(user, password);
+        var user = User.Create(
+            EmailAddress.Create(email),
+            DisplayName.Create("Test User"),
+            UserRole.User,
+            isActive: true,
+            isEmailConfirmed: true);
+        user.SetPasswordHash(new PasswordHasher<User>().HashPassword(user, password));
         return user;
     }
 }

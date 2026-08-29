@@ -222,7 +222,7 @@ public class AuthApiIntegrationTests
         loginResponse.EnsureSuccessStatusCode();
         var initialCookie = GetRefreshTokenCookie(loginResponse);
 
-        await UpdateUserAsync(email, user => user.IsActive = false);
+        await UpdateUserAsync(email, user => user.Deactivate());
 
         using var inactiveClient = _factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
         {
@@ -248,7 +248,7 @@ public class AuthApiIntegrationTests
         });
         loginResponse.EnsureSuccessStatusCode();
 
-        await UpdateUserAsync(email, user => user.Role = UserRole.Admin);
+        await UpdateUserAsync(email, user => user.ChangeRole(UserRole.Admin));
 
         var refreshResponse = await _client.PostAsync("/api/auth/refresh-token", null);
         refreshResponse.EnsureSuccessStatusCode();
@@ -957,19 +957,14 @@ public class AuthApiIntegrationTests
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var passwordHasher = new PasswordHasher<User>();
-        var user = new User
-        {
-            Id = Guid.NewGuid(),
-            Email = EmailAddress.Create(email),
-            DisplayName = DisplayName.Create(displayName),
-            Role = role,
-            IsActive = true,
-            IsEmailConfirmed = true,
-            IsTwoFactorEnabled = isTwoFactorEnabled,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        user.PasswordHash = passwordHasher.HashPassword(user, password);
+        var user = User.Create(
+            EmailAddress.Create(email),
+            DisplayName.Create(displayName),
+            role,
+            isActive: true,
+            isEmailConfirmed: true,
+            isTwoFactorEnabled: isTwoFactorEnabled);
+        user.SetPasswordHash(passwordHasher.HashPassword(user, password));
         dbContext.Users.Add(user);
         await dbContext.SaveChangesAsync();
     }
