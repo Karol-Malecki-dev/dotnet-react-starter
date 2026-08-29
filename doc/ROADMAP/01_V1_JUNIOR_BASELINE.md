@@ -6,6 +6,21 @@ V1 jest wersją bazową startera. Ma pokazać, że aplikacja może być zbudowan
 
 V1 traktujemy jako w dużej mierze ukończone. Dalsza praca powinna przede wszystkim poprawiać poprawność i odporność istniejących mechanizmów.
 
+## Status realizacji
+
+Stan na: **2026-08-29**.
+
+| Obszar | Postęp | Status |
+|---|---:|---|
+| Backend baseline | 100% | Ukończony dla zakresu V1. |
+| Frontend baseline | 100% | Ukończony dla zakresu V1. |
+| Test baseline | 100% | Ukończony: testy jednostkowe, integracyjne, PostgreSQL, smoke i frontendowe. |
+| Kryteria ukończenia V1 | 100% | Spełnione; ograniczenia produkcyjne są jawnie przeniesione do kolejnych etapów. |
+
+**Postęp V1: 100%**.
+
+Procent dotyczy bazowego celu edukacyjnego V1. Nie oznacza gotowości do produkcji.
+
 ## Co V1 już demonstruje
 
 ### Backend
@@ -77,4 +92,4 @@ V1 można uznać za ukończone, gdy:
 
 ## Następny krok
 
-Następnym etapem jest V2, zaczynające się od polityki sesji i refresh tokenów. Nie należy rozpoczynać od nowych technologii infrastrukturalnych.
+Następnym etapem jest V3, zaczynające się od granic domeny, transakcji i optimistic concurrency. Nie należy rozpoczynać od nowych technologii infrastrukturalnych bez konkretnego problemu.

@@ -4,6 +4,22 @@
 - Date: 2026-08-22
 - Scope: V2 session policy and refresh-token rotation hardening
 
+## Implementation status
+
+As of: **2026-08-29**.
+
+| Decision area | Progress | Status |
+|---|---:|---|
+| Session policy | 100% | Events and their refresh/access-token consequences are documented and tested. |
+| Refresh rotation and replay handling | 100% | Family rotation, concurrency protection and replay revocation are implemented. |
+| Credential changes and account state | 100% | Password changes/resets, inactive accounts and role changes are covered. |
+| Storage and migration | 100% | Concurrency stamp migration and PostgreSQL validation are complete. |
+| Validation evidence | 100% | Unit, controller, API integration and PostgreSQL tests cover the current decision. |
+
+**Implementation progress for the current ADR scope: 100%**.
+
+The follow-up decisions at the end of this ADR remain intentionally outside the current scope.
+
 ## Context
 
 The application uses short-lived JWT access tokens and database-backed refresh tokens stored as hashes. The refresh token is sent only in an HttpOnly cookie. A refresh-token row also contains a snapshot of user data for auditability, but that snapshot must not be treated as the current account state.

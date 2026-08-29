@@ -12,6 +12,24 @@ Nie chodzi o mechaniczne dodanie wszystkich wzorców DDD. Chodzi o uzasadnienie 
 
 `ProjectTask` jest obecnie najlepiej zamodelowaną encją: posiada prywatny konstruktor, ograniczone settery i metody domenowe. `Project` i `User` mają słabszą enkapsulację. Moduł zadań używa już feature-specific ports, co daje dobry punkt wyjścia do dalszego rozdzielania odpowiedzialności.
 
+## Status realizacji
+
+Stan na: **2026-08-29**.
+
+| Obszar | Postęp | Status i dowód |
+|---|---:|---|
+| 1. Granica agregatu projektu | 25% | Istnieje częściowa enkapsulacja `ProjectTask`; granice `Project` i `ProjectMember` nie są jeszcze rozstrzygnięte. |
+| 2. Model użytkownika i value objects | 10% | Istnieją wybrane value objects, ale model użytkownika nie został jeszcze konsekwentnie rozdzielony. |
+| 3. Application services i porty | 50% | Warstwy i feature-specific ports istnieją; część odpowiedzialności nadal wymaga doprecyzowania. |
+| 4. Mapping i kontrakty | 50% | DTO i kontrakty HTTP są obecne oraz dokumentowane; pełne rozdzielenie modeli nie jest zakończone. |
+| 5. Transakcje i partial failure | 20% | Istnieją wieloetapowe przypadki użycia, ale ich punkty atomowości i kompensacji nie są jeszcze opisane systemowo. |
+| 6. Optimistic concurrency | 10% | Concurrency jest rozwiązane dla refresh tokenów; brakuje tokenów wersji i konfliktów `409` dla domeny. |
+| 7. Zapytania dashboardu | 20% | Dashboard i query stores istnieją, ale nie ma jeszcze udokumentowanego pomiaru i optymalizacji planów SQL. |
+
+**Postęp V3: 26%**.
+
+Procent obejmuje istniejące fundamenty, nie samą liczbę klas lub endpointów. V3 nie jest jeszcze etapem ukończonym.
+
 ## Zakres implementacyjny
 
 ### 1. Granica agregatu projektu

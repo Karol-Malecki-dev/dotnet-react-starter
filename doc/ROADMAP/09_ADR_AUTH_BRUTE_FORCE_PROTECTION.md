@@ -4,6 +4,21 @@
 - Date: 2026-08-29
 - Scope: authentication endpoints and password login state
 
+## Implementation status
+
+As of: **2026-08-29**.
+
+| Decision area | Progress | Status |
+|---|---:|---|
+| Request rate limiting | 100% | Implemented, configured and covered by integration tests. |
+| Password-login lockout | 100% | Implemented with persisted state, concurrency handling and tests. |
+| Neutral public authentication contract | 100% | Invalid credentials and lockout responses remain neutral and are tested. |
+| Validation and documentation | 100% | Options validation, ADR rationale and known limitations are documented. |
+
+**Implementation progress for the current ADR scope: 100%**.
+
+The limitations listed below are intentional follow-up decisions, not missing pieces of the accepted current scope.
+
 ## Context
 
 The authentication surface contains public endpoints that can be abused for password

@@ -6,6 +6,23 @@ V4 domyka funkcje, które są ważne dla użytecznego produktu, ale nie powinny 
 
 Frontend pozostaje funkcjonalny i podporządkowany backendowi. Nie celem jest budowa osobnego portfolio frontendowego.
 
+## Status realizacji
+
+Stan na: **2026-08-29**.
+
+| Obszar | Postęp | Status i dowód |
+|---|---:|---|
+| 1. Account security audit | 0% | Activity istnieje, ale odrębny audyt bezpieczeństwa nie został jeszcze wdrożony. |
+| 2. Auth lockout UX | 25% | Backendowy lockout działa; pełne neutralne komunikaty i UX po stronie frontendu są jeszcze do dopracowania. |
+| 3. Global workspace search | 25% | Istnieje quick search oraz wyszukiwanie zadań w projekcie; brakuje jednego autoryzowanego search endpointu workspace. |
+| 4. Załączniki jako funkcja produkcyjna | 50% | Upload, download i podstawowa walidacja działają; brakuje production storage, content sniffingu, retencji i pełnych testów bezpieczeństwa. |
+| 5. Kompletność activity i notifications | 40% | Activity, notifications i outbox istnieją; brakuje pełnego audytu zdarzeń, deduplikacji i kompletnej mapy zdarzeń. |
+| 6. Browser E2E | 25% | Istnieją smoke tests działającego stacka; pełne browser E2E głównych workflowów nie zostały jeszcze dodane. |
+
+**Postęp V4: 28%**.
+
+Procent jest średnią głównych obszarów V4 i opisuje gotowość do dalszej realizacji, a nie kompletność obecnych ekranów.
+
 ## Stan wyjściowy
 
 Projekt ma już projekty, zadania, członkostwo, zaproszenia, komentarze, załączniki, aktywność, dashboard i podstawowy quick search. Część funkcji istnieje tylko jako fundament:
