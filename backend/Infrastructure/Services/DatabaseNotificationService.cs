@@ -132,7 +132,7 @@ public sealed class DatabaseNotificationService : INotificationService
         }, "Notification email preference updated");
     }
 
-    public async Task CreateAsync(Guid userId, NotificationType type, string title, string message, string? resourceType = null, Guid? resourceId = null, Guid? projectId = null, bool sendEmail = true)
+    public async Task CreateAsync(Guid userId, NotificationType type, string title, string message, string? resourceType = null, Guid? resourceId = null, Guid? projectId = null, bool sendEmail = true, CancellationToken cancellationToken = default)
     {
         if (userId == Guid.Empty || string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(message))
         {
@@ -157,7 +157,7 @@ public sealed class DatabaseNotificationService : INotificationService
         var emailEnabled = await _dbContext.NotificationEmailPreferences
             .Where(preference => preference.UserId == userId)
             .Select(preference => (bool?)preference.IsEmailEnabled)
-            .FirstOrDefaultAsync() ?? true;
+            .FirstOrDefaultAsync(cancellationToken) ?? true;
         if (sendEmail && emailEnabled)
         {
             _dbContext.NotificationEmailOutboxMessages.Add(new NotificationEmailOutboxMessage
@@ -170,7 +170,7 @@ public sealed class DatabaseNotificationService : INotificationService
             });
         }
 
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     private static NotificationDto MapToDto(Notification notification) => new()

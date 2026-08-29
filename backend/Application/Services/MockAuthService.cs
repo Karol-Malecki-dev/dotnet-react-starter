@@ -35,7 +35,7 @@ namespace Application.Services
             _logger = logger;
         }
 
-        public async Task<User?> AuthenticateAsync(string email, string password)
+        public async Task<User?> AuthenticateAsync(string email, string password, CancellationToken cancellationToken = default)
         {
             _logger.LogInformation("🔐 Mock authentication attempt: {Email}", email);
 
@@ -50,7 +50,7 @@ namespace Application.Services
             return await Task.FromResult<User?>(null);
         }
 
-        public async Task<User?> RegisterAsync(string email, string password, string displayName)
+        public async Task<User?> RegisterAsync(string email, string password, string displayName, CancellationToken cancellationToken = default)
         {
             _logger.LogInformation("📝 Mock registration: {Email}", email);
 
@@ -71,56 +71,56 @@ namespace Application.Services
             return await Task.FromResult(newUser);
         }
 
-        public async Task<bool> LogoutAsync(Guid userId)
+        public async Task<bool> LogoutAsync(Guid userId, CancellationToken cancellationToken = default)
         {
             _logger.LogInformation("🚪 Mock logout for user {UserId}", userId);
             return await Task.FromResult(true);
         }
 
-        public async Task<bool> UserExistsAsync(string email)
+        public async Task<bool> UserExistsAsync(string email, CancellationToken cancellationToken = default)
         {
             return await Task.FromResult(email == TestUser.Email);
         }
 
-        public async Task<bool> IsEmailConfirmedAsync(Guid userId)
+        public async Task<bool> IsEmailConfirmedAsync(Guid userId, CancellationToken cancellationToken = default)
         {
             return await Task.FromResult(userId == TestUser.Id);
         }
 
-        public async Task<bool> IsUserActiveAsync(Guid userId)
+        public async Task<bool> IsUserActiveAsync(Guid userId, CancellationToken cancellationToken = default)
         {
             return await Task.FromResult(userId == TestUser.Id);
         }
 
-        public async Task<string?> GeneratePasswordResetTokenAsync(string email)
+        public async Task<string?> GeneratePasswordResetTokenAsync(string email, CancellationToken cancellationToken = default)
         {
             return await Task.FromResult(email == TestUser.Email ? Guid.NewGuid().ToString() : null);
         }
 
-        public async Task<bool> ResetPasswordAsync(string email, string resetToken, string newPassword)
+        public async Task<bool> ResetPasswordAsync(string email, string resetToken, string newPassword, CancellationToken cancellationToken = default)
         {
             _logger.LogInformation("🔄 Mock password reset for {Email}", email);
             return await Task.FromResult(true);
         }
 
-        public async Task<string?> GenerateEmailConfirmationTokenAsync(Guid userId)
+        public async Task<string?> GenerateEmailConfirmationTokenAsync(Guid userId, CancellationToken cancellationToken = default)
         {
             return await Task.FromResult(Guid.NewGuid().ToString());
         }
 
-        public async Task<bool> ConfirmEmailAsync(Guid userId, string confirmationToken)
+        public async Task<bool> ConfirmEmailAsync(Guid userId, string confirmationToken, CancellationToken cancellationToken = default)
         {
             _logger.LogInformation("✉️ Mock email confirmation for user {UserId}", userId);
             return await Task.FromResult(true);
         }
 
-        public async Task<bool> ConfirmEmailConfirmedAsync(string email)
+        public async Task<bool> ConfirmEmailConfirmedAsync(string email, CancellationToken cancellationToken = default)
         {
             _logger.LogInformation("✉️ Mock email confirmation check for {Email}", email);
             return await Task.FromResult(email == TestUser.Email);
         }
 
-        public Task<EmailTwoFactorChallengeDelivery?> CreateEmailTwoFactorChallengeAsync(Guid userId)
+        public Task<EmailTwoFactorChallengeDelivery?> CreateEmailTwoFactorChallengeAsync(Guid userId, CancellationToken cancellationToken = default)
         {
             if (userId != TestUser.Id)
             {
@@ -136,12 +136,12 @@ namespace Application.Services
                 DateTime.UtcNow.AddMinutes(10)));
         }
 
-        public Task<User?> VerifyEmailTwoFactorChallengeAsync(Guid challengeId, string code)
+        public Task<User?> VerifyEmailTwoFactorChallengeAsync(Guid challengeId, string code, CancellationToken cancellationToken = default)
         {
             return Task.FromResult<User?>(code == "123456" ? TestUser : null);
         }
 
-        public Task<EmailTwoFactorChallengeDelivery?> ResendEmailTwoFactorChallengeAsync(Guid challengeId)
+        public Task<EmailTwoFactorChallengeDelivery?> ResendEmailTwoFactorChallengeAsync(Guid challengeId, CancellationToken cancellationToken = default)
         {
             if (challengeId == Guid.Empty)
             {
@@ -157,33 +157,33 @@ namespace Application.Services
                 DateTime.UtcNow.AddMinutes(10)));
         }
 
-        public Task<AuthenticatorSetup?> BeginAuthenticatorSetupAsync(Guid userId)
+        public Task<AuthenticatorSetup?> BeginAuthenticatorSetupAsync(Guid userId, CancellationToken cancellationToken = default)
             => Task.FromResult<AuthenticatorSetup?>(userId == TestUser.Id
                 ? new AuthenticatorSetup("JBSWY3DPEHPK3PXP", "otpauth://totp/dotnet-react-starter:test%40example.com?secret=JBSWY3DPEHPK3PXP")
                 : null);
 
-        public Task<AuthenticatorConfirmation?> ConfirmAuthenticatorSetupAsync(Guid userId, string code)
+        public Task<AuthenticatorConfirmation?> ConfirmAuthenticatorSetupAsync(Guid userId, string code, CancellationToken cancellationToken = default)
             => Task.FromResult<AuthenticatorConfirmation?>(userId == TestUser.Id && code == "123456"
                 ? new AuthenticatorConfirmation(["AAAA-BBBB-CCCC-DDDD"])
                 : null);
 
-        public Task<AuthenticatorLoginChallengeInfo?> CreateAuthenticatorLoginChallengeAsync(Guid userId)
+        public Task<AuthenticatorLoginChallengeInfo?> CreateAuthenticatorLoginChallengeAsync(Guid userId, CancellationToken cancellationToken = default)
             => Task.FromResult<AuthenticatorLoginChallengeInfo?>(userId == TestUser.Id
                 ? new AuthenticatorLoginChallengeInfo(Guid.NewGuid(), DateTime.UtcNow.AddMinutes(5))
                 : null);
 
-        public Task<User?> VerifyAuthenticatorLoginChallengeAsync(Guid challengeId, string code)
+        public Task<User?> VerifyAuthenticatorLoginChallengeAsync(Guid challengeId, string code, CancellationToken cancellationToken = default)
             => Task.FromResult<User?>(challengeId != Guid.Empty && code == "123456" ? TestUser : null);
 
-        public Task<bool> DisableAuthenticatorAsync(Guid userId, string currentPassword, string code)
+        public Task<bool> DisableAuthenticatorAsync(Guid userId, string currentPassword, string code, CancellationToken cancellationToken = default)
             => Task.FromResult(userId == TestUser.Id && currentPassword == "password123" && code == "123456");
 
-        public Task<AuthenticatorConfirmation?> RegenerateAuthenticatorRecoveryCodesAsync(Guid userId, string currentPassword, string code)
+        public Task<AuthenticatorConfirmation?> RegenerateAuthenticatorRecoveryCodesAsync(Guid userId, string currentPassword, string code, CancellationToken cancellationToken = default)
             => Task.FromResult<AuthenticatorConfirmation?>(userId == TestUser.Id && currentPassword == "password123" && code == "123456"
                 ? new AuthenticatorConfirmation(["EEEE-FFFF-GGGG-HHHH"])
                 : null);
 
-        public async Task<bool> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword)
+        public async Task<bool> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword, CancellationToken cancellationToken = default)
         {
             _logger.LogInformation("🔑 Mock change password for user {UserId}", userId);
             if (userId != TestUser.Id)
@@ -198,7 +198,7 @@ namespace Application.Services
             return await Task.FromResult(true);
         }
 
-        public async Task<bool> SendPasswordResetEmailAsync(string email)
+        public async Task<bool> SendPasswordResetEmailAsync(string email, CancellationToken cancellationToken = default)
         {
             _logger.LogInformation("📨 Mock forgot password for {Email}", email);
             return await Task.FromResult(email == TestUser.Email);

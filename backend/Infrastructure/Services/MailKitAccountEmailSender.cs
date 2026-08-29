@@ -26,7 +26,7 @@ public class MailKitAccountEmailSender : IAccountEmailSender
     }
 
     /// <inheritdoc />
-    public Task SendEmailConfirmationAsync(string email, string displayName, string confirmationLink)
+    public Task SendEmailConfirmationAsync(string email, string displayName, string confirmationLink, CancellationToken cancellationToken = default)
     {
         var subject = "Confirm your email address";
         var htmlBody = $"""
@@ -37,11 +37,11 @@ public class MailKitAccountEmailSender : IAccountEmailSender
             """;
         var textBody = $"Hello {displayName},\n\nConfirm your account by visiting: {confirmationLink}\n\nIf you did not create this account, you can ignore this email.";
 
-        return SendAsync(email, displayName, subject, htmlBody, textBody);
+        return SendAsync(email, displayName, subject, htmlBody, textBody, cancellationToken);
     }
 
     /// <inheritdoc />
-    public Task SendPasswordResetLinkAsync(string email, string displayName, string resetLink)
+    public Task SendPasswordResetLinkAsync(string email, string displayName, string resetLink, CancellationToken cancellationToken = default)
     {
         var subject = "Reset your password";
         var htmlBody = $"""
@@ -52,11 +52,11 @@ public class MailKitAccountEmailSender : IAccountEmailSender
             """;
         var textBody = $"Hello {displayName},\n\nReset your password by visiting: {resetLink}\n\nIf you did not request this, you can ignore this email.";
 
-        return SendAsync(email, displayName, subject, htmlBody, textBody);
+        return SendAsync(email, displayName, subject, htmlBody, textBody, cancellationToken);
     }
 
     /// <inheritdoc />
-    public Task SendTwoFactorCodeAsync(string email, string displayName, string code, DateTime expiresAt)
+    public Task SendTwoFactorCodeAsync(string email, string displayName, string code, DateTime expiresAt, CancellationToken cancellationToken = default)
     {
         var subject = "Your verification code";
         var htmlBody = $"""
@@ -68,10 +68,10 @@ public class MailKitAccountEmailSender : IAccountEmailSender
             """;
         var textBody = $"Hello {displayName},\n\nYour verification code is: {code}\nIt expires at {expiresAt:u}.\n\nIf you did not attempt to sign in, reset your password and review account activity.";
 
-        return SendAsync(email, displayName, subject, htmlBody, textBody);
+        return SendAsync(email, displayName, subject, htmlBody, textBody, cancellationToken);
     }
 
-    private async Task SendAsync(string email, string displayName, string subject, string htmlBody, string textBody)
+    private async Task SendAsync(string email, string displayName, string subject, string htmlBody, string textBody, CancellationToken cancellationToken)
     {
         var message = new MimeMessage();
         message.From.Add(new MailboxAddress(_settings.FromName, _settings.FromAddress));
@@ -88,15 +88,15 @@ public class MailKitAccountEmailSender : IAccountEmailSender
             ? SecureSocketOptions.StartTls
             : SecureSocketOptions.Auto;
 
-        await client.ConnectAsync(_settings.Host, _settings.Port, socketOptions);
+        await client.ConnectAsync(_settings.Host, _settings.Port, socketOptions, cancellationToken);
 
         if (!string.IsNullOrWhiteSpace(_settings.Username))
         {
-            await client.AuthenticateAsync(_settings.Username, _settings.Password ?? string.Empty);
+            await client.AuthenticateAsync(_settings.Username, _settings.Password ?? string.Empty, cancellationToken);
         }
 
-        await client.SendAsync(message);
-        await client.DisconnectAsync(true);
+        await client.SendAsync(message, cancellationToken);
+        await client.DisconnectAsync(true, cancellationToken);
 
         _logger.LogInformation("Sent account email '{Subject}' to {Email}", subject, email);
     }

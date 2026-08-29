@@ -6,8 +6,8 @@ namespace Application.Interfaces;
 
 public interface IUserService
 {
-    Task<ApiResponse<UserDto>> GetUserByIdAsync(Guid id);
-    Task<ApiResponse<UserDto>> GetUserByEmailAsync(string email);
+    Task<ApiResponse<UserDto>> GetUserByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<ApiResponse<UserDto>> GetUserByEmailAsync(string email, CancellationToken cancellationToken = default);
     Task<ApiResponse<List<UserDto>>> GetAllUsersPagedAsync(int pageNumber, int pageSize);
     Task<ApiResponse<int>> GetUserCountAsync();
     Task<ApiResponse<string>> GetUserRoleAsync(Guid userId);

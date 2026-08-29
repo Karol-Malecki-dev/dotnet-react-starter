@@ -19,18 +19,18 @@ public class DatabaseUserService : IUserService
         _dbContext = dbContext;
     }
 
-    public async Task<ApiResponse<UserDto>> GetUserByIdAsync(Guid id)
+    public async Task<ApiResponse<UserDto>> GetUserByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+        var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         return user is null
             ? ApiResponse<UserDto>.Error(404, "User not found")
             : ApiResponse<UserDto>.Success(MapToDto(user));
     }
 
-    public async Task<ApiResponse<UserDto>> GetUserByEmailAsync(string email)
+    public async Task<ApiResponse<UserDto>> GetUserByEmailAsync(string email, CancellationToken cancellationToken = default)
     {
         var normalizedEmail = NormalizeEmail(email);
-        var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Email == normalizedEmail);
+        var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Email == normalizedEmail, cancellationToken);
         return user is null
             ? ApiResponse<UserDto>.Error(404, "User not found")
             : ApiResponse<UserDto>.Success(MapToDto(user));

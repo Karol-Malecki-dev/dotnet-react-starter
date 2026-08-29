@@ -20,20 +20,23 @@ public class TestAccountEmailSender : IAccountEmailSender
 
     public string? LatestTwoFactorCode => _twoFactorMessages.LastOrDefault()?.Code;
 
-    public Task SendEmailConfirmationAsync(string email, string displayName, string confirmationLink)
+    public Task SendEmailConfirmationAsync(string email, string displayName, string confirmationLink, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         _confirmationMessages.Add(new ConfirmationEmailMessage(email, displayName, confirmationLink));
         return Task.CompletedTask;
     }
 
-    public Task SendPasswordResetLinkAsync(string email, string displayName, string resetLink)
+    public Task SendPasswordResetLinkAsync(string email, string displayName, string resetLink, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         _passwordResetMessages.Add(new PasswordResetEmailMessage(email, displayName, resetLink));
         return Task.CompletedTask;
     }
 
-    public Task SendTwoFactorCodeAsync(string email, string displayName, string code, DateTime expiresAt)
+    public Task SendTwoFactorCodeAsync(string email, string displayName, string code, DateTime expiresAt, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         _twoFactorMessages.Add(new TwoFactorCodeMessage(email, displayName, code, expiresAt));
         return Task.CompletedTask;
     }

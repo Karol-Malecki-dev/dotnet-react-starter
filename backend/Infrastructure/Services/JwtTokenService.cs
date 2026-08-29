@@ -52,13 +52,13 @@ namespace Infrastructure.Services
             };
         }
 
-        public async Task<JwtTokens> GenerateTokensAsync(User user)
+        public async Task<JwtTokens> GenerateTokensAsync(User user, CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(user);
 
             var tokenPair = CreateTokenPair(user, DateTime.UtcNow, Guid.NewGuid());
             _dbContext.RefreshTokens.Add(tokenPair.RefreshToken);
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync(cancellationToken);
 
             _logger.LogInformation(
                 "Generated tokens for user {UserId} ({Email}), IP: {Ip}",
@@ -69,7 +69,7 @@ namespace Infrastructure.Services
             return tokenPair.Tokens;
         }
 
-        public async Task<JwtTokens?> RefreshTokensAsync(string refreshToken)
+        public async Task<JwtTokens?> RefreshTokensAsync(string refreshToken, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(refreshToken))
             {
@@ -78,7 +78,7 @@ namespace Infrastructure.Services
 
             var tokenHash = HashToken(refreshToken);
             var storedToken = await _dbContext.RefreshTokens
-                .FirstOrDefaultAsync(x => x.TokenHash == tokenHash);
+                .FirstOrDefaultAsync(x => x.TokenHash == tokenHash, cancellationToken);
 
             if (storedToken is null)
             {
@@ -96,7 +96,8 @@ namespace Infrastructure.Services
                     await RevokeTokenFamilyAsync(
                         storedToken.FamilyId,
                         now,
-                        RevocationReason.RefreshTokenReplay);
+                        RevocationReason.RefreshTokenReplay,
+                        cancellationToken);
                 }
 
                 _logger.LogWarning("Refresh token is revoked for user {UserId}", storedToken.UserId);
@@ -111,7 +112,7 @@ namespace Infrastructure.Services
 
             var user = await _dbContext.Users
                 .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.Id == storedToken.UserId);
+                .FirstOrDefaultAsync(x => x.Id == storedToken.UserId, cancellationToken);
 
             if (user is null || !user.IsActive)
             {
@@ -134,7 +135,7 @@ namespace Infrastructure.Services
 
             try
             {
-                await _dbContext.SaveChangesAsync();
+                await _dbContext.SaveChangesAsync(cancellationToken);
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -142,7 +143,7 @@ namespace Infrastructure.Services
 
                 var latestToken = await _dbContext.RefreshTokens
                     .AsNoTracking()
-                    .FirstOrDefaultAsync(x => x.TokenHash == tokenHash);
+                    .FirstOrDefaultAsync(x => x.TokenHash == tokenHash, cancellationToken);
 
                 if (latestToken is not null
                     && latestToken.RevocationReason == RevocationReason.TokenRotated
@@ -151,7 +152,8 @@ namespace Infrastructure.Services
                     await RevokeTokenFamilyAsync(
                         latestToken.FamilyId,
                         DateTime.UtcNow,
-                        RevocationReason.RefreshTokenReplay);
+                        RevocationReason.RefreshTokenReplay,
+                        cancellationToken);
                 }
 
                 _logger.LogWarning("Concurrent refresh rejected for user {UserId}", storedToken.UserId);
@@ -161,8 +163,10 @@ namespace Infrastructure.Services
             return tokenPair.Tokens;
         }
 
-        public Task<ClaimsPrincipal?> ValidateTokenAsync(string token)
+        public Task<ClaimsPrincipal?> ValidateTokenAsync(string token, CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             try
             {
                 var tokenHandler = new JwtSecurityTokenHandler();
@@ -176,11 +180,11 @@ namespace Infrastructure.Services
             }
         }
 
-        public async Task RevokeTokenAsync(string refreshToken)
+        public async Task RevokeTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
         {
             var tokenHash = HashToken(refreshToken);
             var storedToken = await _dbContext.RefreshTokens
-                .FirstOrDefaultAsync(x => x.TokenHash == tokenHash);
+                .FirstOrDefaultAsync(x => x.TokenHash == tokenHash, cancellationToken);
 
             if (storedToken is null || storedToken.RevokedAt.HasValue)
             {
@@ -195,7 +199,7 @@ namespace Infrastructure.Services
 
             try
             {
-                await _dbContext.SaveChangesAsync();
+                await _dbContext.SaveChangesAsync(cancellationToken);
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -206,7 +210,7 @@ namespace Infrastructure.Services
             _logger.LogInformation("Refresh token revoked for user {UserId}", storedToken.UserId);
         }
 
-        public async Task RevokeAllUserTokensAsync(Guid userId, RevocationReason reason)
+        public async Task RevokeAllUserTokensAsync(Guid userId, RevocationReason reason, CancellationToken cancellationToken = default)
         {
             if (userId == Guid.Empty)
             {
@@ -216,7 +220,7 @@ namespace Infrastructure.Services
             var now = DateTime.UtcNow;
             var activeTokens = await _dbContext.RefreshTokens
                 .Where(x => x.UserId == userId && !x.RevokedAt.HasValue)
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
 
             foreach (var token in activeTokens)
             {
@@ -227,16 +231,16 @@ namespace Infrastructure.Services
 
             if (activeTokens.Count > 0)
             {
-                await _dbContext.SaveChangesAsync();
+                await _dbContext.SaveChangesAsync(cancellationToken);
             }
         }
 
-        public async Task<bool> IsTokenRevokedAsync(string refreshToken)
+        public async Task<bool> IsTokenRevokedAsync(string refreshToken, CancellationToken cancellationToken = default)
         {
             var tokenHash = HashToken(refreshToken);
             var storedToken = await _dbContext.RefreshTokens
                 .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.TokenHash == tokenHash);
+                .FirstOrDefaultAsync(x => x.TokenHash == tokenHash, cancellationToken);
 
             return storedToken is null
                 || storedToken.RevokedAt.HasValue
@@ -277,7 +281,7 @@ namespace Infrastructure.Services
                 refreshToken);
         }
 
-        private async Task RevokeTokenFamilyAsync(Guid? familyId, DateTime revokedAt, RevocationReason reason)
+        private async Task RevokeTokenFamilyAsync(Guid? familyId, DateTime revokedAt, RevocationReason reason, CancellationToken cancellationToken)
         {
             if (!familyId.HasValue)
             {
@@ -286,7 +290,7 @@ namespace Infrastructure.Services
 
             var activeTokens = await _dbContext.RefreshTokens
                 .Where(x => x.FamilyId == familyId.Value && !x.RevokedAt.HasValue)
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
 
             foreach (var token in activeTokens)
             {
@@ -297,7 +301,7 @@ namespace Infrastructure.Services
 
             if (activeTokens.Count > 0)
             {
-                await _dbContext.SaveChangesAsync();
+                await _dbContext.SaveChangesAsync(cancellationToken);
             }
         }
 
