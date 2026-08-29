@@ -16,6 +16,7 @@ vi.mock('../../services/api', () => ({
     resendTwoFactor: jest.fn(),
     refreshToken: jest.fn(),
     logout: jest.fn(),
+    logoutAll: jest.fn(),
     me: jest.fn(),
     changePassword: jest.fn(),
   },
@@ -215,6 +216,35 @@ describe('AuthContext', () => {
     });
 
     expect(mockedAuthApi.logout).toHaveBeenCalledWith();
+    await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('anonymous'));
+    expect(mockedTokenManager.clearSession).toHaveBeenCalled();
+  });
+
+  it('logs out from all sessions and clears the current session', async () => {
+    mockedTokenManager.getSession.mockReturnValue(session);
+    mockedTokenManager.getUser.mockReturnValue(storedUser);
+    mockedTokenManager.isAccessTokenExpired.mockReturnValue(false);
+    mockedAuthApi.logoutAll.mockResolvedValue({
+      statusCode: 200,
+      message: 'OK',
+      data: null,
+      errors: null,
+      timestamp: '2026-06-26T00:00:00Z',
+    });
+
+    render(
+      <AuthProvider>
+        <AuthConsumer />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('authenticated'));
+
+    await act(async () => {
+      await latestAuth?.logoutAll();
+    });
+
+    expect(mockedAuthApi.logoutAll).toHaveBeenCalledWith();
     await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('anonymous'));
     expect(mockedTokenManager.clearSession).toHaveBeenCalled();
   });

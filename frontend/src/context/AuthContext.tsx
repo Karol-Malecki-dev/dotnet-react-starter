@@ -316,6 +316,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const logoutAll = async () => {
+    try {
+      if (tokenManager.getSession()) {
+        await authApi.logoutAll();
+      }
+    } finally {
+      clearSession();
+    }
+  };
+
   const updateProfile = async (request: UpdateUserRequest) => {
     const currentUser = state.user;
     const currentTokens = tokenManager.getSession();
@@ -357,6 +367,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     verifyTwoFactor,
     resendTwoFactor,
     logout,
+    logoutAll,
     refreshToken,
     updateDisplayName,
     updateProfile,

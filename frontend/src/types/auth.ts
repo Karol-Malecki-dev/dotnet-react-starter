@@ -235,6 +235,7 @@ export interface AuthContextType extends AuthState {
   verifyTwoFactor: (challengeId: string, code: string) => Promise<void>;
   resendTwoFactor: (challengeId: string) => Promise<TwoFactorChallenge>;
   logout: () => Promise<void>;
+  logoutAll: () => Promise<void>;
   refreshToken: () => Promise<void>;
   updateDisplayName: (displayName: string) => Promise<void>;
   updateProfile: (data: { firstName?: string; lastName?: string; email?: string; avatarUrl?: string | null }) => Promise<void>;

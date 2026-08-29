@@ -95,6 +95,10 @@ export class AuthApi {
     return this.client.post<ApiResponse<null>, undefined>('/auth/logout');
   }
 
+  logoutAll(): Promise<ApiResponse<null>> {
+    return this.client.post<ApiResponse<null>, undefined>('/auth/logout-all');
+  }
+
   me(): Promise<ApiResponse<AuthUser>> {
     return this.client.get<MeResponse>('/auth/me');
   }
