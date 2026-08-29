@@ -29,6 +29,7 @@ public sealed record UpdateProjectTaskRequest(
     ProjectTaskPriority Priority = ProjectTaskPriority.Normal,
     DateTime? DueDate = null,
     Guid? AssignedUserId = null,
-    IReadOnlyList<string>? Labels = null);
+    IReadOnlyList<string>? Labels = null,
+    string? ConcurrencyStamp = null);
 
-public sealed record UpdateProjectTaskStatusRequest(ProjectTaskStatus Status);
+public sealed record UpdateProjectTaskStatusRequest(ProjectTaskStatus Status, string? ConcurrencyStamp = null);

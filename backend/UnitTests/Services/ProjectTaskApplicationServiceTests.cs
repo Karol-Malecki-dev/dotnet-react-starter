@@ -4,6 +4,7 @@ using Application.Interfaces;
 using Domain.Entities;
 using Domain.Enums;
 using Infrastructure.ProjectManagement.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Moq;
 using Xunit;
 
@@ -98,6 +99,49 @@ public sealed class ProjectTaskApplicationServiceTests
         Assert.Equal(command.Title, result.Value!.Title);
         _commandStore.Verify(store => store.AddTask(It.Is<ProjectTask>(task => task.ProjectId == command.ProjectId)), Times.Once);
         _commandStore.Verify(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Update_returns_conflict_for_a_stale_task_concurrency_stamp_without_mutating()
+    {
+        var ownerId = Guid.NewGuid();
+        var projectId = Guid.NewGuid();
+        var task = ProjectTask.Create(projectId, "Current title", null, ProjectTaskPriority.Normal, null, null, ownerId);
+        var command = new UpdateProjectTaskCommand(
+            ownerId, projectId, task.Id, "Stale title", null, ProjectTaskPriority.High, null, null, [], "stale-stamp");
+        _access.Setup(access => access.GetActiveProjectRoleAsync(ownerId, projectId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ProjectMemberRole.Owner);
+        _access.Setup(access => access.GetTaskWithLabelsAsync(projectId, task.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(task);
+        var service = CreateCommandService();
+
+        var result = await service.UpdateProjectTaskAsync(command);
+
+        Assert.Equal(ProjectOperationStatus.Conflict, result.Status);
+        Assert.Equal("Current title", task.Title);
+        _commandStore.Verify(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Update_returns_conflict_when_persistence_detects_a_concurrent_task_change()
+    {
+        var ownerId = Guid.NewGuid();
+        var projectId = Guid.NewGuid();
+        var task = ProjectTask.Create(projectId, "Current title", null, ProjectTaskPriority.Normal, null, null, ownerId);
+        var command = new UpdateProjectTaskCommand(
+            ownerId, projectId, task.Id, "Updated title", null, ProjectTaskPriority.High, null, null, [], task.ConcurrencyStamp);
+        _access.Setup(access => access.GetActiveProjectRoleAsync(ownerId, projectId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ProjectMemberRole.Owner);
+        _access.Setup(access => access.GetTaskWithLabelsAsync(projectId, task.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(task);
+        _commandStore.Setup(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new DbUpdateConcurrencyException());
+        var service = CreateCommandService();
+
+        var result = await service.UpdateProjectTaskAsync(command);
+
+        Assert.Equal(ProjectOperationStatus.Conflict, result.Status);
+        Assert.Contains("concurrently", result.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     private DatabaseProjectTaskCommandService CreateCommandService()

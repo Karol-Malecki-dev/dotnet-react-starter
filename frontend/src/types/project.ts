@@ -73,6 +73,7 @@ export interface ProjectTaskDto {
   createdByUserId?: string | null;
   createdAt: string;
   updatedAt: string;
+  concurrencyStamp: string;
   labels: string[];
 }
 
@@ -172,10 +173,13 @@ export interface CreateProjectTaskRequest {
   labels?: string[];
 }
 
-export interface UpdateProjectTaskRequest extends CreateProjectTaskRequest {}
+export interface UpdateProjectTaskRequest extends CreateProjectTaskRequest {
+  concurrencyStamp: string;
+}
 
 export interface UpdateProjectTaskStatusRequest {
   status: ProjectTaskStatus;
+  concurrencyStamp: string;
 }
 
 export interface CreateProjectTaskCommentRequest {

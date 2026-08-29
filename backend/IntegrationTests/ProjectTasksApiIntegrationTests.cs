@@ -57,15 +57,18 @@ public class ProjectTasksApiIntegrationTests
         Assert.Equal(projectId, created.Data.ProjectId);
         Assert.Equal(ProjectTaskStatus.Todo, created.Data.Status);
         Assert.Equal(ProjectTaskPriority.High, created.Data.Priority);
+        Assert.False(string.IsNullOrWhiteSpace(created.Data.ConcurrencyStamp));
         Assert.Equal(new[] { "documentation", "release" }, created.Data.Labels);
 
         var statusResponse = await _client.PatchAsJsonAsync(
             $"/api/projects/{projectId}/tasks/{created.Data.Id}/status",
-            new { Status = ProjectTaskStatus.InProgress });
+            new { Status = ProjectTaskStatus.InProgress, ConcurrencyStamp = created.Data.ConcurrencyStamp });
 
         statusResponse.EnsureSuccessStatusCode();
         var statusResult = await statusResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskResponse>>();
         Assert.Equal(ProjectTaskStatus.InProgress, statusResult?.Data?.Status);
+        Assert.NotNull(statusResult?.Data);
+        Assert.NotEqual(created.Data.ConcurrencyStamp, statusResult.Data.ConcurrencyStamp);
 
         var updateResponse = await _client.PutAsJsonAsync(
             $"/api/projects/{projectId}/tasks/{created.Data.Id}",
@@ -75,7 +78,8 @@ public class ProjectTasksApiIntegrationTests
                 Description = "Updated description",
                 Priority = ProjectTaskPriority.Normal,
                 DueDate = (DateTime?)null,
-                Labels = new[] { "final" }
+                Labels = new[] { "final" },
+                ConcurrencyStamp = statusResult.Data.ConcurrencyStamp
             });
 
         updateResponse.EnsureSuccessStatusCode();
@@ -83,17 +87,54 @@ public class ProjectTasksApiIntegrationTests
         Assert.Equal("Prepare final release notes", updateResult?.Data?.Title);
         Assert.Equal(ProjectTaskStatus.InProgress, updateResult?.Data?.Status);
         Assert.Equal(new[] { "final" }, updateResult?.Data?.Labels);
+        Assert.NotNull(updateResult?.Data);
+        Assert.NotEqual(statusResult.Data.ConcurrencyStamp, updateResult.Data.ConcurrencyStamp);
 
         var searchResponse = await _client.GetAsync($"/api/projects/{projectId}/tasks?search=final");
         searchResponse.EnsureSuccessStatusCode();
         var searchResult = await searchResponse.Content.ReadFromJsonAsync<ApiResponse<PagedProjectTaskResponse>>();
         Assert.Equal(created.Data.Id, Assert.Single(searchResult?.Data?.Items ?? []).Id);
 
-        var deleteResponse = await _client.DeleteAsync($"/api/projects/{projectId}/tasks/{created.Data.Id}");
+        var deleteResponse = await _client.DeleteAsync(
+            $"/api/projects/{projectId}/tasks/{created.Data.Id}?concurrencyStamp={Uri.EscapeDataString(updateResult.Data.ConcurrencyStamp)}");
 
         deleteResponse.EnsureSuccessStatusCode();
         var deleteResult = await deleteResponse.Content.ReadFromJsonAsync<ApiResponse<bool>>();
         Assert.True(deleteResult?.Data);
+    }
+
+    [Fact]
+    public async Task Task_update_rejects_a_stale_concurrency_stamp()
+    {
+        var ownerId = await SeedUserAsync("task.concurrency-owner@example.com", "password123", "Task Concurrency Owner");
+        var projectId = await SeedProjectAsync(ownerId, "Task concurrency project");
+        var tokens = await LoginAsync("task.concurrency-owner@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+
+        var createResponse = await _client.PostAsJsonAsync($"/api/projects/{projectId}/tasks", new { Title = "Concurrency task" });
+        createResponse.EnsureSuccessStatusCode();
+        var created = await createResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskResponse>>();
+        Assert.NotNull(created?.Data);
+        var staleStamp = created.Data.ConcurrencyStamp;
+
+        var firstUpdateResponse = await _client.PutAsJsonAsync($"/api/projects/{projectId}/tasks/{created.Data.Id}", new
+        {
+            Title = "First task update",
+            ConcurrencyStamp = staleStamp
+        });
+        Assert.Equal(HttpStatusCode.OK, firstUpdateResponse.StatusCode);
+
+        var staleUpdateResponse = await _client.PutAsJsonAsync($"/api/projects/{projectId}/tasks/{created.Data.Id}", new
+        {
+            Title = "Stale task update",
+            ConcurrencyStamp = staleStamp
+        });
+        Assert.Equal(HttpStatusCode.Conflict, staleUpdateResponse.StatusCode);
+
+        var currentResponse = await _client.GetAsync($"/api/projects/{projectId}/tasks/{created.Data.Id}");
+        currentResponse.EnsureSuccessStatusCode();
+        var current = await currentResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskResponse>>();
+        Assert.Equal("First task update", current?.Data?.Title);
     }
 
     [Fact]

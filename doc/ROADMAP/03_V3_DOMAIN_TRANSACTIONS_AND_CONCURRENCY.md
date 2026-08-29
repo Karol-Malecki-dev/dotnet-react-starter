@@ -23,7 +23,7 @@ Stan na: **2026-08-29**.
 | 3. Application services i porty | 50% | Warstwy i feature-specific ports istnieją; część odpowiedzialności nadal wymaga doprecyzowania. |
 | 4. Mapping i kontrakty | 50% | DTO i kontrakty HTTP są obecne oraz dokumentowane; pełne rozdzielenie modeli nie jest zakończone. |
 | 5. Transakcje i partial failure | 45% | Akceptacja zaproszenia ma relacyjną granicę transakcji obejmującą członkostwo, aktywność, powiadomienie i outbox; pozostałe przypadki wieloetapowe wymagają decyzji. |
-| 6. Optimistic concurrency | 50% | `Project` i `ProjectInvitation` mają tokeny wersji, konflikty są mapowane na `409`, a wyścig akceptacji jest testowany na PostgreSQL. |
+| 6. Optimistic concurrency | 70% | `Project`, `ProjectInvitation` i `ProjectTask` mają tokeny wersji, konflikty są mapowane na `409`, a konflikty zapisów projektu i zadania oraz wyścig akceptacji są testowane na PostgreSQL. |
 | 7. Zapytania dashboardu | 45% | Statystyki dashboardu są agregowane po stronie SQL, a listy overdue/upcoming są pobierane limitowanymi zapytaniami; pomiar planów SQL nadal wymaga wykonania. |
 
 **Postęp V3: 40%**.
@@ -89,6 +89,12 @@ Dla każdej operacji określić:
 - mapować `DbUpdateConcurrencyException` na `409 Conflict`;
 - zwracać klientowi informację pozwalającą odświeżyć dane;
 - przetestować dwa procesy aktualizujące tę samą wersję.
+
+W bieżącej iteracji token `ProjectTask.ConcurrencyStamp` chroni niezależne zmiany
+tytułu, opisu, priorytetu, statusu, przypisania, terminu, etykiet i usunięcia zadania.
+Mutacje wymagają oczekiwanej wersji, zwracają nową wersję po sukcesie, a nieaktualna
+wersja kończy się konfliktem `409`. Migracja backfilluje token dla istniejących zadań,
+a test PostgreSQL potwierdza konflikt dwóch kontekstów EF Core.
 
 Nie trzeba dodawać concurrency tokenu do każdej tabeli. Wybór powinien wynikać z ryzyka utraty zmian.
 

@@ -24,5 +24,9 @@ public sealed class UpdateProjectTaskRequestValidator : AbstractValidator<Update
         RuleFor(task => task.Labels)
             .Must(labels => labels is null || labels.Count <= 10)
             .WithMessage("A task cannot have more than 10 labels");
+
+        RuleFor(task => task.ConcurrencyStamp)
+            .NotEmpty()
+            .MaximumLength(64);
     }
 }

@@ -37,6 +37,8 @@ public sealed class EfProjectTaskCommandStore : IProjectTaskCommandStore
 
     public void AddActivity(ProjectActivity activity) => _dbContext.ProjectActivities.Add(activity);
 
+    public void ClearChangeTracker() => _dbContext.ChangeTracker.Clear();
+
     public Task SaveChangesAsync(CancellationToken cancellationToken = default)
         => _dbContext.SaveChangesAsync(cancellationToken);
 }

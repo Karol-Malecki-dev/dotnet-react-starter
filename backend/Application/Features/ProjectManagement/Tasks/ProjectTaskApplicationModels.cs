@@ -14,6 +14,7 @@ public sealed record ProjectTaskView(
     Guid? CreatedByUserId,
     DateTime CreatedAt,
     DateTime UpdatedAt,
+    string ConcurrencyStamp,
     IReadOnlyList<string> Labels);
 
 public sealed record PagedProjectTaskView(
@@ -68,10 +69,12 @@ public sealed record UpdateProjectTaskCommand(
     ProjectTaskPriority Priority,
     DateTime? DueDate,
     Guid? AssignedUserId,
-    IReadOnlyList<string> Labels);
+    IReadOnlyList<string> Labels,
+    string? ExpectedConcurrencyStamp = null);
 
 public sealed record UpdateProjectTaskStatusCommand(
     Guid OwnerId,
     Guid ProjectId,
     Guid TaskId,
-    ProjectTaskStatus Status);
+    ProjectTaskStatus Status,
+    string? ExpectedConcurrencyStamp = null);

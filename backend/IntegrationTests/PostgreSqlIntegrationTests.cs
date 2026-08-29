@@ -1,11 +1,13 @@
 using Application.Features.Projects;
 using Application.DTOs.Notification;
 using Application.Interfaces;
+using Application.Features.ProjectManagement.Tasks;
 using Domain.Entities;
 using Domain.Entities.JWT;
 using Domain.Enums;
 using Domain.Interfaces;
 using Infrastructure.Data;
+using Infrastructure.ProjectManagement.Tasks;
 using Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -122,6 +124,59 @@ public sealed class PostgreSqlIntegrationTests
         var verificationContext = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var persistedProject = await verificationContext.Projects.SingleAsync(project => project.Id == projectId);
         Assert.Equal("Writer update", persistedProject.Name);
+    }
+
+    [Fact]
+    public async Task PostgreSql_project_task_update_returns_conflict_for_a_stale_version()
+    {
+        var ownerId = Guid.NewGuid();
+        await SeedProjectOwnerAsync(ownerId);
+
+        Guid projectId;
+        await using (var setupScope = _factory.Services.CreateAsyncScope())
+        {
+            var setupContext = setupScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var project = Project.Create(ownerId, "Task concurrency project");
+            var task = ProjectTask.Create(project.Id, "Original task", null, ProjectTaskPriority.Normal, null, null, ownerId);
+            projectId = project.Id;
+            setupContext.Projects.Add(project);
+            setupContext.ProjectTasks.Add(task);
+            await setupContext.SaveChangesAsync();
+        }
+
+        await using var staleScope = _factory.Services.CreateAsyncScope();
+        await using var writerScope = _factory.Services.CreateAsyncScope();
+        var staleContext = staleScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var writerContext = writerScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var staleTask = await staleContext.ProjectTasks.SingleAsync(task => task.ProjectId == projectId);
+        var writerTask = await writerContext.ProjectTasks.SingleAsync(task => task.ProjectId == projectId);
+
+        writerTask.Rename("Writer task update");
+        await writerContext.SaveChangesAsync();
+
+        var service = new DatabaseProjectTaskCommandService(
+            new EfProjectTaskAccess(staleContext),
+            new EfProjectTaskCommandStore(staleContext),
+            staleScope.ServiceProvider.GetRequiredService<INotificationService>());
+        var result = await service.UpdateProjectTaskAsync(new UpdateProjectTaskCommand(
+            ownerId,
+            projectId,
+            staleTask.Id,
+            "Stale task update",
+            null,
+            ProjectTaskPriority.High,
+            null,
+            null,
+            [],
+            staleTask.ConcurrencyStamp));
+
+        Assert.Equal(ProjectOperationStatus.Conflict, result.Status);
+        Assert.Contains("concurrently", result.Message, StringComparison.OrdinalIgnoreCase);
+
+        await using var verificationScope = _factory.Services.CreateAsyncScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var persistedTask = await verificationContext.ProjectTasks.SingleAsync(task => task.Id == staleTask.Id);
+        Assert.Equal("Writer task update", persistedTask.Title);
     }
 
     [Fact]

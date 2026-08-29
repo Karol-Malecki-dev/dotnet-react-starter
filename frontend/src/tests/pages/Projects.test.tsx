@@ -37,6 +37,7 @@ const task = {
   assignedUserId: null,
   createdAt: '2026-07-25T10:00:00Z',
   updatedAt: '2026-07-25T10:00:00Z',
+  concurrencyStamp: 'task-stamp-1',
   labels: [],
 };
 

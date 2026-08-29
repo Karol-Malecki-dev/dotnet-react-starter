@@ -229,7 +229,7 @@ public sealed class DatabaseProjectManagementService : IProjectManagementService
 
     private static ProjectTaskView MapDashboardTask(ProjectTask task) => new(
         task.Id, task.ProjectId, task.Title, task.Description, task.Status, task.Priority,
-        task.DueDate, task.AssignedUserId, task.CreatedByUserId, task.CreatedAt, task.UpdatedAt,
+        task.DueDate, task.AssignedUserId, task.CreatedByUserId, task.CreatedAt, task.UpdatedAt, task.ConcurrencyStamp,
         task.Labels.OrderBy(label => label.Name).Select(label => label.Name).ToList());
 
     private static ProjectView MapToView(Project project, Guid? currentUserId = null) => new(
