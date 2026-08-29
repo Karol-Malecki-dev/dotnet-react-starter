@@ -55,6 +55,8 @@ Testy muszą potwierdzić zarówno odrzucenie starych sesji, jak i możliwość 
 
 ### 4. Brute-force protection
 
+Decyzję dla tego fragmentu opisuje [ADR-09: Authentication brute-force protection](09_ADR_AUTH_BRUTE_FORCE_PROTECTION.md).
+
 - rozszerzyć rate limiting na forgot password, reset password, confirm/resend confirmation i operacje 2FA;
 - rozważyć partycjonowanie limitu po IP, koncie lub połączeniu obu strategii;
 - dodać lockout po określonej liczbie nieudanych loginów;

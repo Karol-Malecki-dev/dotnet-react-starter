@@ -97,6 +97,7 @@ Najważniejsze sekcje konfiguracji:
 - `Cors`
 - `EmailConfirmation`
 - `EmailTwoFactor`
+- `AuthSecurity`
 - `EmailDelivery`
 - `UiFeatures`
 
@@ -145,6 +146,33 @@ Typowy flow logowania:
 4. Jeśli 2FA jest aktywne, backend tworzy challenge i odsyła `202 Accepted`.
 5. Jeśli 2FA nie jest wymagane, backend zwraca access token i ustawia refresh token cookie.
 
+### Auth Abuse Protection
+
+Endpointy auth używają polityki `AuthPolicy`. Jest to fixed-window rate limit
+partycjonowany po adresie IP klienta i ścieżce endpointu. Domyślne ustawienia znajdują się
+w sekcji `AuthSecurity`:
+
+- `RateLimitPermitLimit`: 5 żądań;
+- `RateLimitWindowSeconds`: 60 sekund;
+- `MaxFailedLoginAttempts`: 5 kolejnych nieudanych haseł;
+- `LockoutDurationMinutes`: 15 minut blokady logowania.
+
+Limit obejmuje rejestrację, logowanie, potwierdzenie i ponowienie potwierdzenia emaila,
+operacje email 2FA, refresh token, weryfikację tokenu, oba endpointy resetu hasła,
+zmianę hasła oraz operacje authenticatora.
+Przekroczenie limitu zwraca neutralne `429 Too Many Requests` i nie ujawnia danych konta.
+
+Nieudane hasło zwiększa trwały licznik użytkownika. Po przekroczeniu progu konto jest
+tymczasowo blokowane, a poprawne hasło podczas blokady nadal zwraca neutralne `401`
+(`Invalid email or password`). Po poprawnym logowaniu licznik jest zerowany. Stan lockoutu
+jest chroniony przez `ConcurrencyStamp`, więc równoległa aktualizacja nie nadpisuje cicho
+nowszego stanu.
+
+W środowisku za reverse proxy adres IP musi być poprawnie odtworzony przez konfigurację
+`ForwardedHeaders`; bez niej wiele klientów może zostać przypisanych do adresu proxy.
+
+Pełna decyzja bezpieczeństwa jest opisana w [ADR-09: Authentication brute-force protection](ROADMAP/09_ADR_AUTH_BRUTE_FORCE_PROTECTION.md).
+
 ## Database Model
 
 Aktualny model bazy obejmuje auth, użytkowników oraz domenę projektów i zadań.
@@ -167,6 +195,7 @@ Najważniejsze DbSety:
 Warto zwrócić uwagę na kilka decyzji:
 
 - tokeny są przechowywane jako hashe, nie surowe wartości
+- użytkownik przechowuje licznik nieudanych logowań i czas zakończenia blokady
 - challenge i requesty resetu mają daty wygaśnięcia i liczniki prób
 - enumy takie jak `ResetType` są mapowane jako stringi
 - relacje do `User` mają `DeleteBehavior.Cascade`

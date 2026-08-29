@@ -155,6 +155,25 @@ To oznacza, że token nie ma dodatkowej tolerancji czasowej i jest interpretowan
 7. Frontend wywołuje `POST /api/auth/verify-2fa`.
 8. Dopiero po poprawnej weryfikacji backend generuje access token i refresh token.
 
+## Authentication Abuse Protection
+
+Publiczne endpointy auth są chronione wspólną polityką `AuthPolicy`. Limiter używa fixed
+window partycjonowanego po adresie IP i ścieżce endpointu, więc limit logowania nie blokuje
+niezależnie limitu resetu hasła. Domyślnie dozwolonych jest 5 żądań w ciągu 60 sekund;
+przekroczenie zwraca `429 Too Many Requests` z neutralnym komunikatem.
+
+Logowanie z niepoprawnym hasłem zwiększa trwały `FailedLoginAttempts` użytkownika. Po
+osiągnięciu `AuthSecurity.MaxFailedLoginAttempts` logowanie jest blokowane do czasu
+`LockoutEndAt`. Zablokowane konto, nieznany użytkownik i niepoprawne hasło mają ten sam
+kontrakt `401`, aby publiczny endpoint nie ujawniał istnienia konta. Udane logowanie zeruje
+licznik, a zapis stanu używa `ConcurrencyStamp` jako tokenu optymistycznej współbieżności.
+
+Rate limiting jest lokalny dla procesu. Przy wielu instancjach oraz za reverse proxy należy
+skonfigurować poprawne forwarded headers, a później rozważyć współdzielony limiter, jeśli
+wymaga tego skala lub model zagrożeń.
+
+Decyzja i lista świadomych ograniczeń są zapisane w [ADR-09: Authentication brute-force protection](ROADMAP/09_ADR_AUTH_BRUTE_FORCE_PROTECTION.md).
+
 ## Refresh Token Rotation Flow
 
 To jest jeden z najważniejszych wzorców bezpieczeństwa w tym projekcie.

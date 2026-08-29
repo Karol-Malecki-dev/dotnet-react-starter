@@ -31,6 +31,15 @@ namespace Domain.Entities
         /// <summary>Indicates whether the user account is active or deactivated</summary>
         public bool IsActive { get; set; }
 
+        /// <summary>Application-managed value used to detect concurrent authentication-state updates.</summary>
+        public string ConcurrencyStamp { get; set; } = Guid.NewGuid().ToString("N");
+
+        /// <summary>Number of consecutive invalid password-login attempts for the account.</summary>
+        public int FailedLoginAttempts { get; set; }
+
+        /// <summary>UTC timestamp until which password login is blocked, when a lockout is active.</summary>
+        public DateTime? LockoutEndAt { get; set; }
+
         /// <summary>Indicates whether the user's email address has been verified</summary>
         public bool IsEmailConfirmed { get; set; }
 

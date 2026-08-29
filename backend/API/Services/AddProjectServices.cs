@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Shared.Responses;
 using Shared.Settings;
 using System.Threading.RateLimiting;
 
@@ -35,7 +36,7 @@ namespace API.Services
             services.AddAuthenticationInfrastructure();
             services.AddApplicationServices();
             services.AddCorsPolicy(configuration);
-            services.AddRateLimitingInfrastructure();
+            services.AddRateLimitingInfrastructure(configuration);
 
             return services;
         }
@@ -102,6 +103,18 @@ namespace API.Services
                     "Email 2FA code length must be between 4 and 10 digits.")
                 .Validate(settings => settings.MaxFailedAttempts > 0,
                     "Email 2FA maximum failed attempts must be greater than 0.")
+                .ValidateOnStart();
+
+            services.AddOptions<AuthSecuritySettings>()
+                .Bind(configuration.GetSection("AuthSecurity"))
+                .Validate(settings => settings.RateLimitPermitLimit > 0,
+                    "Auth rate-limit permit limit must be greater than 0.")
+                .Validate(settings => settings.RateLimitWindowSeconds > 0,
+                    "Auth rate-limit window must be greater than 0 seconds.")
+                .Validate(settings => settings.MaxFailedLoginAttempts > 0,
+                    "Maximum failed login attempts must be greater than 0.")
+                .Validate(settings => settings.LockoutDurationMinutes > 0,
+                    "Lockout duration must be greater than 0 minutes.")
                 .ValidateOnStart();
 
             services.AddOptions<EmailDeliverySettings>()
@@ -221,21 +234,44 @@ namespace API.Services
             return services;
         }
 
-        private static IServiceCollection AddRateLimitingInfrastructure(this IServiceCollection services)
+        private static IServiceCollection AddRateLimitingInfrastructure(this IServiceCollection services, IConfiguration configuration)
         {
+            var authSecuritySettings = configuration.GetSection("AuthSecurity").Get<AuthSecuritySettings>() ?? new AuthSecuritySettings();
+
             services.AddRateLimiter(options =>
             {
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-                options.AddFixedWindowLimiter("AuthPolicy", limiterOptions =>
+                options.OnRejected = static async (context, cancellationToken) =>
                 {
-                    limiterOptions.PermitLimit = 5;
-                    limiterOptions.Window = TimeSpan.FromMinutes(1);
-                    limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-                    limiterOptions.QueueLimit = 0;
-                });
+                    context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+                    context.HttpContext.Response.ContentType = "application/json";
+                    await context.HttpContext.Response.WriteAsJsonAsync(
+                        ApiResponse.Error(
+                            StatusCodes.Status429TooManyRequests,
+                            "Too many requests. Please try again later."),
+                        cancellationToken);
+                };
+
+                options.AddPolicy("AuthPolicy", httpContext =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        GetAuthRateLimitPartitionKey(httpContext),
+                        _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = authSecuritySettings.RateLimitPermitLimit,
+                            Window = TimeSpan.FromSeconds(authSecuritySettings.RateLimitWindowSeconds),
+                            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                            QueueLimit = 0
+                        }));
             });
 
             return services;
+        }
+
+        private static string GetAuthRateLimitPartitionKey(HttpContext httpContext)
+        {
+            var clientIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var endpoint = httpContext.Request.Path.Value ?? "/";
+            return $"{clientIp}:{endpoint}";
         }
     }
 }

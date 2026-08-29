@@ -39,6 +39,10 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         builder.UseSetting("EmailTwoFactor:CodeExpiresInMinutes", "10");
         builder.UseSetting("EmailTwoFactor:CodeLength", "6");
         builder.UseSetting("EmailTwoFactor:MaxFailedAttempts", "5");
+        builder.UseSetting("AuthSecurity:RateLimitPermitLimit", "5");
+        builder.UseSetting("AuthSecurity:RateLimitWindowSeconds", "60");
+        builder.UseSetting("AuthSecurity:MaxFailedLoginAttempts", "3");
+        builder.UseSetting("AuthSecurity:LockoutDurationMinutes", "15");
         builder.UseSetting("UiFeatures:GlobalSearchEnabled", "true");
         builder.UseSetting("UiFeatures:DashboardOverviewEnabled", "true");
         builder.UseSetting("UiFeatures:AdminNavigationEnabled", "true");
@@ -66,6 +70,10 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 ["EmailTwoFactor:CodeExpiresInMinutes"] = "10",
                 ["EmailTwoFactor:CodeLength"] = "6",
                 ["EmailTwoFactor:MaxFailedAttempts"] = "5",
+                ["AuthSecurity:RateLimitPermitLimit"] = "5",
+                ["AuthSecurity:RateLimitWindowSeconds"] = "60",
+                ["AuthSecurity:MaxFailedLoginAttempts"] = "3",
+                ["AuthSecurity:LockoutDurationMinutes"] = "15",
                 ["UiFeatures:GlobalSearchEnabled"] = "true",
                 ["UiFeatures:DashboardOverviewEnabled"] = "true",
                 ["UiFeatures:AdminNavigationEnabled"] = "true",
