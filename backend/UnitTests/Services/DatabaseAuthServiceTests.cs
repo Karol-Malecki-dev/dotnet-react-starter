@@ -94,6 +94,7 @@ public class DatabaseAuthServiceTests
                 CodeExpiresInMinutes = 10,
                 MaxFailedAttempts = 3
             }),
+            Options.Create(new AuthSecuritySettings()),
             DataProtectionProvider.Create("UnitTests"),
             NullLogger<DatabaseAuthService>.Instance);
 
