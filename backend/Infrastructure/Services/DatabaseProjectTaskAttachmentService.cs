@@ -51,18 +51,32 @@ public sealed class DatabaseProjectTaskAttachmentService : IProjectTaskAttachmen
             .AsNoTracking()
             .Where(attachment => attachment.ProjectTaskId == taskId)
             .OrderByDescending(attachment => attachment.CreatedAt)
+            .Select(attachment => new
+            {
+                attachment.Id,
+                attachment.ProjectTaskId,
+                attachment.UploadedByUserId,
+                UploaderDisplayName = attachment.UploadedByUser.DisplayName,
+                attachment.OriginalFileName,
+                attachment.ContentType,
+                attachment.SizeBytes,
+                attachment.CreatedAt
+            })
+            .ToListAsync(cancellationToken);
+
+        var attachmentViews = attachments
             .Select(attachment => new ProjectTaskAttachmentView(
                 attachment.Id,
                 attachment.ProjectTaskId,
                 attachment.UploadedByUserId,
-                attachment.UploadedByUser.DisplayName,
+                attachment.UploaderDisplayName.Value,
                 attachment.OriginalFileName,
                 attachment.ContentType,
                 attachment.SizeBytes,
                 attachment.CreatedAt))
-            .ToListAsync(cancellationToken);
+            .ToList();
 
-        return ProjectOperationResult<IReadOnlyList<ProjectTaskAttachmentView>>.Success(attachments);
+        return ProjectOperationResult<IReadOnlyList<ProjectTaskAttachmentView>>.Success(attachmentViews);
     }
 
     public async Task<ProjectOperationResult<ProjectTaskAttachmentView>> CreateProjectTaskAttachmentAsync(
@@ -135,7 +149,7 @@ public sealed class DatabaseProjectTaskAttachmentService : IProjectTaskAttachmen
                 attachment.Id,
                 attachment.ProjectTaskId,
                 attachment.UploadedByUserId,
-                uploaderDisplayName,
+                uploaderDisplayName.Value,
                 attachment.OriginalFileName,
                 attachment.ContentType,
                 attachment.SizeBytes,

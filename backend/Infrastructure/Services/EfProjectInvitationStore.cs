@@ -47,8 +47,15 @@ public sealed class EfProjectInvitationStore : IProjectInvitationStore
     public Task<string> GetProjectNameAsync(Guid projectId, CancellationToken cancellationToken = default)
         => _dbContext.Projects.Where(project => project.Id == projectId).Select(project => project.Name).SingleAsync(cancellationToken);
 
-    public Task<string> GetUserDisplayNameAsync(Guid userId, CancellationToken cancellationToken = default)
-        => _dbContext.Users.Where(user => user.Id == userId).Select(user => user.DisplayName).SingleAsync(cancellationToken);
+    public async Task<string> GetUserDisplayNameAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var displayName = await _dbContext.Users
+            .Where(user => user.Id == userId)
+            .Select(user => user.DisplayName)
+            .SingleAsync(cancellationToken);
+
+        return displayName.Value;
+    }
 
     public async Task<IReadOnlyList<ProjectInvitation>> GetProjectInvitationsAsync(Guid projectId, CancellationToken cancellationToken = default)
         => await _dbContext.ProjectInvitations.AsNoTracking()

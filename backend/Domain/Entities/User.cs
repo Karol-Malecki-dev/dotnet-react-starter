@@ -20,8 +20,8 @@ namespace Domain.Entities
         /// <summary>BCrypt hashed password for secure authentication</summary>
         public string PasswordHash { get; set; } = string.Empty;
 
-        /// <summary>User's display name shown in the application (e.g., "John Doe")</summary>
-        public string DisplayName { get; set; } = string.Empty;
+        /// <summary>User's normalized display name shown in the application (e.g., "John Doe")</summary>
+        public DisplayName DisplayName { get; set; } = null!;
 
         /// <summary>Optional URL to user's profile avatar/profile picture</summary>
         public string? AvatarUrl { get; set; }

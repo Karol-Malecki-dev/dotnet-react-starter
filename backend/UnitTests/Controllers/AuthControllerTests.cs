@@ -48,7 +48,7 @@ public class AuthControllerTests
     public async Task Login_Returns_ok_when_credentials_are_valid()
     {
         var dto = new LoginUserDto { Email = "test@example.com", Password = "password123" };
-        var user = new User { Id = Guid.NewGuid(), Email = EmailAddress.Create(dto.Email), DisplayName = "Test", Role = UserRole.User, IsEmailConfirmed = true, IsTwoFactorEnabled = false };
+        var user = new User { Id = Guid.NewGuid(), Email = EmailAddress.Create(dto.Email), DisplayName = DisplayName.Create("Test"), Role = UserRole.User, IsEmailConfirmed = true, IsTwoFactorEnabled = false };
         var tokens = new JwtTokens { AccessToken = "access-token", RefreshToken = "refresh-token", ExpiresIn = 900 };
 
         _controller.ControllerContext = new ControllerContext
@@ -89,7 +89,7 @@ public class AuthControllerTests
     public async Task Login_Returns_forbidden_when_email_is_not_confirmed()
     {
         var dto = new LoginUserDto { Email = "pending@example.com", Password = "password123" };
-        var user = new User { Id = Guid.NewGuid(), Email = EmailAddress.Create(dto.Email), DisplayName = "Pending", Role = UserRole.User, IsEmailConfirmed = false, IsTwoFactorEnabled = false };
+        var user = new User { Id = Guid.NewGuid(), Email = EmailAddress.Create(dto.Email), DisplayName = DisplayName.Create("Pending"), Role = UserRole.User, IsEmailConfirmed = false, IsTwoFactorEnabled = false };
 
         _authServiceMock.Setup(x => x.AuthenticateAsync(dto.Email, dto.Password, It.IsAny<CancellationToken>())).ReturnsAsync(user);
 
@@ -110,7 +110,7 @@ public class AuthControllerTests
         {
             Id = Guid.NewGuid(),
             Email = EmailAddress.Create(dto.Email),
-            DisplayName = "Two Factor",
+            DisplayName = DisplayName.Create("Two Factor"),
             Role = UserRole.User,
             IsEmailConfirmed = true,
             IsTwoFactorEnabled = true
@@ -120,8 +120,8 @@ public class AuthControllerTests
 
         _authServiceMock.Setup(x => x.AuthenticateAsync(dto.Email, dto.Password, It.IsAny<CancellationToken>())).ReturnsAsync(user);
         _authServiceMock.Setup(x => x.CreateEmailTwoFactorChallengeAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(
-            new EmailTwoFactorChallengeDelivery(challengeId, user.Id, user.Email.Value, user.DisplayName, "123456", expiresAt));
-        _accountEmailSenderMock.Setup(x => x.SendTwoFactorCodeAsync(user.Email.Value, user.DisplayName, "123456", expiresAt, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+            new EmailTwoFactorChallengeDelivery(challengeId, user.Id, user.Email.Value, user.DisplayName.Value, "123456", expiresAt));
+        _accountEmailSenderMock.Setup(x => x.SendTwoFactorCodeAsync(user.Email.Value, user.DisplayName.Value, "123456", expiresAt, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         var actionResult = await _controller.Login(dto);
 
@@ -132,14 +132,14 @@ public class AuthControllerTests
         Assert.Equal("Two-factor verification required. Check your email for the code.", response.Message);
         Assert.True(response.Data?.RequiresTwoFactor);
         Assert.Equal(challengeId, response.Data?.ChallengeId);
-        _accountEmailSenderMock.Verify(x => x.SendTwoFactorCodeAsync(user.Email.Value, user.DisplayName, "123456", expiresAt, It.IsAny<CancellationToken>()), Times.Once);
+        _accountEmailSenderMock.Verify(x => x.SendTwoFactorCodeAsync(user.Email.Value, user.DisplayName.Value, "123456", expiresAt, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task Register_Returns_created_when_registration_succeeds()
     {
         var dto = new RegisterUserDto { Email = "new@example.com", Password = "password123", FirstName = "New", LastName = "User", CreatedAt = DateTime.UtcNow };
-        var user = new User { Id = Guid.NewGuid(), Email = EmailAddress.Create(dto.Email), DisplayName = "New User", Role = UserRole.User, IsEmailConfirmed = false };
+        var user = new User { Id = Guid.NewGuid(), Email = EmailAddress.Create(dto.Email), DisplayName = DisplayName.Create("New User"), Role = UserRole.User, IsEmailConfirmed = false };
 
         _controller.ControllerContext = new ControllerContext
         {
@@ -149,7 +149,7 @@ public class AuthControllerTests
         _authServiceMock.Setup(x => x.UserExistsAsync(dto.Email, It.IsAny<CancellationToken>())).ReturnsAsync(false);
         _authServiceMock.Setup(x => x.RegisterAsync(dto.Email, dto.Password, "New User", It.IsAny<CancellationToken>())).ReturnsAsync(user);
         _authServiceMock.Setup(x => x.GenerateEmailConfirmationTokenAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync("confirmation-token-123456");
-        _accountEmailSenderMock.Setup(x => x.SendEmailConfirmationAsync(user.Email.Value, user.DisplayName, It.IsAny<string>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _accountEmailSenderMock.Setup(x => x.SendEmailConfirmationAsync(user.Email.Value, user.DisplayName.Value, It.IsAny<string>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         var actionResult = await _controller.Register(dto);
 
@@ -164,7 +164,7 @@ public class AuthControllerTests
         _accountEmailSenderMock.Verify(
             x => x.SendEmailConfirmationAsync(
                 user.Email.Value,
-                user.DisplayName,
+                user.DisplayName.Value,
                 It.Is<string>(link => link.Contains("confirmation-token-123456", StringComparison.Ordinal) && link.Contains(user.Id.ToString(), StringComparison.Ordinal)),
                 It.IsAny<CancellationToken>()),
             Times.Once);
@@ -367,7 +367,7 @@ public class AuthControllerTests
             ChallengeId = challengeId,
             Code = "123456"
         };
-        var user = new User { Id = Guid.NewGuid(), Email = EmailAddress.Create("2fa@example.com"), DisplayName = "Two Factor", Role = UserRole.User };
+        var user = new User { Id = Guid.NewGuid(), Email = EmailAddress.Create("2fa@example.com"), DisplayName = DisplayName.Create("Two Factor"), Role = UserRole.User };
         var tokens = new JwtTokens { AccessToken = "access-token", RefreshToken = "refresh-token", ExpiresIn = 900 };
 
         _controller.ControllerContext = new ControllerContext

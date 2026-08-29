@@ -14,13 +14,13 @@ V1 is complete as the junior baseline and V2 is complete for the current securit
 
 ## Current progress
 
-As of **2026-08-29**. Percentages follow the calculation documented in the canonical [roadmap overview](../doc/ROADMAP/00_ROADMAP_OVERVIEW.md).
+As of **2026-08-30**. Percentages follow the calculation documented in the canonical [roadmap overview](../doc/ROADMAP/00_ROADMAP_OVERVIEW.md).
 
 | Stage | Progress | Status |
 |---|---:|---|
 | V1 | 100% | Complete baseline. |
 | V2 | 96% | Complete for the current scope; minor follow-ups remain. |
-| V3 | 40% | Project and ProjectTask aggregate boundaries are documented and tested; project, invitation and task concurrency plus invitation and member transaction workflows have PostgreSQL coverage; dashboard date predicates and index usage are covered; `User.Email` now uses a tested domain value object with an EF Core text conversion; implementation is not complete. |
+| V3 | 40% | Project and ProjectTask aggregate boundaries are documented and tested; project, invitation and task concurrency plus invitation and member transaction workflows have PostgreSQL coverage; dashboard date predicates and index usage are covered; `User.Email` and `User.DisplayName` now use tested domain value objects with EF Core text conversions; implementation is not complete. |
 | V4 | 28% | Foundations present; implementation not complete. |
 | V5 | 41% | Local Docker/CI foundations; no real target hosting yet. |
 | V6 | 13% | Initial foundations; measurement work not started. |

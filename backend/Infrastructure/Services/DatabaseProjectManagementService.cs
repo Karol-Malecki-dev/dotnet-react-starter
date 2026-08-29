@@ -147,9 +147,28 @@ public sealed class DatabaseProjectManagementService : IProjectManagementService
         var totalCount = await query.CountAsync(cancellationToken);
         var items = await query.OrderByDescending(activity => activity.CreatedAt)
             .Skip((safePageNumber - 1) * safePageSize).Take(safePageSize)
-            .Select(activity => new ProjectActivityView(activity.Id, activity.Type, activity.Description, activity.ActorUserId, activity.ActorUser.DisplayName, activity.ProjectTaskId, activity.CreatedAt))
+            .Select(activity => new
+            {
+                activity.Id,
+                activity.Type,
+                activity.Description,
+                activity.ActorUserId,
+                ActorDisplayName = activity.ActorUser.DisplayName,
+                activity.ProjectTaskId,
+                activity.CreatedAt
+            })
             .ToListAsync(cancellationToken);
-        return ProjectOperationResult<PagedProjectActivityView>.Success(new PagedProjectActivityView(items, safePageNumber, safePageSize, totalCount));
+        var activityViews = items
+            .Select(activity => new ProjectActivityView(
+                activity.Id,
+                activity.Type,
+                activity.Description,
+                activity.ActorUserId,
+                activity.ActorDisplayName.Value,
+                activity.ProjectTaskId,
+                activity.CreatedAt))
+            .ToList();
+        return ProjectOperationResult<PagedProjectActivityView>.Success(new PagedProjectActivityView(activityViews, safePageNumber, safePageSize, totalCount));
     }
 
     public async Task<ProjectOperationResult<ProjectDashboardView>> GetProjectDashboardAsync(Guid userId, Guid projectId, CancellationToken cancellationToken = default)
@@ -201,8 +220,27 @@ public sealed class DatabaseProjectManagementService : IProjectManagementService
             .Where(activity => activity.ProjectId == projectId)
             .OrderByDescending(activity => activity.CreatedAt)
             .Take(5)
-            .Select(activity => new ProjectActivityView(activity.Id, activity.Type, activity.Description, activity.ActorUserId, activity.ActorUser.DisplayName, activity.ProjectTaskId, activity.CreatedAt))
+            .Select(activity => new
+            {
+                activity.Id,
+                activity.Type,
+                activity.Description,
+                activity.ActorUserId,
+                ActorDisplayName = activity.ActorUser.DisplayName,
+                activity.ProjectTaskId,
+                activity.CreatedAt
+            })
             .ToListAsync(cancellationToken);
+        var recentActivityViews = recentActivities
+            .Select(activity => new ProjectActivityView(
+                activity.Id,
+                activity.Type,
+                activity.Description,
+                activity.ActorUserId,
+                activity.ActorDisplayName.Value,
+                activity.ProjectTaskId,
+                activity.CreatedAt))
+            .ToList();
 
         return ProjectOperationResult<ProjectDashboardView>.Success(new ProjectDashboardView(
             taskStats?.Total ?? 0,
@@ -214,7 +252,7 @@ public sealed class DatabaseProjectManagementService : IProjectManagementService
             taskStats?.HighPriority ?? 0,
             overdueTasks.Select(MapDashboardTask).ToList(),
             upcomingTasks.Select(MapDashboardTask).ToList(),
-            recentActivities));
+            recentActivityViews));
     }
 
     private void AddActivity(Guid projectId, Guid actorUserId, string type, string description)

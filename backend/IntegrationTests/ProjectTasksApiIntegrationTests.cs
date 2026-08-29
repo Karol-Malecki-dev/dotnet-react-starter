@@ -594,7 +594,7 @@ public class ProjectTasksApiIntegrationTests
         {
             Id = Guid.NewGuid(),
             Email = EmailAddress.Create(email),
-            DisplayName = displayName,
+            DisplayName = DisplayName.Create(displayName),
             Role = UserRole.User,
             IsActive = true,
             IsEmailConfirmed = true,

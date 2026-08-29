@@ -259,7 +259,7 @@ namespace Infrastructure.Services
                 Id = Guid.NewGuid(),
                 UserId = user.Id,
                 UserEmail = user.Email.Value,
-                UserDisplayName = user.DisplayName,
+                UserDisplayName = user.DisplayName.Value,
                 UserRole = user.Role,
                 IsEmailConfirmed = user.IsEmailConfirmed,
                 TokenHash = HashToken(rawRefreshToken),
@@ -316,7 +316,7 @@ namespace Infrastructure.Services
                 new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 new(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new(ClaimTypes.Email, user.Email.Value),
-                new(ClaimTypes.Name, user.DisplayName),
+                new(ClaimTypes.Name, user.DisplayName.Value),
                 new(ClaimTypes.Role, user.Role.ToString()),
                 new("IsEmailConfirmed", user.IsEmailConfirmed.ToString())
             };

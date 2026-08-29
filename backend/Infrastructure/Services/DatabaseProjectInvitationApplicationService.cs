@@ -70,7 +70,7 @@ public sealed class DatabaseProjectInvitationApplicationService : IProjectInvita
             ExpiresAt = DateTime.UtcNow.AddDays(7)
         };
         _invitationStore.AddInvitation(invitation);
-        AddActivity(command.ProjectId, command.OwnerId, "invitation.created", $"invited {invitedUser.DisplayName} to the project.");
+        AddActivity(command.ProjectId, command.OwnerId, "invitation.created", $"invited {invitedUser.DisplayName.Value} to the project.");
         await _invitationStore.SaveChangesAsync(cancellationToken);
 
         var projectName = await _invitationStore.GetProjectNameAsync(command.ProjectId, cancellationToken);
@@ -164,7 +164,7 @@ public sealed class DatabaseProjectInvitationApplicationService : IProjectInvita
             await _invitationStore.SaveChangesAsync(cancellationToken);
 
             await _notificationService.CreateAsync(invitation.InvitedByUserId, NotificationType.ProjectInvitation,
-                "Project invitation response", $"{invitation.InvitedUser.DisplayName} {responseStatus.ToString().ToLowerInvariant()} the invitation to '{invitation.Project.Name}'.",
+                "Project invitation response", $"{invitation.InvitedUser.DisplayName.Value} {responseStatus.ToString().ToLowerInvariant()} the invitation to '{invitation.Project.Name}'.",
                 "ProjectInvitation", invitation.Id, cancellationToken: cancellationToken);
 
             if (transaction is not null)
@@ -204,7 +204,7 @@ public sealed class DatabaseProjectInvitationApplicationService : IProjectInvita
             && postgresException.ConstraintName == "IX_ProjectMembers_ProjectId_UserId";
 
     private static ProjectInvitationView MapInvitation(ProjectInvitation invitation)
-        => MapInvitation(invitation, invitation.Project.Name, invitation.InvitedUser, invitation.InvitedByUser.DisplayName);
+        => MapInvitation(invitation, invitation.Project.Name, invitation.InvitedUser, invitation.InvitedByUser.DisplayName.Value);
 
     private static ProjectInvitationView MapInvitation(ProjectInvitation invitation, string projectName, User invitedUser, string invitedByDisplayName)
         => new(
@@ -212,7 +212,7 @@ public sealed class DatabaseProjectInvitationApplicationService : IProjectInvita
             invitation.ProjectId,
             projectName,
             invitation.InvitedUserId,
-            invitedUser.DisplayName,
+            invitedUser.DisplayName.Value,
             invitedUser.Email.Value,
             invitedByDisplayName,
             invitation.Role,

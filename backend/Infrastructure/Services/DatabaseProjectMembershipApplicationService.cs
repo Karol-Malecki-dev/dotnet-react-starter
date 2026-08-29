@@ -77,7 +77,7 @@ public sealed class DatabaseProjectMembershipApplicationService : IProjectMember
         }
 
         _membershipStore.AddMember(member);
-        AddActivity(projectId, ownerId, "member.added", $"added {user.DisplayName} to the project.");
+        AddActivity(projectId, ownerId, "member.added", $"added {user.DisplayName.Value} to the project.");
         await _membershipStore.SaveChangesAsync(cancellationToken);
 
         await _notificationService.CreateAsync(
@@ -96,7 +96,7 @@ public sealed class DatabaseProjectMembershipApplicationService : IProjectMember
 
         return ProjectOperationResult<ProjectMemberView>.Success(new ProjectMemberView(
             user.Id,
-            user.DisplayName,
+            user.DisplayName.Value,
             user.Email.Value,
             member.Role,
             member.AddedAt), "Project member added", 201);
@@ -138,7 +138,7 @@ public sealed class DatabaseProjectMembershipApplicationService : IProjectMember
         await _membershipStore.SaveChangesAsync(cancellationToken);
         return ProjectOperationResult<ProjectMemberView>.Success(new ProjectMemberView(
             member.UserId,
-            member.User.DisplayName,
+            member.User.DisplayName.Value,
             member.User.Email.Value,
             member.Role,
             member.AddedAt), "Project member role updated");

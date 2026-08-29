@@ -22,7 +22,7 @@ namespace Application.Services
         {
             Id = Guid.Parse("550e8400-e29b-41d4-a716-446655440000"),
             Email = EmailAddress.Create("test@example.com"),
-            DisplayName = "Test User",
+            DisplayName = DisplayName.Create("Test User"),
             Role = Domain.Enums.UserRole.User,
             IsActive = true,
             IsEmailConfirmed = true,
@@ -57,12 +57,17 @@ namespace Application.Services
         {
             _logger.LogInformation("📝 Mock registration: {Email}", email);
 
+            if (!DisplayName.TryCreate(displayName, out var normalizedDisplayName) || normalizedDisplayName is null)
+            {
+                return await Task.FromResult<User?>(null);
+            }
+
             // Mock: always accept registration
             var newUser = new User
             {
                 Id = Guid.NewGuid(),
                 Email = EmailAddress.Create(email),
-                DisplayName = displayName,
+                DisplayName = normalizedDisplayName,
                 Role = Domain.Enums.UserRole.User,
                 IsActive = true,
                 IsEmailConfirmed = false,
@@ -144,7 +149,7 @@ namespace Application.Services
                 Guid.NewGuid(),
                 TestUser.Id,
                 TestUser.Email.Value,
-                TestUser.DisplayName,
+                TestUser.DisplayName.Value,
                 "123456",
                 DateTime.UtcNow.AddMinutes(10)));
         }
@@ -165,7 +170,7 @@ namespace Application.Services
                 challengeId,
                 TestUser.Id,
                 TestUser.Email.Value,
-                TestUser.DisplayName,
+                TestUser.DisplayName.Value,
                 "654321",
                 DateTime.UtcNow.AddMinutes(10)));
         }

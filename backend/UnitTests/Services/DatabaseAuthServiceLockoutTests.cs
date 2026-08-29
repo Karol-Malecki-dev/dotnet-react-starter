@@ -127,7 +127,7 @@ public class DatabaseAuthServiceLockoutTests
         {
             Id = Guid.NewGuid(),
             Email = EmailAddress.Create(email),
-            DisplayName = "Test User",
+            DisplayName = DisplayName.Create("Test User"),
             Role = UserRole.User,
             IsActive = true,
             IsEmailConfirmed = true,

@@ -104,7 +104,7 @@ public class DatabaseAuthServiceTests
         {
             Id = Guid.NewGuid(),
             Email = EmailAddress.Create("sessions@example.com"),
-            DisplayName = "Sessions User",
+            DisplayName = DisplayName.Create("Sessions User"),
             Role = UserRole.User,
             IsActive = true,
             IsEmailConfirmed = true,
@@ -117,7 +117,7 @@ public class DatabaseAuthServiceTests
             Id = Guid.NewGuid(),
             UserId = user.Id,
             UserEmail = user.Email.Value,
-            UserDisplayName = user.DisplayName,
+            UserDisplayName = user.DisplayName.Value,
             UserRole = user.Role,
             IsEmailConfirmed = user.IsEmailConfirmed,
             TokenHash = HashTokenForTest("refresh-token"),
