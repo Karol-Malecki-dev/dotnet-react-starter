@@ -2,6 +2,7 @@ using Domain.Entities;
 using Application.DTOs.Auth;
 using API.Controllers;
 using Domain.Enums;
+using Domain.ValueObjects;
 using Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
@@ -249,7 +250,7 @@ public class UsersApiIntegrationTests
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Email = email,
+            Email = EmailAddress.Create(email),
             DisplayName = displayName,
             Role = role,
             IsActive = true,

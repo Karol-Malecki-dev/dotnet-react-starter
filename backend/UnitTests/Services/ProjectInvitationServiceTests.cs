@@ -2,6 +2,7 @@ using Application.Features.Projects;
 using Application.Interfaces;
 using Domain.Entities;
 using Domain.Enums;
+using Domain.ValueObjects;
 using Infrastructure.Data;
 using Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
@@ -62,7 +63,7 @@ public sealed class ProjectInvitationServiceTests
         _membershipStore.Setup(store => store.OwnedProjectExistsAsync(ownerId, projectId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         _invitationStore.Setup(store => store.GetActiveUserByEmailAsync("member@example.com", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new User { Id = userId, DisplayName = "Member", Email = "member@example.com" });
+            .ReturnsAsync(new User { Id = userId, DisplayName = "Member", Email = EmailAddress.Create("member@example.com") });
         _invitationStore.Setup(store => store.IsMemberAsync(projectId, userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
         _invitationStore.Setup(store => store.HasPendingInvitationAsync(projectId, userId, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
@@ -182,8 +183,8 @@ public sealed class ProjectInvitationServiceTests
             TokenHash = HashToken(token),
             ExpiresAt = DateTime.UtcNow.AddDays(1),
             Project = project,
-            InvitedUser = new User { Id = recipientId, DisplayName = "Recipient", Email = "recipient@example.com" },
-            InvitedByUser = new User { Id = ownerId, DisplayName = "Owner", Email = "owner@example.com" }
+            InvitedUser = new User { Id = recipientId, DisplayName = "Recipient", Email = EmailAddress.Create("recipient@example.com") },
+            InvitedByUser = new User { Id = ownerId, DisplayName = "Owner", Email = EmailAddress.Create("owner@example.com") }
         };
 
     private static string HashToken(string token)

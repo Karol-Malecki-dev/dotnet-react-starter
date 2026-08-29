@@ -50,12 +50,16 @@ public class DatabaseAuthService : IAuthService
     /// <inheritdoc />
     public async Task<User?> AuthenticateAsync(string email, string password, CancellationToken cancellationToken = default)
     {
-        var normalizedEmail = NormalizeEmail(email);
+        if (!EmailAddress.TryCreate(email, out var normalizedEmail) || normalizedEmail is null)
+        {
+            return null;
+        }
+
         var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Email == normalizedEmail, cancellationToken);
 
         if (user is null || !user.IsActive)
         {
-            _logger.LogWarning("Authentication failed for {Email}", normalizedEmail);
+            _logger.LogWarning("Authentication failed for {Email}", normalizedEmail.Value);
             return null;
         }
 
@@ -86,7 +90,7 @@ public class DatabaseAuthService : IAuthService
 
             user.ConcurrencyStamp = GenerateConcurrencyStamp();
             await PersistAuthenticationStateAsync(user.Id, cancellationToken);
-            _logger.LogWarning("Authentication failed for {Email}", normalizedEmail);
+            _logger.LogWarning("Authentication failed for {Email}", normalizedEmail.Value);
             return null;
         }
 
@@ -121,7 +125,11 @@ public class DatabaseAuthService : IAuthService
     /// <inheritdoc />
     public async Task<User?> RegisterAsync(string email, string password, string displayName, CancellationToken cancellationToken = default)
     {
-        var normalizedEmail = NormalizeEmail(email);
+        if (!EmailAddress.TryCreate(email, out var normalizedEmail) || normalizedEmail is null)
+        {
+            return null;
+        }
+
         if (await _dbContext.Users.AnyAsync(x => x.Email == normalizedEmail, cancellationToken))
         {
             return null;
@@ -144,7 +152,7 @@ public class DatabaseAuthService : IAuthService
         _dbContext.Users.Add(user);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Registered user {UserId} ({Email})", user.Id, user.Email);
+        _logger.LogInformation("Registered user {UserId} ({Email})", user.Id, user.Email.Value);
         return user;
     }
 
@@ -158,7 +166,11 @@ public class DatabaseAuthService : IAuthService
     /// <inheritdoc />
     public async Task<bool> UserExistsAsync(string email, CancellationToken cancellationToken = default)
     {
-        var normalizedEmail = NormalizeEmail(email);
+        if (!EmailAddress.TryCreate(email, out var normalizedEmail) || normalizedEmail is null)
+        {
+            return false;
+        }
+
         return await _dbContext.Users.AnyAsync(x => x.Email == normalizedEmail, cancellationToken);
     }
 
@@ -203,8 +215,7 @@ public class DatabaseAuthService : IAuthService
     /// <inheritdoc />
     public async Task<string?> GeneratePasswordResetTokenAsync(string email, CancellationToken cancellationToken = default)
     {
-        var normalizedEmail = NormalizeEmail(email);
-        if (string.IsNullOrWhiteSpace(normalizedEmail))
+        if (!EmailAddress.TryCreate(email, out var normalizedEmail) || normalizedEmail is null)
         {
             return null;
         }
@@ -242,15 +253,15 @@ public class DatabaseAuthService : IAuthService
         _dbContext.PasswordResetRequests.Add(resetRequest);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Password reset request created for user {UserId} ({Email})", user.Id, user.Email);
+        _logger.LogInformation("Password reset request created for user {UserId} ({Email})", user.Id, user.Email.Value);
         return rawToken;
     }
 
     /// <inheritdoc />
     public async Task<bool> ResetPasswordAsync(string email, string resetToken, string newPassword, CancellationToken cancellationToken = default)
     {
-        var normalizedEmail = NormalizeEmail(email);
-        if (string.IsNullOrWhiteSpace(normalizedEmail) || string.IsNullOrWhiteSpace(resetToken) || string.IsNullOrWhiteSpace(newPassword))
+        if (!EmailAddress.TryCreate(email, out var normalizedEmail) || normalizedEmail is null
+            || string.IsNullOrWhiteSpace(resetToken) || string.IsNullOrWhiteSpace(newPassword))
         {
             return false;
         }
@@ -388,7 +399,11 @@ public class DatabaseAuthService : IAuthService
     /// <inheritdoc />
     public async Task<bool> ConfirmEmailConfirmedAsync(string email, CancellationToken cancellationToken = default)
     {
-        var normalizedEmail = NormalizeEmail(email);
+        if (!EmailAddress.TryCreate(email, out var normalizedEmail) || normalizedEmail is null)
+        {
+            return false;
+        }
+
         return await _dbContext.Users.AnyAsync(x => x.Email == normalizedEmail && x.IsEmailConfirmed, cancellationToken);
     }
 
@@ -434,7 +449,7 @@ public class DatabaseAuthService : IAuthService
         return new EmailTwoFactorChallengeDelivery(
             challenge.Id,
             user.Id,
-            user.Email,
+            user.Email.Value,
             user.DisplayName,
             code,
             challenge.ExpiresAt);
@@ -534,7 +549,7 @@ public class DatabaseAuthService : IAuthService
         return new EmailTwoFactorChallengeDelivery(
             challenge.Id,
             user.Id,
-            user.Email,
+            user.Email.Value,
             user.DisplayName,
             code,
             challenge.ExpiresAt);
@@ -554,7 +569,7 @@ public class DatabaseAuthService : IAuthService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         var issuer = "dotnet-react-starter";
-        var label = Uri.EscapeDataString($"{issuer}:{user.Email}");
+        var label = Uri.EscapeDataString($"{issuer}:{user.Email.Value}");
         var provisioningUri = $"otpauth://totp/{label}?secret={sharedKey}&issuer={Uri.EscapeDataString(issuer)}&algorithm=SHA1&digits=6&period=30";
         return new AuthenticatorSetup(sharedKey, provisioningUri);
     }
@@ -811,11 +826,4 @@ public class DatabaseAuthService : IAuthService
         return Convert.ToHexString(hashBytes);
     }
 
-    /// <summary>
-    /// Normalizes an email address for consistent lookup and uniqueness checks.
-    /// </summary>
-    /// <param name="email">Email address to normalize.</param>
-    /// <returns>A trimmed lowercase email address.</returns>
-    private static string NormalizeEmail(string email)
-        => email.Trim().ToLowerInvariant();
 }

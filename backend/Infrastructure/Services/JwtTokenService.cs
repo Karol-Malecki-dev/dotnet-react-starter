@@ -63,7 +63,7 @@ namespace Infrastructure.Services
             _logger.LogInformation(
                 "Generated tokens for user {UserId} ({Email}), IP: {Ip}",
                 user.Id,
-                user.Email,
+                user.Email.Value,
                 tokenPair.RefreshToken.CreatedByIp);
 
             return tokenPair.Tokens;
@@ -258,7 +258,7 @@ namespace Infrastructure.Services
             {
                 Id = Guid.NewGuid(),
                 UserId = user.Id,
-                UserEmail = user.Email,
+                UserEmail = user.Email.Value,
                 UserDisplayName = user.DisplayName,
                 UserRole = user.Role,
                 IsEmailConfirmed = user.IsEmailConfirmed,
@@ -315,7 +315,7 @@ namespace Infrastructure.Services
                 new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
                 new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new(ClaimTypes.Email, user.Email),
+                new(ClaimTypes.Email, user.Email.Value),
                 new(ClaimTypes.Name, user.DisplayName),
                 new(ClaimTypes.Role, user.Role.ToString()),
                 new("IsEmailConfirmed", user.IsEmailConfirmed.ToString())

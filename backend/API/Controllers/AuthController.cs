@@ -142,7 +142,7 @@ namespace API.Controllers
                 var tokens = await _jwtTokenService.GenerateTokensAsync(user, cancellationToken);
                 SetRefreshTokenCookie(tokens.RefreshToken);
 
-                _logger.LogInformation("✓ Login successful for user: {UserId} ({Email})", user.Id, user.Email);
+                _logger.LogInformation("✓ Login successful for user: {UserId} ({Email})", user.Id, user.Email.Value);
 
                 return Ok(ApiResponse<AuthTokenResponse>.Success(CreateTokenResponse(tokens), "Login successful", 200));
             }
@@ -198,19 +198,19 @@ namespace API.Controllers
                 }
 
                 await _accountEmailSender.SendEmailConfirmationAsync(
-                    user.Email,
+                    user.Email.Value,
                     user.DisplayName,
                     BuildConfirmationLink(user.Id, confirmationToken),
                     cancellationToken);
 
-                _logger.LogInformation("✓ Registration successful for user: {UserId} ({Email})", user.Id, user.Email);
+                _logger.LogInformation("✓ Registration successful for user: {UserId} ({Email})", user.Id, user.Email.Value);
 
                 return Created(
                     $"api/auth/user/{user.Id}",
                     ApiResponse<RegisterUserResultDto>.Success(
                         new RegisterUserResultDto
                         {
-                            Email = user.Email,
+                            Email = user.Email.Value,
                             RequiresEmailConfirmation = true
                         },
                         "Registration successful. Check your email to confirm the account.",

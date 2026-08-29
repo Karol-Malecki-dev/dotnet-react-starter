@@ -1,6 +1,7 @@
 using Application.Services;
 using Domain.Entities;
 using Domain.Enums;
+using Domain.ValueObjects;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
@@ -23,7 +24,7 @@ public class MockAuthServiceTests
         var result = await _service.AuthenticateAsync("test@example.com", "password123");
 
         Assert.NotNull(result);
-        Assert.Equal("test@example.com", result!.Email);
+        Assert.Equal("test@example.com", result!.Email.Value);
         Assert.Equal(UserRole.User, result.Role);
     }
 
@@ -57,7 +58,7 @@ public class MockAuthServiceTests
         var result = await _service.RegisterAsync("newuser@example.com", "password123", "New User");
 
         Assert.NotNull(result);
-        Assert.Equal("newuser@example.com", result!.Email);
+        Assert.Equal("newuser@example.com", result!.Email.Value);
         Assert.Equal("New User", result.DisplayName);
         Assert.NotEqual(Guid.Empty, result.Id);
     }

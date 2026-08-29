@@ -3,6 +3,7 @@ using Application.DTOs.Auth;
 using Domain.Entities.JWT;
 using Domain.Enums;
 using Domain.Enums.Auth;
+using Domain.ValueObjects;
 using Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -836,7 +837,7 @@ public class AuthApiIntegrationTests
 
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var user = await dbContext.Users.SingleAsync(candidate => candidate.Email == "locked.login@example.com");
+        var user = await dbContext.Users.SingleAsync(candidate => candidate.Email == EmailAddress.Create("locked.login@example.com"));
         Assert.Equal(3, user.FailedLoginAttempts);
         Assert.True(user.LockoutEndAt > DateTime.UtcNow);
     }
@@ -959,7 +960,7 @@ public class AuthApiIntegrationTests
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Email = email,
+            Email = EmailAddress.Create(email),
             DisplayName = displayName,
             Role = role,
             IsActive = true,
@@ -977,7 +978,7 @@ public class AuthApiIntegrationTests
     {
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var user = await dbContext.Users.SingleAsync(candidate => candidate.Email == email);
+        var user = await dbContext.Users.SingleAsync(candidate => candidate.Email == EmailAddress.Create(email));
 
         update(user);
         await dbContext.SaveChangesAsync();

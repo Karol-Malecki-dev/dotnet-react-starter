@@ -97,7 +97,7 @@ public sealed class DatabaseProjectMembershipApplicationService : IProjectMember
         return ProjectOperationResult<ProjectMemberView>.Success(new ProjectMemberView(
             user.Id,
             user.DisplayName,
-            user.Email,
+            user.Email.Value,
             member.Role,
             member.AddedAt), "Project member added", 201);
     }
@@ -139,7 +139,7 @@ public sealed class DatabaseProjectMembershipApplicationService : IProjectMember
         return ProjectOperationResult<ProjectMemberView>.Success(new ProjectMemberView(
             member.UserId,
             member.User.DisplayName,
-            member.User.Email,
+            member.User.Email.Value,
             member.Role,
             member.AddedAt), "Project member role updated");
     }

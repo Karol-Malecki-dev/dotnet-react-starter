@@ -3,6 +3,7 @@ using Domain.Entities.Auth;
 using Domain.Entities.JWT;
 using Domain.Enums;
 using Domain.Enums.Auth;
+using Domain.ValueObjects;
 using Infrastructure.Data;
 using Infrastructure.Services;
 using Microsoft.AspNetCore.DataProtection;
@@ -60,7 +61,7 @@ public class DatabaseAuthServiceTests
 
         var service = CreateService(dbContext);
 
-        var result = await service.ResetPasswordAsync(user.Email, "reset-token", "new-password");
+        var result = await service.ResetPasswordAsync(user.Email.Value, "reset-token", "new-password");
 
         Assert.True(result);
         var refreshToken = await dbContext.RefreshTokens.SingleAsync();
@@ -102,7 +103,7 @@ public class DatabaseAuthServiceTests
         => new()
         {
             Id = Guid.NewGuid(),
-            Email = "sessions@example.com",
+            Email = EmailAddress.Create("sessions@example.com"),
             DisplayName = "Sessions User",
             Role = UserRole.User,
             IsActive = true,
@@ -115,7 +116,7 @@ public class DatabaseAuthServiceTests
         {
             Id = Guid.NewGuid(),
             UserId = user.Id,
-            UserEmail = user.Email,
+            UserEmail = user.Email.Value,
             UserDisplayName = user.DisplayName,
             UserRole = user.Role,
             IsEmailConfirmed = user.IsEmailConfirmed,

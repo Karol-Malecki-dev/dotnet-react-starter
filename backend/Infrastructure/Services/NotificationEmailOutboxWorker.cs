@@ -69,7 +69,7 @@ public sealed class NotificationEmailOutboxWorker : BackgroundService
             try
             {
                 await sender.SendAsync(
-                    message.User.Email,
+                    message.User.Email.Value,
                     message.User.DisplayName,
                     message.Notification.Title,
                     message.Notification.Message,

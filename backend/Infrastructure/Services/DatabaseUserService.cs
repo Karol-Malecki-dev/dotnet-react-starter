@@ -3,6 +3,7 @@ using Application.DTOs.User;
 using Application.Interfaces;
 using Domain.Entities;
 using Domain.Enums;
+using Domain.ValueObjects;
 using Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -29,7 +30,11 @@ public class DatabaseUserService : IUserService
 
     public async Task<ApiResponse<UserDto>> GetUserByEmailAsync(string email, CancellationToken cancellationToken = default)
     {
-        var normalizedEmail = NormalizeEmail(email);
+        if (!EmailAddress.TryCreate(email, out var normalizedEmail) || normalizedEmail is null)
+        {
+            return ApiResponse<UserDto>.Error(400, "Email has an invalid format");
+        }
+
         var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Email == normalizedEmail, cancellationToken);
         return user is null
             ? ApiResponse<UserDto>.Error(404, "User not found")
@@ -88,7 +93,11 @@ public class DatabaseUserService : IUserService
                 return ApiResponse<UserDto>.Error(400, "Email is required");
             }
 
-            var normalizedEmail = NormalizeEmail(dto.Email);
+            if (!EmailAddress.TryCreate(dto.Email, out var normalizedEmail) || normalizedEmail is null)
+            {
+                return ApiResponse<UserDto>.Error(400, "Email has an invalid format");
+            }
+
             var emailInUse = await _dbContext.Users.AnyAsync(x => x.Email == normalizedEmail && x.Id != userId, cancellationToken);
             if (emailInUse)
             {
@@ -204,7 +213,11 @@ public class DatabaseUserService : IUserService
 
     public async Task<ApiResponse<bool>> IsEmailUniqueAsync(string email, Guid? excludeUserId = null, CancellationToken cancellationToken = default)
     {
-        var normalizedEmail = NormalizeEmail(email);
+        if (!EmailAddress.TryCreate(email, out var normalizedEmail) || normalizedEmail is null)
+        {
+            return ApiResponse<bool>.Error(400, "Email has an invalid format");
+        }
+
         var exists = await _dbContext.Users.AnyAsync(x => x.Email == normalizedEmail && (!excludeUserId.HasValue || x.Id != excludeUserId.Value), cancellationToken);
         return ApiResponse<bool>.Success(!exists);
     }
@@ -223,9 +236,6 @@ public class DatabaseUserService : IUserService
             : ApiResponse<string>.Success(user.Role.ToString());
     }
 
-    private static string NormalizeEmail(string email)
-        => email.Trim().ToLowerInvariant();
-
     private static UserDto MapToDto(User user)
     {
         var (firstName, lastName) = SplitDisplayName(user.DisplayName);
@@ -236,7 +246,7 @@ public class DatabaseUserService : IUserService
             FirstName = firstName,
             LastName = lastName,
             DisplayName = user.DisplayName,
-            Email = user.Email,
+            Email = user.Email.Value,
             AvatarUrl = user.AvatarUrl,
             Role = user.Role.ToString(),
             PhoneNumber = string.Empty,
@@ -248,7 +258,7 @@ public class DatabaseUserService : IUserService
     {
         return new UserSecurityDto
         {
-            Email = user.Email,
+            Email = user.Email.Value,
             IsEmailConfirmed = user.IsEmailConfirmed,
             IsTwoFactorEnabled = user.IsTwoFactorEnabled,
             IsAuthenticatorEnabled = user.IsAuthenticatorEnabled
@@ -276,7 +286,12 @@ public class DatabaseUserService : IUserService
             return ApiResponse<UserDto>.Error(404, "User not found");
         }
 
-        user.Email = NormalizeEmail(email);
+        if (!EmailAddress.TryCreate(email, out var normalizedEmail) || normalizedEmail is null)
+        {
+            return ApiResponse<UserDto>.Error(400, "Email has an invalid format");
+        }
+
+        user.Email = normalizedEmail;
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return ApiResponse<UserDto>.Success(MapToDto(user), "Email updated");
@@ -364,4 +379,3 @@ public class DatabaseUserService : IUserService
     }
 
 }
-

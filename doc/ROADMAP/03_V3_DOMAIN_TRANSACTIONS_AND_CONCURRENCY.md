@@ -19,7 +19,7 @@ Stan na: **2026-08-29**.
 | Obszar | Postęp | Status i dowód |
 |---|---:|---|
 | 1. Granica agregatów projektu i zadań | 75% | `Project` chroni członkostwo przez metody domenowe, automatycznie tworzy właściciela i ma prywatne settery; `ProjectTask` został przyjęty jako osobny agregat, a niezależność tokenu projektu potwierdza test integracyjny. |
-| 2. Model użytkownika i value objects | 10% | Istnieją wybrane value objects, ale model użytkownika nie został jeszcze konsekwentnie rozdzielony. |
+| 2. Model użytkownika i value objects | 25% | `User.Email` używa kanonicznego `Domain.ValueObjects.EmailAddress`, który normalizuje i waliduje wejście; konwerter EF zachowuje tekstową kolumnę i jest pokryty testami jednostkowymi oraz integracyjnymi. Pozostałe dane profilu nadal wymagają oceny. |
 | 3. Application services i porty | 50% | Warstwy i feature-specific ports istnieją; część odpowiedzialności nadal wymaga doprecyzowania. |
 | 4. Mapping i kontrakty | 50% | DTO i kontrakty HTTP są obecne oraz dokumentowane; pełne rozdzielenie modeli nie jest zakończone. |
 | 5. Transakcje i partial failure | 70% | Akceptacja zaproszenia, bezpośrednie dodanie członka oraz usunięcie członka mają relacyjne granice transakcji; usunięcie obejmuje także unassign zadań i aktywność, a rollbacki przy błędzie notification są pokryte dla dwóch workflowów z powiadomieniami. |
@@ -48,6 +48,13 @@ Procent obejmuje istniejące fundamenty, nie samą liczbę klas lub endpointów.
 - nie tworzyć value objectów wyłącznie dla większej liczby klas;
 - rozdzielić dane profilu od stanu bezpieczeństwa, jeśli poprawi to granice modelu;
 - zachować prostotę mappingu EF Core.
+
+W bieżącej iteracji `EmailAddress` jest kanonicznym value objectem domenowym dla `User.Email`.
+Przyjmuje tylko poprawny adres, zapisuje go po `Trim()` i `ToLowerInvariant()`,
+udostępnia bezpieczne `TryCreate` oraz przechowuje w bazie jako zwykły tekst przez
+konwerter EF Core. Kontrakty HTTP i application nadal używają `string`, więc granica
+domeny nie zmienia publicznego API. Stary helper `Shared.Helpers.EmailAddress` został
+usunięty, aby nie pozostawiać dwóch konkurencyjnych implementacji.
 
 ### 3. Application services i porty
 

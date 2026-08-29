@@ -1,6 +1,7 @@
 using Application.Features.Projects;
 using Domain.Entities;
 using Domain.Enums;
+using Domain.ValueObjects;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,8 +19,17 @@ public sealed class EfProjectInvitationStore : IProjectInvitationStore
         _dbContext = dbContext;
     }
 
-    public Task<User?> GetActiveUserByEmailAsync(string email, CancellationToken cancellationToken = default)
-        => _dbContext.Users.FirstOrDefaultAsync(user => user.IsActive && user.Email == email, cancellationToken);
+    public async Task<User?> GetActiveUserByEmailAsync(string email, CancellationToken cancellationToken = default)
+    {
+        if (!EmailAddress.TryCreate(email, out var normalizedEmail) || normalizedEmail is null)
+        {
+            return null;
+        }
+
+        return await _dbContext.Users.FirstOrDefaultAsync(
+            user => user.IsActive && user.Email == normalizedEmail,
+            cancellationToken);
+    }
 
     public Task<bool> IsMemberAsync(Guid projectId, Guid userId, CancellationToken cancellationToken = default)
         => _dbContext.ProjectMembers.AnyAsync(member => member.ProjectId == projectId && member.UserId == userId, cancellationToken);
