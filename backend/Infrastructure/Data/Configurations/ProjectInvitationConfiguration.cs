@@ -13,6 +13,7 @@ public sealed class ProjectInvitationConfiguration : IEntityTypeConfiguration<Pr
         builder.Property(invitation => invitation.Role).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(invitation => invitation.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(invitation => invitation.TokenHash).IsRequired().HasMaxLength(64);
+        builder.Property(invitation => invitation.ConcurrencyStamp).IsRequired().HasMaxLength(64).IsConcurrencyToken();
         builder.HasIndex(invitation => invitation.TokenHash).IsUnique();
         builder.HasIndex(invitation => new { invitation.InvitedUserId, invitation.Status, invitation.ExpiresAt });
         builder.HasIndex(invitation => new { invitation.ProjectId, invitation.Status });

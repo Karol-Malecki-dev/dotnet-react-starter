@@ -132,6 +132,33 @@ nie wyszukuje zadania wyłącznie po `taskId`; każde zapytanie filtruje jednocz
 po `projectId`, właścicielu projektu i aktywnym stanie projektu. Dzięki temu
 identyfikator zadania nie może ominąć kontroli dostępu.
 
+### Project Invitation Acceptance, Transactions And Concurrency
+
+`Project` jest aggregate rootem dla `ProjectMember`. Dodanie, zmiana roli i usunięcie
+członka przechodzą przez metody domenowe projektu, a bezpośrednie tworzenie członków
+jest ograniczone do fabryki encji i warstwy persistence. Dzięki temu właściciel
+projektu nie może zostać dodany drugi raz, usunięty ani zdegradowany do innej roli.
+
+Akceptacja zaproszenia jest wieloetapowym przypadkiem użycia. Dla providerów
+relacyjnych `IProjectInvitationStore.BeginTransactionAsync` otwiera transakcję,
+która obejmuje:
+
+- dodanie członka przez `Project.AddMember`;
+- zmianę statusu zaproszenia i wpis aktywności;
+- zapis powiadomienia oraz `NotificationEmailOutboxMessage`.
+
+Commit następuje dopiero po pomyślnym zapisie powiadomienia. Błąd powiadomienia
+wycofuje więc całą akceptację, zamiast zostawić członkostwo bez informacji dla
+użytkownika. Provider InMemory nie obsługuje transakcji relacyjnych, dlatego testy
+jednostkowe używają tam zachowania bez transakcji, a atomowość jest weryfikowana
+testami PostgreSQL.
+
+`Project.ConcurrencyStamp` chroni równoległe zmiany agregatu, a
+`ProjectInvitation.ConcurrencyStamp` chroni przejścia stanu zaproszenia. Dodatkowo
+unikalny indeks `(ProjectId, UserId)` pozostaje obroną na poziomie bazy. Naruszenie
+tego indeksu podczas równoległej akceptacji jest mapowane na wynik konfliktu,
+który kontroler zwraca jako `409 Conflict`.
+
 ### ProjectManagement.Tasks As A Modular-Monolith Feature
 
 `ProjectManagement.Tasks` jest pierwszą feature boundary rozwijaną w kierunku

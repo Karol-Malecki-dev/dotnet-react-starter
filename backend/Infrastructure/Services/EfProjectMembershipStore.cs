@@ -20,6 +20,12 @@ public sealed class EfProjectMembershipStore : IProjectMembershipStore
     public Task<bool> OwnedProjectExistsAsync(Guid ownerId, Guid projectId, CancellationToken cancellationToken = default)
         => _dbContext.Projects.AnyAsync(project => project.Id == projectId && project.OwnerId == ownerId, cancellationToken);
 
+    public Task<Project?> GetOwnedProjectWithMembersAsync(Guid ownerId, Guid projectId, CancellationToken cancellationToken = default)
+        => _dbContext.Projects
+            .Include(project => project.Members)
+            .ThenInclude(member => member.User)
+            .FirstOrDefaultAsync(project => project.Id == projectId && project.OwnerId == ownerId, cancellationToken);
+
     public Task<bool> HasProjectAccessAsync(Guid userId, Guid projectId, CancellationToken cancellationToken = default)
         => _dbContext.Projects.AnyAsync(project => project.Id == projectId
             && (project.OwnerId == userId || project.Members.Any(member => member.UserId == userId && member.User.IsActive)), cancellationToken);

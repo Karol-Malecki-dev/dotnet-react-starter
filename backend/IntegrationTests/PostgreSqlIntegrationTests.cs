@@ -1,11 +1,18 @@
+using Application.Features.Projects;
+using Application.DTOs.Notification;
+using Application.Interfaces;
 using Domain.Entities;
 using Domain.Entities.JWT;
 using Domain.Enums;
 using Domain.Interfaces;
 using Infrastructure.Data;
+using Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using System.Net;
+using System.Security.Cryptography;
+using System.Text;
+using Shared.Responses;
 
 namespace IntegrationTests;
 
@@ -74,6 +81,185 @@ public sealed class PostgreSqlIntegrationTests
         Assert.DoesNotContain(storedTokens, token => !token.RevokedAt.HasValue);
     }
 
+    [Fact]
+    public async Task PostgreSql_project_update_returns_conflict_for_a_stale_version()
+    {
+        var ownerId = Guid.NewGuid();
+        await SeedProjectOwnerAsync(ownerId);
+
+        Guid projectId;
+        await using (var setupScope = _factory.Services.CreateAsyncScope())
+        {
+            var setupContext = setupScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var project = Project.Create(ownerId, "Concurrency project");
+            setupContext.Projects.Add(project);
+            await setupContext.SaveChangesAsync();
+            projectId = project.Id;
+        }
+
+        await using var staleScope = _factory.Services.CreateAsyncScope();
+        await using var writerScope = _factory.Services.CreateAsyncScope();
+        var staleContext = staleScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var writerContext = writerScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var staleProject = await staleContext.Projects.SingleAsync(project => project.Id == projectId);
+        var writerProject = await writerContext.Projects.SingleAsync(project => project.Id == projectId);
+
+        writerProject.Rename("Writer update");
+        await writerContext.SaveChangesAsync();
+
+        var service = new DatabaseProjectManagementService(staleContext, new EfProjectMembershipStore(staleContext));
+        var result = await service.UpdateProjectAsync(new UpdateProjectCommand(
+            ownerId,
+            projectId,
+            "Stale update",
+            null,
+            staleProject.ConcurrencyStamp));
+
+        Assert.Equal(ProjectOperationStatus.Conflict, result.Status);
+        Assert.Contains("concurrently", result.Message, StringComparison.OrdinalIgnoreCase);
+
+        await using var verificationScope = _factory.Services.CreateAsyncScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var persistedProject = await verificationContext.Projects.SingleAsync(project => project.Id == projectId);
+        Assert.Equal("Writer update", persistedProject.Name);
+    }
+
+    [Fact]
+    public async Task PostgreSql_project_invitation_acceptance_allows_only_one_concurrent_response()
+    {
+        var ownerId = Guid.NewGuid();
+        var recipientId = Guid.NewGuid();
+        var token = Guid.NewGuid().ToString("N");
+        var projectId = Guid.Empty;
+
+        await using (var setupScope = _factory.Services.CreateAsyncScope())
+        {
+            var setupContext = setupScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var project = Project.Create(ownerId, "Invitation concurrency project");
+            projectId = project.Id;
+            setupContext.Users.AddRange(
+                new User
+                {
+                    Id = ownerId,
+                    Email = $"invitation-owner-{ownerId:N}@example.com",
+                    DisplayName = "Invitation Concurrency Owner",
+                    Role = UserRole.User,
+                    IsActive = true,
+                    IsEmailConfirmed = true,
+                    CreatedAt = DateTime.UtcNow
+                },
+                new User
+                {
+                    Id = recipientId,
+                    Email = $"invitation-recipient-{recipientId:N}@example.com",
+                    DisplayName = "Invitation Concurrency Recipient",
+                    Role = UserRole.User,
+                    IsActive = true,
+                    IsEmailConfirmed = true,
+                    CreatedAt = DateTime.UtcNow
+                });
+            setupContext.Projects.Add(project);
+            setupContext.ProjectInvitations.Add(new ProjectInvitation
+            {
+                ProjectId = project.Id,
+                InvitedUserId = recipientId,
+                InvitedByUserId = ownerId,
+                Role = ProjectMemberRole.Viewer,
+                TokenHash = HashToken(token),
+                ExpiresAt = DateTime.UtcNow.AddDays(1)
+            });
+            await setupContext.SaveChangesAsync();
+        }
+
+        await using var firstScope = _factory.Services.CreateAsyncScope();
+        await using var secondScope = _factory.Services.CreateAsyncScope();
+        var firstService = firstScope.ServiceProvider.GetRequiredService<IProjectInvitationApplicationService>();
+        var secondService = secondScope.ServiceProvider.GetRequiredService<IProjectInvitationApplicationService>();
+
+        var results = await Task.WhenAll(
+            firstService.AcceptProjectInvitationAsync(recipientId, token),
+            secondService.AcceptProjectInvitationAsync(recipientId, token));
+
+        Assert.Single(results, result => result.IsSuccess);
+        Assert.Single(results, result => result.Status == ProjectOperationStatus.Conflict);
+
+        await using var verificationScope = _factory.Services.CreateAsyncScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal(1, await verificationContext.ProjectMembers.CountAsync(member => member.ProjectId == projectId && member.UserId == recipientId));
+        Assert.Equal(ProjectInvitationStatus.Accepted, await verificationContext.ProjectInvitations
+            .Where(invitation => invitation.ProjectId == projectId)
+            .Select(invitation => invitation.Status)
+            .SingleAsync());
+    }
+
+    [Fact]
+    public async Task PostgreSql_project_invitation_acceptance_rolls_back_when_notification_fails()
+    {
+        var ownerId = Guid.NewGuid();
+        var recipientId = Guid.NewGuid();
+        var token = Guid.NewGuid().ToString("N");
+        var projectId = Guid.Empty;
+
+        await using (var setupScope = _factory.Services.CreateAsyncScope())
+        {
+            var setupContext = setupScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var project = Project.Create(ownerId, "Invitation rollback project");
+            projectId = project.Id;
+            setupContext.Users.AddRange(
+                new User
+                {
+                    Id = ownerId,
+                    Email = $"rollback-owner-{ownerId:N}@example.com",
+                    DisplayName = "Invitation Rollback Owner",
+                    Role = UserRole.User,
+                    IsActive = true,
+                    IsEmailConfirmed = true,
+                    CreatedAt = DateTime.UtcNow
+                },
+                new User
+                {
+                    Id = recipientId,
+                    Email = $"rollback-recipient-{recipientId:N}@example.com",
+                    DisplayName = "Invitation Rollback Recipient",
+                    Role = UserRole.User,
+                    IsActive = true,
+                    IsEmailConfirmed = true,
+                    CreatedAt = DateTime.UtcNow
+                });
+            setupContext.Projects.Add(project);
+            setupContext.ProjectInvitations.Add(new ProjectInvitation
+            {
+                ProjectId = project.Id,
+                InvitedUserId = recipientId,
+                InvitedByUserId = ownerId,
+                Role = ProjectMemberRole.Member,
+                TokenHash = HashToken(token),
+                ExpiresAt = DateTime.UtcNow.AddDays(1)
+            });
+            await setupContext.SaveChangesAsync();
+        }
+
+        await using (var responseScope = _factory.Services.CreateAsyncScope())
+        {
+            var responseContext = responseScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var service = new DatabaseProjectInvitationApplicationService(
+                new EfProjectMembershipStore(responseContext),
+                new EfProjectInvitationStore(responseContext),
+                new FailingNotificationService());
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                service.AcceptProjectInvitationAsync(recipientId, token));
+        }
+
+        await using var verificationScope = _factory.Services.CreateAsyncScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal(0, await verificationContext.ProjectMembers.CountAsync(member => member.ProjectId == projectId && member.UserId == recipientId));
+        Assert.Equal(ProjectInvitationStatus.Pending, await verificationContext.ProjectInvitations
+            .Where(invitation => invitation.ProjectId == projectId)
+            .Select(invitation => invitation.Status)
+            .SingleAsync());
+    }
+
     private async Task SeedUserAsync()
     {
         await using var scope = _factory.Services.CreateAsyncScope();
@@ -89,5 +275,49 @@ public sealed class PostgreSqlIntegrationTests
             CreatedAt = DateTime.UtcNow
         });
         await dbContext.SaveChangesAsync();
+    }
+
+    private async Task SeedProjectOwnerAsync(Guid ownerId)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        dbContext.Users.Add(new User
+        {
+            Id = ownerId,
+            Email = $"project-owner-{ownerId:N}@example.com",
+            DisplayName = "Project Concurrency Owner",
+            Role = UserRole.User,
+            IsActive = true,
+            IsEmailConfirmed = true,
+            CreatedAt = DateTime.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+    }
+
+    private static string HashToken(string token)
+        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
+
+    private sealed class FailingNotificationService : INotificationService
+    {
+        public Task<ApiResponse<NotificationPageDto>> GetUserNotificationsAsync(Guid userId, int pageNumber, int pageSize, bool unreadOnly, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<ApiResponse<int>> GetUnreadCountAsync(Guid userId, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<ApiResponse<NotificationDto>> MarkAsReadAsync(Guid userId, Guid notificationId, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<ApiResponse<int>> MarkAllAsReadAsync(Guid userId, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<ApiResponse<NotificationEmailPreferenceDto>> GetEmailPreferenceAsync(Guid userId, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<ApiResponse<NotificationEmailPreferenceDto>> UpdateEmailPreferenceAsync(Guid userId, bool? isEmailEnabled, bool? isTaskDeadlineReminderEmailEnabled, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task CreateAsync(Guid userId, NotificationType type, string title, string message, string? resourceType = null, Guid? resourceId = null, Guid? projectId = null, bool sendEmail = true, CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("Notification persistence failed.");
     }
 }

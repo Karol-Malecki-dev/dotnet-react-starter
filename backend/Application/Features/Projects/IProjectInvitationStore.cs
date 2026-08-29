@@ -15,7 +15,16 @@ public interface IProjectInvitationStore
     Task<IReadOnlyList<ProjectInvitation>> GetProjectInvitationsAsync(Guid projectId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ProjectInvitation>> GetUserPendingInvitationsAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<ProjectInvitation?> GetInvitationWithDetailsAsync(string tokenHash, CancellationToken cancellationToken = default);
+    Task<IProjectInvitationTransaction?> BeginTransactionAsync(CancellationToken cancellationToken = default);
     void AddInvitation(ProjectInvitation invitation);
     void AddMember(ProjectMember member);
     Task SaveChangesAsync(CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Transaction boundary used by the project invitation use cases.
+/// </summary>
+public interface IProjectInvitationTransaction : IAsyncDisposable
+{
+    Task CommitAsync(CancellationToken cancellationToken = default);
 }

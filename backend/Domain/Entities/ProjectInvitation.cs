@@ -29,6 +29,9 @@ public class ProjectInvitation
     /// <summary>SHA-256 hash of the raw, URL-safe invitation token.</summary>
     public string TokenHash { get; set; } = string.Empty;
 
+    /// <summary>Application-managed value used to detect concurrent invitation responses.</summary>
+    public string ConcurrencyStamp { get; set; } = Guid.NewGuid().ToString("N");
+
     /// <summary>UTC timestamp at which the invitation becomes invalid.</summary>
     public DateTime ExpiresAt { get; set; }
 

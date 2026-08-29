@@ -56,6 +56,7 @@ export interface ProjectDto {
   ownerId: string;
   createdAt: string;
   updatedAt: string;
+  concurrencyStamp?: string;
   isArchived: boolean;
   currentUserRole?: ProjectMemberRole;
 }
@@ -159,6 +160,7 @@ export interface CreateProjectRequest {
 export interface UpdateProjectRequest {
   name: string;
   description?: string;
+  concurrencyStamp?: string;
 }
 
 export interface CreateProjectTaskRequest {

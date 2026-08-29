@@ -82,9 +82,10 @@ public sealed class ProjectInvitationServiceTests
     {
         var ownerId = Guid.NewGuid();
         var recipientId = Guid.NewGuid();
-        var projectId = Guid.NewGuid();
+        var project = Project.Create(ownerId, "Test project");
+        var projectId = project.Id;
         const string token = "valid-token";
-        var invitation = CreateInvitation(ownerId, recipientId, projectId, token);
+        var invitation = CreateInvitation(ownerId, recipientId, project, token);
         _invitationStore.Setup(store => store.GetInvitationWithDetailsAsync(HashToken(token), It.IsAny<CancellationToken>()))
             .ReturnsAsync(invitation);
         _invitationStore.Setup(store => store.IsMemberAsync(projectId, recipientId, It.IsAny<CancellationToken>()))
@@ -96,10 +97,10 @@ public sealed class ProjectInvitationServiceTests
         Assert.True(result.IsSuccess);
         Assert.Equal(ProjectInvitationStatus.Accepted, invitation.Status);
         Assert.NotNull(invitation.RespondedAt);
-        _invitationStore.Verify(store => store.AddMember(It.Is<ProjectMember>(member =>
+        Assert.Contains(invitation.Project.Members, member =>
             member.ProjectId == projectId
             && member.UserId == recipientId
-            && member.Role == ProjectMemberRole.Viewer)), Times.Once);
+            && member.Role == ProjectMemberRole.Viewer);
         _invitationStore.Verify(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -108,9 +109,10 @@ public sealed class ProjectInvitationServiceTests
     {
         var ownerId = Guid.NewGuid();
         var recipientId = Guid.NewGuid();
-        var projectId = Guid.NewGuid();
+        var project = Project.Create(ownerId, "Test project");
+        var projectId = project.Id;
         const string token = "decline-token";
-        var invitation = CreateInvitation(ownerId, recipientId, projectId, token);
+        var invitation = CreateInvitation(ownerId, recipientId, project, token);
         _invitationStore.Setup(store => store.GetInvitationWithDetailsAsync(HashToken(token), It.IsAny<CancellationToken>()))
             .ReturnsAsync(invitation);
         var service = CreateInvitationService();
@@ -120,7 +122,6 @@ public sealed class ProjectInvitationServiceTests
         Assert.True(result.IsSuccess);
         Assert.Equal(ProjectInvitationStatus.Declined, invitation.Status);
         Assert.NotNull(invitation.RespondedAt);
-        _invitationStore.Verify(store => store.AddMember(It.IsAny<ProjectMember>()), Times.Never);
         _invitationStore.Verify(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -129,9 +130,10 @@ public sealed class ProjectInvitationServiceTests
     {
         var ownerId = Guid.NewGuid();
         var recipientId = Guid.NewGuid();
-        var projectId = Guid.NewGuid();
+        var project = Project.Create(ownerId, "Test project");
+        var projectId = project.Id;
         const string token = "recipient-token";
-        var invitation = CreateInvitation(ownerId, recipientId, projectId, token);
+        var invitation = CreateInvitation(ownerId, recipientId, project, token);
         _invitationStore.Setup(store => store.GetInvitationWithDetailsAsync(HashToken(token), It.IsAny<CancellationToken>()))
             .ReturnsAsync(invitation);
         var service = CreateInvitationService();
@@ -148,9 +150,10 @@ public sealed class ProjectInvitationServiceTests
     {
         var ownerId = Guid.NewGuid();
         var recipientId = Guid.NewGuid();
-        var projectId = Guid.NewGuid();
+        var project = Project.Create(ownerId, "Test project");
+        var projectId = project.Id;
         const string token = "expired-token";
-        var invitation = CreateInvitation(ownerId, recipientId, projectId, token);
+        var invitation = CreateInvitation(ownerId, recipientId, project, token);
         invitation.ExpiresAt = DateTime.UtcNow.AddMinutes(-1);
         _invitationStore.Setup(store => store.GetInvitationWithDetailsAsync(HashToken(token), It.IsAny<CancellationToken>()))
             .ReturnsAsync(invitation);
@@ -160,7 +163,6 @@ public sealed class ProjectInvitationServiceTests
 
         Assert.Equal(ProjectOperationStatus.Conflict, result.Status);
         Assert.Equal(ProjectInvitationStatus.Expired, invitation.Status);
-        _invitationStore.Verify(store => store.AddMember(It.IsAny<ProjectMember>()), Times.Never);
         _invitationStore.Verify(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -170,16 +172,16 @@ public sealed class ProjectInvitationServiceTests
     private DatabaseProjectInvitationApplicationService CreateInvitationService()
         => new(_membershipStore.Object, _invitationStore.Object, _notificationService.Object);
 
-    private static ProjectInvitation CreateInvitation(Guid ownerId, Guid recipientId, Guid projectId, string token)
+    private static ProjectInvitation CreateInvitation(Guid ownerId, Guid recipientId, Project project, string token)
         => new()
         {
-            ProjectId = projectId,
+            ProjectId = project.Id,
             InvitedUserId = recipientId,
             InvitedByUserId = ownerId,
             Role = ProjectMemberRole.Viewer,
             TokenHash = HashToken(token),
             ExpiresAt = DateTime.UtcNow.AddDays(1),
-            Project = new Project { Id = projectId, Name = "Test project" },
+            Project = project,
             InvitedUser = new User { Id = recipientId, DisplayName = "Recipient", Email = "recipient@example.com" },
             InvitedByUser = new User { Id = ownerId, DisplayName = "Owner", Email = "owner@example.com" }
         };

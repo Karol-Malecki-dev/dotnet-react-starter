@@ -399,6 +399,12 @@ FodyWeavers.xsd
 !.vscode/extensions.json
 *.code-workspace
 
+# Local VS Code terminal approval settings
+.vscode/settings.json
+
+# Frontend build output
+/frontend/dist/
+
 # Local History for Visual Studio Code
 .history/
 

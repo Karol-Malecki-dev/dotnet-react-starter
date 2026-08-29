@@ -3,6 +3,7 @@ using Domain.Entities;
 using Domain.Enums;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Infrastructure.Services;
 
@@ -61,9 +62,21 @@ public sealed class EfProjectInvitationStore : IProjectInvitationStore
     public Task<ProjectInvitation?> GetInvitationWithDetailsAsync(string tokenHash, CancellationToken cancellationToken = default)
         => _dbContext.ProjectInvitations
             .Include(invitation => invitation.Project)
+            .ThenInclude(project => project.Members)
+            .ThenInclude(member => member.User)
             .Include(invitation => invitation.InvitedUser)
             .Include(invitation => invitation.InvitedByUser)
             .FirstOrDefaultAsync(invitation => invitation.TokenHash == tokenHash, cancellationToken);
+
+    public async Task<IProjectInvitationTransaction?> BeginTransactionAsync(CancellationToken cancellationToken = default)
+    {
+        if (!_dbContext.Database.IsRelational())
+        {
+            return null;
+        }
+
+        return new EfProjectInvitationTransaction(await _dbContext.Database.BeginTransactionAsync(cancellationToken));
+    }
 
     public void AddInvitation(ProjectInvitation invitation) => _dbContext.ProjectInvitations.Add(invitation);
 
@@ -71,4 +84,31 @@ public sealed class EfProjectInvitationStore : IProjectInvitationStore
 
     public Task SaveChangesAsync(CancellationToken cancellationToken = default)
         => _dbContext.SaveChangesAsync(cancellationToken);
+
+    private sealed class EfProjectInvitationTransaction : IProjectInvitationTransaction
+    {
+        private readonly IDbContextTransaction _transaction;
+        private bool _committed;
+
+        public EfProjectInvitationTransaction(IDbContextTransaction transaction)
+        {
+            _transaction = transaction;
+        }
+
+        public async Task CommitAsync(CancellationToken cancellationToken = default)
+        {
+            await _transaction.CommitAsync(cancellationToken);
+            _committed = true;
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if (!_committed)
+            {
+                await _transaction.RollbackAsync();
+            }
+
+            await _transaction.DisposeAsync();
+        }
+    }
 }

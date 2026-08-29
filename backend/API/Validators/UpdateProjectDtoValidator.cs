@@ -13,5 +13,8 @@ public sealed class UpdateProjectRequestValidator : AbstractValidator<UpdateProj
 
         RuleFor(project => project.Description)
             .MaximumLength(2000);
+
+        RuleFor(project => project.ConcurrencyStamp)
+            .MaximumLength(64);
     }
 }

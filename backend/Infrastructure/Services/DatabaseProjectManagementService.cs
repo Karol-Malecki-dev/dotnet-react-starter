@@ -34,6 +34,7 @@ public sealed class DatabaseProjectManagementService : IProjectManagementService
                 project.OwnerId,
                 project.CreatedAt,
                 project.UpdatedAt,
+                project.ConcurrencyStamp,
                 project.IsArchived,
                 project.OwnerId == ownerId
                     ? ProjectMemberRole.Owner
@@ -59,20 +60,9 @@ public sealed class DatabaseProjectManagementService : IProjectManagementService
 
     public async Task<ProjectOperationResult<ProjectView>> CreateProjectAsync(CreateProjectCommand command, CancellationToken cancellationToken = default)
     {
-        var project = new Project
-        {
-            OwnerId = command.OwnerId,
-            Name = command.Name.Trim(),
-            Description = NormalizeDescription(command.Description)
-        };
+        var project = Project.Create(command.OwnerId, command.Name, command.Description);
 
         _dbContext.Projects.Add(project);
-        _dbContext.ProjectMembers.Add(new ProjectMember
-        {
-            ProjectId = project.Id,
-            UserId = command.OwnerId,
-            Role = ProjectMemberRole.Owner
-        });
         AddActivity(project.Id, command.OwnerId, "project.created", $"created the project '{project.Name}'.");
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -94,10 +84,23 @@ public sealed class DatabaseProjectManagementService : IProjectManagementService
             return ProjectOperationResult<ProjectView>.Failure(ProjectOperationStatus.Conflict, "Archived project cannot be updated");
         }
 
-        project.Name = command.Name.Trim();
-        project.Description = NormalizeDescription(command.Description);
-        project.UpdatedAt = DateTime.UtcNow;
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        if (command.ExpectedConcurrencyStamp is not null
+            && !string.Equals(project.ConcurrencyStamp, command.ExpectedConcurrencyStamp, StringComparison.Ordinal))
+        {
+            return ProjectOperationResult<ProjectView>.Failure(ProjectOperationStatus.Conflict, "Project was modified concurrently; refresh and retry");
+        }
+
+        project.Rename(command.Name);
+        project.ChangeDescription(command.Description);
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            _dbContext.ChangeTracker.Clear();
+            return ProjectOperationResult<ProjectView>.Failure(ProjectOperationStatus.Conflict, "Project was modified concurrently; refresh and retry");
+        }
 
         return ProjectOperationResult<ProjectView>.Success(MapToView(project), "Project updated");
     }
@@ -117,9 +120,16 @@ public sealed class DatabaseProjectManagementService : IProjectManagementService
             return ProjectOperationResult<bool>.Success(true, "Project already archived");
         }
 
-        project.IsArchived = true;
-        project.UpdatedAt = DateTime.UtcNow;
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        project.Archive();
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            _dbContext.ChangeTracker.Clear();
+            return ProjectOperationResult<bool>.Failure(ProjectOperationStatus.Conflict, "Project was modified concurrently; refresh and retry");
+        }
 
         return ProjectOperationResult<bool>.Success(true, "Project archived");
     }
@@ -151,10 +161,41 @@ public sealed class DatabaseProjectManagementService : IProjectManagementService
 
         var today = DateTime.UtcNow.Date;
         var upcomingDeadline = today.AddDays(7);
-        var tasks = await _dbContext.ProjectTasks.AsNoTracking()
+        var taskQuery = _dbContext.ProjectTasks.AsNoTracking()
+            .Where(task => task.ProjectId == projectId);
+        var taskStats = await taskQuery
+            .GroupBy(_ => 1)
+            .Select(tasks => new
+            {
+                Total = tasks.Count(),
+                Todo = tasks.Count(task => task.Status == ProjectTaskStatus.Todo),
+                InProgress = tasks.Count(task => task.Status == ProjectTaskStatus.InProgress),
+                Done = tasks.Count(task => task.Status == ProjectTaskStatus.Done),
+                LowPriority = tasks.Count(task => task.Priority == ProjectTaskPriority.Low),
+                NormalPriority = tasks.Count(task => task.Priority == ProjectTaskPriority.Normal),
+                HighPriority = tasks.Count(task => task.Priority == ProjectTaskPriority.High)
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        var overdueTasks = await taskQuery
+            .Where(task => task.DueDate.HasValue
+                && task.DueDate.Value.Date < today
+                && task.Status != ProjectTaskStatus.Done)
+            .OrderBy(task => task.DueDate)
+            .Take(10)
             .Include(task => task.Labels)
-            .Where(task => task.ProjectId == projectId)
             .ToListAsync(cancellationToken);
+
+        var upcomingTasks = await taskQuery
+            .Where(task => task.DueDate.HasValue
+                && task.DueDate.Value.Date >= today
+                && task.DueDate.Value.Date <= upcomingDeadline
+                && task.Status != ProjectTaskStatus.Done)
+            .OrderBy(task => task.DueDate)
+            .Take(10)
+            .Include(task => task.Labels)
+            .ToListAsync(cancellationToken);
+
         var recentActivities = await _dbContext.ProjectActivities.AsNoTracking()
             .Where(activity => activity.ProjectId == projectId)
             .OrderByDescending(activity => activity.CreatedAt)
@@ -162,21 +203,16 @@ public sealed class DatabaseProjectManagementService : IProjectManagementService
             .Select(activity => new ProjectActivityView(activity.Id, activity.Type, activity.Description, activity.ActorUserId, activity.ActorUser.DisplayName, activity.ProjectTaskId, activity.CreatedAt))
             .ToListAsync(cancellationToken);
 
-        var overdueTasks = tasks.Where(task => task.DueDate.HasValue && task.DueDate.Value.Date < today && task.Status != ProjectTaskStatus.Done)
-            .OrderBy(task => task.DueDate).Take(10).Select(MapDashboardTask).ToList();
-        var upcomingTasks = tasks.Where(task => task.DueDate.HasValue && task.DueDate.Value.Date >= today && task.DueDate.Value.Date <= upcomingDeadline && task.Status != ProjectTaskStatus.Done)
-            .OrderBy(task => task.DueDate).Take(10).Select(MapDashboardTask).ToList();
-
         return ProjectOperationResult<ProjectDashboardView>.Success(new ProjectDashboardView(
-            tasks.Count,
-            tasks.Count(task => task.Status == ProjectTaskStatus.Todo),
-            tasks.Count(task => task.Status == ProjectTaskStatus.InProgress),
-            tasks.Count(task => task.Status == ProjectTaskStatus.Done),
-            tasks.Count(task => task.Priority == ProjectTaskPriority.Low),
-            tasks.Count(task => task.Priority == ProjectTaskPriority.Normal),
-            tasks.Count(task => task.Priority == ProjectTaskPriority.High),
-            overdueTasks,
-            upcomingTasks,
+            taskStats?.Total ?? 0,
+            taskStats?.Todo ?? 0,
+            taskStats?.InProgress ?? 0,
+            taskStats?.Done ?? 0,
+            taskStats?.LowPriority ?? 0,
+            taskStats?.NormalPriority ?? 0,
+            taskStats?.HighPriority ?? 0,
+            overdueTasks.Select(MapDashboardTask).ToList(),
+            upcomingTasks.Select(MapDashboardTask).ToList(),
             recentActivities));
     }
 
@@ -203,11 +239,10 @@ public sealed class DatabaseProjectManagementService : IProjectManagementService
         project.OwnerId,
         project.CreatedAt,
         project.UpdatedAt,
+        project.ConcurrencyStamp,
         project.IsArchived,
         project.OwnerId == currentUserId
             ? ProjectMemberRole.Owner
             : project.Members.FirstOrDefault(member => member.UserId == currentUserId)?.Role ?? ProjectMemberRole.Viewer);
 
-    private static string? NormalizeDescription(string? description)
-        => string.IsNullOrWhiteSpace(description) ? null : description.Trim();
 }
