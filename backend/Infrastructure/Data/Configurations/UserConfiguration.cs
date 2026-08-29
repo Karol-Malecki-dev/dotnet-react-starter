@@ -16,5 +16,7 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(x => x.DisplayName).IsRequired().HasMaxLength(200);
         builder.Property(x => x.AvatarUrl).HasMaxLength(500);
         builder.Property(x => x.ProtectedAuthenticatorSecret).HasMaxLength(2000);
+        builder.Property(x => x.ConcurrencyStamp).IsRequired().HasMaxLength(64).IsConcurrencyToken();
+        builder.Property(x => x.FailedLoginAttempts).IsRequired();
     }
 }

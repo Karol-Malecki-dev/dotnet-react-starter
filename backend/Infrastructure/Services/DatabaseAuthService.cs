@@ -26,6 +26,7 @@ public class DatabaseAuthService : IAuthService
     private readonly ApplicationDbContext _dbContext;
     private readonly EmailConfirmationSettings _emailConfirmationSettings;
     private readonly EmailTwoFactorSettings _emailTwoFactorSettings;
+    private readonly AuthSecuritySettings _authSecuritySettings;
     private readonly ILogger<DatabaseAuthService> _logger;
     private readonly IDataProtector _authenticatorSecretProtector;
     private readonly PasswordHasher<User> _passwordHasher = new();
@@ -34,12 +35,14 @@ public class DatabaseAuthService : IAuthService
         ApplicationDbContext dbContext,
         IOptions<EmailConfirmationSettings> emailConfirmationOptions,
         IOptions<EmailTwoFactorSettings> emailTwoFactorOptions,
+        IOptions<AuthSecuritySettings> authSecurityOptions,
         IDataProtectionProvider dataProtectionProvider,
         ILogger<DatabaseAuthService> logger)
     {
         _dbContext = dbContext;
         _emailConfirmationSettings = emailConfirmationOptions.Value;
         _emailTwoFactorSettings = emailTwoFactorOptions.Value;
+        _authSecuritySettings = authSecurityOptions.Value;
         _authenticatorSecretProtector = dataProtectionProvider.CreateProtector("DatabaseAuthService.AuthenticatorSecret.v1");
         _logger = logger;
     }
@@ -56,17 +59,60 @@ public class DatabaseAuthService : IAuthService
             return null;
         }
 
+        var now = DateTime.UtcNow;
+        if (user.LockoutEndAt.HasValue && user.LockoutEndAt.Value > now)
+        {
+            _logger.LogWarning("Authentication blocked by lockout for user {UserId}", user.Id);
+            return null;
+        }
+
+        var lockoutExpired = user.LockoutEndAt.HasValue && user.LockoutEndAt.Value <= now;
+        if (lockoutExpired)
+        {
+            user.FailedLoginAttempts = 0;
+            user.LockoutEndAt = null;
+        }
+
         var verificationResult = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
         if (verificationResult == PasswordVerificationResult.Failed)
         {
+            var maxFailedLoginAttempts = Math.Max(1, _authSecuritySettings.MaxFailedLoginAttempts);
+            user.FailedLoginAttempts = Math.Min(user.FailedLoginAttempts + 1, maxFailedLoginAttempts);
+            if (user.FailedLoginAttempts >= maxFailedLoginAttempts)
+            {
+                var lockoutDurationMinutes = Math.Max(1, _authSecuritySettings.LockoutDurationMinutes);
+                user.LockoutEndAt = now.AddMinutes(lockoutDurationMinutes);
+            }
+
+            user.ConcurrencyStamp = GenerateConcurrencyStamp();
+            await PersistAuthenticationStateAsync(user.Id);
             _logger.LogWarning("Authentication failed for {Email}", normalizedEmail);
             return null;
+        }
+
+        var authenticationStateChanged = lockoutExpired
+            || user.FailedLoginAttempts > 0
+            || user.LockoutEndAt.HasValue;
+
+        if (authenticationStateChanged)
+        {
+            user.FailedLoginAttempts = 0;
+            user.LockoutEndAt = null;
         }
 
         if (verificationResult == PasswordVerificationResult.SuccessRehashNeeded)
         {
             user.PasswordHash = _passwordHasher.HashPassword(user, password);
-            await _dbContext.SaveChangesAsync();
+            authenticationStateChanged = true;
+        }
+
+        if (authenticationStateChanged)
+        {
+            user.ConcurrencyStamp = GenerateConcurrencyStamp();
+            if (!await PersistAuthenticationStateAsync(user.Id))
+            {
+                return null;
+            }
         }
 
         return user;
@@ -137,6 +183,9 @@ public class DatabaseAuthService : IAuthService
         }
 
         user.PasswordHash = _passwordHasher.HashPassword(user, newPassword);
+        user.FailedLoginAttempts = 0;
+        user.LockoutEndAt = null;
+        user.ConcurrencyStamp = GenerateConcurrencyStamp();
         await _dbContext.SaveChangesAsync();
         return true;
     }
@@ -231,6 +280,9 @@ public class DatabaseAuthService : IAuthService
         }
 
         user.PasswordHash = _passwordHasher.HashPassword(user, newPassword);
+        user.FailedLoginAttempts = 0;
+        user.LockoutEndAt = null;
+        user.ConcurrencyStamp = GenerateConcurrencyStamp();
         resetRequest.ConsumedAt = now;
 
         var remainingRequests = await _dbContext.PasswordResetRequests
@@ -676,6 +728,24 @@ public class DatabaseAuthService : IAuthService
 
         return _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, currentPassword) != PasswordVerificationResult.Failed;
     }
+
+    private async Task<bool> PersistAuthenticationStateAsync(Guid userId)
+    {
+        try
+        {
+            await _dbContext.SaveChangesAsync();
+            return true;
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            _dbContext.ChangeTracker.Clear();
+            _logger.LogWarning("Authentication state changed concurrently for user {UserId}", userId);
+            return false;
+        }
+    }
+
+    private static string GenerateConcurrencyStamp()
+        => Guid.NewGuid().ToString("N");
 
     private static string GenerateRecoveryCode()
         => Convert.ToHexString(RandomNumberGenerator.GetBytes(8));

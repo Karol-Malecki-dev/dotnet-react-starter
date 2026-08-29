@@ -230,6 +230,7 @@ namespace API.Controllers
         /// <response code="500">An unexpected server error occurred.</response>
         [HttpPost("confirm-email")]
         [AllowAnonymous]
+        [EnableRateLimiting("AuthPolicy")]
         public async Task<IActionResult> ConfirmEmail([FromBody] ConfirmEmailRequestDto request)
         {
             if (!ModelState.IsValid || request.UserId == Guid.Empty || string.IsNullOrWhiteSpace(request.Token))
@@ -390,6 +391,7 @@ namespace API.Controllers
         /// <summary>Starts authenticator-app setup and returns the provisioning URI exactly once per request.</summary>
         [HttpPost("authenticator/setup")]
         [Authorize]
+        [EnableRateLimiting("AuthPolicy")]
         public async Task<IActionResult> BeginAuthenticatorSetup()
         {
             if (!TryGetCurrentUserId(out var userId))
@@ -413,6 +415,7 @@ namespace API.Controllers
         /// <summary>Confirms an authenticator-app setup and returns one-time recovery codes.</summary>
         [HttpPost("authenticator/confirm")]
         [Authorize]
+        [EnableRateLimiting("AuthPolicy")]
         public async Task<IActionResult> ConfirmAuthenticatorSetup([FromBody] ConfirmAuthenticatorSetupRequestDto request)
         {
             if (!ModelState.IsValid || !TryGetCurrentUserId(out var userId))
@@ -436,6 +439,7 @@ namespace API.Controllers
         /// <summary>Disables an authenticator application after validating a current or recovery code.</summary>
         [HttpPost("authenticator/disable")]
         [Authorize]
+        [EnableRateLimiting("AuthPolicy")]
         public async Task<IActionResult> DisableAuthenticator([FromBody] DisableAuthenticatorRequestDto request)
         {
             if (!ModelState.IsValid || !TryGetCurrentUserId(out var userId))
@@ -455,6 +459,7 @@ namespace API.Controllers
         /// <summary>Regenerates all recovery codes after password re-authentication and a second-factor code check.</summary>
         [HttpPost("authenticator/recovery-codes")]
         [Authorize]
+        [EnableRateLimiting("AuthPolicy")]
         public async Task<IActionResult> RegenerateAuthenticatorRecoveryCodes([FromBody] RegenerateAuthenticatorRecoveryCodesRequestDto request)
         {
             if (!ModelState.IsValid || !TryGetCurrentUserId(out var userId))
@@ -486,6 +491,7 @@ namespace API.Controllers
         /// <remarks>The endpoint is anonymous because the refresh token is read from the HttpOnly cookie.</remarks>
         [HttpPost("refresh-token")]
         [AllowAnonymous]
+        [EnableRateLimiting("AuthPolicy")]
         public async Task<IActionResult> RefreshToken()
         {
             var refreshToken = Request.Cookies[_jwtSettings.RefreshTokenCookieName];
@@ -608,6 +614,7 @@ namespace API.Controllers
         /// <response code="500">An unexpected server error occurred.</response>
         [HttpPost("verify-token")]
         [AllowAnonymous]
+        [EnableRateLimiting("AuthPolicy")]
         public async Task<IActionResult> VerifyToken([FromBody] VerifyTokenRequest request)
         {
             if (string.IsNullOrWhiteSpace(request?.Token))
@@ -643,10 +650,12 @@ namespace API.Controllers
         /// <response code="200">The password was changed.</response>
         /// <response code="400">The request is invalid, the passwords are equal, or the current password is incorrect.</response>
         /// <response code="401">The caller is not authenticated or the token does not identify a valid user.</response>
+        /// <response code="429">Too many password-change attempts were made.</response>
         /// <response code="500">An unexpected server error occurred.</response>
         /// <remarks>Requires a valid JWT access token. The endpoint does not issue or remove a refresh-token cookie.</remarks>
         [HttpPost("change-password")]
         [Authorize]
+        [EnableRateLimiting("AuthPolicy")]
         public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequestDto request)
         {
             if (!ModelState.IsValid)
@@ -848,6 +857,7 @@ namespace API.Controllers
         /// <remarks>This endpoint currently supports link-based reset only and does not set a refresh-token cookie.</remarks>
         [HttpPost("forgot-password")]
         [AllowAnonymous]
+        [EnableRateLimiting("AuthPolicy")]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDto dto)
         {
             if (!ModelState.IsValid)
@@ -907,6 +917,7 @@ namespace API.Controllers
         /// <remarks>This anonymous endpoint does not issue or remove a refresh-token cookie.</remarks>
         [HttpPost("reset-password")]
         [AllowAnonymous]
+        [EnableRateLimiting("AuthPolicy")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequestDto request)
         {
             if (!ModelState.IsValid)

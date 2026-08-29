@@ -5,6 +5,7 @@ using Domain.Enums;
 using Domain.Enums.Auth;
 using Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using OtpNet;
 using Shared.Responses;
@@ -524,6 +525,129 @@ public class AuthApiIntegrationTests
         for (int i = 0; i < 6; i++)
         {
             var response = await _client.PostAsJsonAsync("/api/auth/login", new { Email = "ratelimit@example.com", Password = "invalid-password" });
+            lastStatusCode = response.StatusCode;
+        }
+
+        Assert.Equal(System.Net.HttpStatusCode.TooManyRequests, lastStatusCode);
+    }
+
+    [Fact]
+    public async Task Login_Returns_unauthorized_when_account_is_locked_after_failed_attempts()
+    {
+        await SeedUserAsync("locked.login@example.com", "password123", "Locked Login User", UserRole.User);
+
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            var failedResponse = await _client.PostAsJsonAsync("/api/auth/login", new
+            {
+                Email = "locked.login@example.com",
+                Password = "invalid-password"
+            });
+
+            Assert.Equal(System.Net.HttpStatusCode.Unauthorized, failedResponse.StatusCode);
+        }
+
+        var lockedResponse = await _client.PostAsJsonAsync("/api/auth/login", new
+        {
+            Email = "locked.login@example.com",
+            Password = "password123"
+        });
+
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, lockedResponse.StatusCode);
+
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var user = await dbContext.Users.SingleAsync(candidate => candidate.Email == "locked.login@example.com");
+        Assert.Equal(3, user.FailedLoginAttempts);
+        Assert.True(user.LockoutEndAt > DateTime.UtcNow);
+    }
+
+    [Fact]
+    public async Task ForgotPassword_Returns_TooManyRequests_When_RateLimit_Exceeded()
+    {
+        System.Net.HttpStatusCode? lastStatusCode = null;
+
+        for (var attempt = 0; attempt < 6; attempt++)
+        {
+            var response = await _client.PostAsJsonAsync("/api/auth/forgot-password", new
+            {
+                Email = "unknown-reset@example.com",
+                ResetType = ResetType.Link
+            });
+            lastStatusCode = response.StatusCode;
+        }
+
+        Assert.Equal(System.Net.HttpStatusCode.TooManyRequests, lastStatusCode);
+    }
+
+    [Fact]
+    public async Task RefreshToken_Returns_TooManyRequests_When_RateLimit_Exceeded()
+    {
+        System.Net.HttpStatusCode? lastStatusCode = null;
+
+        for (var attempt = 0; attempt < 6; attempt++)
+        {
+            var response = await _client.PostAsync("/api/auth/refresh-token", null);
+            lastStatusCode = response.StatusCode;
+        }
+
+        Assert.Equal(System.Net.HttpStatusCode.TooManyRequests, lastStatusCode);
+    }
+
+    [Fact]
+    public async Task VerifyToken_Returns_TooManyRequests_When_RateLimit_Exceeded()
+    {
+        System.Net.HttpStatusCode? lastStatusCode = null;
+
+        for (var attempt = 0; attempt < 6; attempt++)
+        {
+            var response = await _client.PostAsJsonAsync("/api/auth/verify-token", new
+            {
+                Token = "invalid-token"
+            });
+            lastStatusCode = response.StatusCode;
+        }
+
+        Assert.Equal(System.Net.HttpStatusCode.TooManyRequests, lastStatusCode);
+    }
+
+    [Fact]
+    public async Task ChangePassword_Returns_TooManyRequests_When_RateLimit_Exceeded()
+    {
+        await SeedUserAsync("change-password-limit@example.com", "password123", "Change Password Limit", UserRole.User);
+        var tokens = await LoginAsync("change-password-limit@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+
+        System.Net.HttpStatusCode? lastStatusCode = null;
+
+        for (var attempt = 0; attempt < 6; attempt++)
+        {
+            var response = await _client.PostAsJsonAsync("/api/auth/change-password", new
+            {
+                CurrentPassword = "invalid-password",
+                NewPassword = "new-password"
+            });
+            lastStatusCode = response.StatusCode;
+        }
+
+        Assert.Equal(System.Net.HttpStatusCode.TooManyRequests, lastStatusCode);
+    }
+
+    [Fact]
+    public async Task AuthenticatorManagement_Returns_TooManyRequests_When_RateLimit_Exceeded()
+    {
+        await SeedUserAsync("authenticator-limit@example.com", "password123", "Authenticator Limit", UserRole.User);
+        var tokens = await LoginAsync("authenticator-limit@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+
+        System.Net.HttpStatusCode? lastStatusCode = null;
+
+        for (var attempt = 0; attempt < 6; attempt++)
+        {
+            var response = await _client.PostAsJsonAsync("/api/auth/authenticator/confirm", new
+            {
+                Code = "000000"
+            });
             lastStatusCode = response.StatusCode;
         }
 
