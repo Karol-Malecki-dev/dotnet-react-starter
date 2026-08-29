@@ -88,17 +88,13 @@ public sealed class ProjectInvitationsApiIntegrationTests
     {
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var user = new User
-        {
-            Id = Guid.NewGuid(),
-            Email = EmailAddress.Create(email),
-            DisplayName = DisplayName.Create(displayName),
-            Role = UserRole.User,
-            IsActive = true,
-            IsEmailConfirmed = true,
-            CreatedAt = DateTime.UtcNow
-        };
-        user.PasswordHash = new PasswordHasher<User>().HashPassword(user, password);
+        var user = User.Create(
+            EmailAddress.Create(email),
+            DisplayName.Create(displayName),
+            UserRole.User,
+            isActive: true,
+            isEmailConfirmed: true);
+        user.SetPasswordHash(new PasswordHasher<User>().HashPassword(user, password));
         dbContext.Users.Add(user);
         await dbContext.SaveChangesAsync();
         return user.Id;

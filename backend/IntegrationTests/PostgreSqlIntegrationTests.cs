@@ -250,26 +250,22 @@ public sealed class PostgreSqlIntegrationTests
             var project = Project.Create(ownerId, "Invitation concurrency project");
             projectId = project.Id;
             setupContext.Users.AddRange(
-                new User
-                {
-                    Id = ownerId,
-                    Email = EmailAddress.Create($"invitation-owner-{ownerId:N}@example.com"),
-                    DisplayName = DisplayName.Create("Invitation Concurrency Owner"),
-                    Role = UserRole.User,
-                    IsActive = true,
-                    IsEmailConfirmed = true,
-                    CreatedAt = DateTime.UtcNow
-                },
-                new User
-                {
-                    Id = recipientId,
-                    Email = EmailAddress.Create($"invitation-recipient-{recipientId:N}@example.com"),
-                    DisplayName = DisplayName.Create("Invitation Concurrency Recipient"),
-                    Role = UserRole.User,
-                    IsActive = true,
-                    IsEmailConfirmed = true,
-                    CreatedAt = DateTime.UtcNow
-                });
+                User.Create(
+                    EmailAddress.Create($"invitation-owner-{ownerId:N}@example.com"),
+                    DisplayName.Create("Invitation Concurrency Owner"),
+                    UserRole.User,
+                    isActive: true,
+                    isEmailConfirmed: true,
+                    id: ownerId,
+                    createdAt: DateTime.UtcNow),
+                User.Create(
+                    EmailAddress.Create($"invitation-recipient-{recipientId:N}@example.com"),
+                    DisplayName.Create("Invitation Concurrency Recipient"),
+                    UserRole.User,
+                    isActive: true,
+                    isEmailConfirmed: true,
+                    id: recipientId,
+                    createdAt: DateTime.UtcNow));
             setupContext.Projects.Add(project);
             setupContext.ProjectInvitations.Add(new ProjectInvitation
             {
@@ -318,26 +314,22 @@ public sealed class PostgreSqlIntegrationTests
             var project = Project.Create(ownerId, "Invitation rollback project");
             projectId = project.Id;
             setupContext.Users.AddRange(
-                new User
-                {
-                    Id = ownerId,
-                    Email = EmailAddress.Create($"rollback-owner-{ownerId:N}@example.com"),
-                    DisplayName = DisplayName.Create("Invitation Rollback Owner"),
-                    Role = UserRole.User,
-                    IsActive = true,
-                    IsEmailConfirmed = true,
-                    CreatedAt = DateTime.UtcNow
-                },
-                new User
-                {
-                    Id = recipientId,
-                    Email = EmailAddress.Create($"rollback-recipient-{recipientId:N}@example.com"),
-                    DisplayName = DisplayName.Create("Invitation Rollback Recipient"),
-                    Role = UserRole.User,
-                    IsActive = true,
-                    IsEmailConfirmed = true,
-                    CreatedAt = DateTime.UtcNow
-                });
+                User.Create(
+                    EmailAddress.Create($"rollback-owner-{ownerId:N}@example.com"),
+                    DisplayName.Create("Invitation Rollback Owner"),
+                    UserRole.User,
+                    isActive: true,
+                    isEmailConfirmed: true,
+                    id: ownerId,
+                    createdAt: DateTime.UtcNow),
+                User.Create(
+                    EmailAddress.Create($"rollback-recipient-{recipientId:N}@example.com"),
+                    DisplayName.Create("Invitation Rollback Recipient"),
+                    UserRole.User,
+                    isActive: true,
+                    isEmailConfirmed: true,
+                    id: recipientId,
+                    createdAt: DateTime.UtcNow));
             setupContext.Projects.Add(project);
             setupContext.ProjectInvitations.Add(new ProjectInvitation
             {
@@ -385,26 +377,22 @@ public sealed class PostgreSqlIntegrationTests
             var project = Project.Create(ownerId, "Member rollback project");
             projectId = project.Id;
             setupContext.Users.AddRange(
-                new User
-                {
-                    Id = ownerId,
-                    Email = EmailAddress.Create($"member-rollback-owner-{ownerId:N}@example.com"),
-                    DisplayName = DisplayName.Create("Member Rollback Owner"),
-                    Role = UserRole.User,
-                    IsActive = true,
-                    IsEmailConfirmed = true,
-                    CreatedAt = DateTime.UtcNow
-                },
-                new User
-                {
-                    Id = memberId,
-                    Email = EmailAddress.Create($"member-rollback-user-{memberId:N}@example.com"),
-                    DisplayName = DisplayName.Create("Member Rollback User"),
-                    Role = UserRole.User,
-                    IsActive = true,
-                    IsEmailConfirmed = true,
-                    CreatedAt = DateTime.UtcNow
-                });
+                User.Create(
+                    EmailAddress.Create($"member-rollback-owner-{ownerId:N}@example.com"),
+                    DisplayName.Create("Member Rollback Owner"),
+                    UserRole.User,
+                    isActive: true,
+                    isEmailConfirmed: true,
+                    id: ownerId,
+                    createdAt: DateTime.UtcNow),
+                User.Create(
+                    EmailAddress.Create($"member-rollback-user-{memberId:N}@example.com"),
+                    DisplayName.Create("Member Rollback User"),
+                    UserRole.User,
+                    isActive: true,
+                    isEmailConfirmed: true,
+                    id: memberId,
+                    createdAt: DateTime.UtcNow));
             setupContext.Projects.Add(project);
             await setupContext.SaveChangesAsync();
         }
@@ -452,26 +440,22 @@ public sealed class PostgreSqlIntegrationTests
             projectId = project.Id;
             taskId = task.Id;
             setupContext.Users.AddRange(
-                new User
-                {
-                    Id = ownerId,
-                    Email = EmailAddress.Create($"member-removal-owner-{ownerId:N}@example.com"),
-                    DisplayName = DisplayName.Create("Member Removal Owner"),
-                    Role = UserRole.User,
-                    IsActive = true,
-                    IsEmailConfirmed = true,
-                    CreatedAt = DateTime.UtcNow
-                },
-                new User
-                {
-                    Id = memberId,
-                    Email = EmailAddress.Create($"member-removal-user-{memberId:N}@example.com"),
-                    DisplayName = DisplayName.Create("Member Removal User"),
-                    Role = UserRole.User,
-                    IsActive = true,
-                    IsEmailConfirmed = true,
-                    CreatedAt = DateTime.UtcNow
-                });
+                User.Create(
+                    EmailAddress.Create($"member-removal-owner-{ownerId:N}@example.com"),
+                    DisplayName.Create("Member Removal Owner"),
+                    UserRole.User,
+                    isActive: true,
+                    isEmailConfirmed: true,
+                    id: ownerId,
+                    createdAt: DateTime.UtcNow),
+                User.Create(
+                    EmailAddress.Create($"member-removal-user-{memberId:N}@example.com"),
+                    DisplayName.Create("Member Removal User"),
+                    UserRole.User,
+                    isActive: true,
+                    isEmailConfirmed: true,
+                    id: memberId,
+                    createdAt: DateTime.UtcNow));
             setupContext.Projects.Add(project);
             setupContext.ProjectTasks.Add(task);
             await setupContext.SaveChangesAsync();
@@ -503,16 +487,12 @@ public sealed class PostgreSqlIntegrationTests
     {
         await using var scope = _factory.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        dbContext.Users.Add(new User
-        {
-            Id = Guid.NewGuid(),
-            Email = EmailAddress.Create("postgres-concurrent@example.com"),
-            DisplayName = DisplayName.Create("PostgreSQL Concurrent User"),
-            Role = UserRole.User,
-            IsActive = true,
-            IsEmailConfirmed = true,
-            CreatedAt = DateTime.UtcNow
-        });
+        dbContext.Users.Add(User.Create(
+            EmailAddress.Create("postgres-concurrent@example.com"),
+            DisplayName.Create("PostgreSQL Concurrent User"),
+            UserRole.User,
+            isActive: true,
+            isEmailConfirmed: true));
         await dbContext.SaveChangesAsync();
     }
 
@@ -520,16 +500,14 @@ public sealed class PostgreSqlIntegrationTests
     {
         await using var scope = _factory.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        dbContext.Users.Add(new User
-        {
-            Id = ownerId,
-            Email = EmailAddress.Create($"project-owner-{ownerId:N}@example.com"),
-            DisplayName = DisplayName.Create("Project Concurrency Owner"),
-            Role = UserRole.User,
-            IsActive = true,
-            IsEmailConfirmed = true,
-            CreatedAt = DateTime.UtcNow
-        });
+        dbContext.Users.Add(User.Create(
+            EmailAddress.Create($"project-owner-{ownerId:N}@example.com"),
+            DisplayName.Create("Project Concurrency Owner"),
+            UserRole.User,
+            isActive: true,
+            isEmailConfirmed: true,
+            id: ownerId,
+            createdAt: DateTime.UtcNow));
         await dbContext.SaveChangesAsync();
     }
 

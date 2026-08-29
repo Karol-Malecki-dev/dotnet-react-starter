@@ -83,6 +83,15 @@ Najważniejsze przepływy informacji w projekcie:
 2. Backend weryfikuje JWT i role po stronie API.
 3. Frontend używa roli tylko do UX i routingu, nie jako źródła bezpieczeństwa.
 
+### User Domain Boundary
+
+`User` remains a single aggregate root mapped to the existing `Users` table. New instances
+are created through `User.Create(...)`, and profile, account, credential, two-factor, and
+lockout changes go through explicit domain methods instead of public setters. External
+uniqueness checks and configuration-dependent policies remain in application and
+infrastructure services. This boundary intentionally does not split persistence into
+separate profile and security tables.
+
 ## Database Model
 
 Główna baza jest obsługiwana przez EF Core w `backend/Infrastructure/Data/ApplicationDbContext.cs`.

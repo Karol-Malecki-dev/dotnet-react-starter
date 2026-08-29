@@ -73,22 +73,15 @@ public class DatabaseAuthService : IAuthService
         var lockoutExpired = user.LockoutEndAt.HasValue && user.LockoutEndAt.Value <= now;
         if (lockoutExpired)
         {
-            user.FailedLoginAttempts = 0;
-            user.LockoutEndAt = null;
+            user.ResetLoginFailures();
         }
 
         var verificationResult = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
         if (verificationResult == PasswordVerificationResult.Failed)
         {
             var maxFailedLoginAttempts = Math.Max(1, _authSecuritySettings.MaxFailedLoginAttempts);
-            user.FailedLoginAttempts = Math.Min(user.FailedLoginAttempts + 1, maxFailedLoginAttempts);
-            if (user.FailedLoginAttempts >= maxFailedLoginAttempts)
-            {
-                var lockoutDurationMinutes = Math.Max(1, _authSecuritySettings.LockoutDurationMinutes);
-                user.LockoutEndAt = now.AddMinutes(lockoutDurationMinutes);
-            }
-
-            user.ConcurrencyStamp = GenerateConcurrencyStamp();
+            var lockoutDuration = TimeSpan.FromMinutes(Math.Max(1, _authSecuritySettings.LockoutDurationMinutes));
+            user.RecordFailedLogin(now, maxFailedLoginAttempts, lockoutDuration);
             await PersistAuthenticationStateAsync(user.Id, cancellationToken);
             _logger.LogWarning("Authentication failed for {Email}", normalizedEmail.Value);
             return null;
@@ -100,19 +93,17 @@ public class DatabaseAuthService : IAuthService
 
         if (authenticationStateChanged)
         {
-            user.FailedLoginAttempts = 0;
-            user.LockoutEndAt = null;
+            user.ResetLoginFailures();
         }
 
         if (verificationResult == PasswordVerificationResult.SuccessRehashNeeded)
         {
-            user.PasswordHash = _passwordHasher.HashPassword(user, password);
+            user.ChangePasswordHash(_passwordHasher.HashPassword(user, password));
             authenticationStateChanged = true;
         }
 
         if (authenticationStateChanged)
         {
-            user.ConcurrencyStamp = GenerateConcurrencyStamp();
             if (!await PersistAuthenticationStateAsync(user.Id, cancellationToken))
             {
                 return null;
@@ -140,19 +131,14 @@ public class DatabaseAuthService : IAuthService
             return null;
         }
 
-        var user = new User
-        {
-            Id = Guid.NewGuid(),
-            Email = normalizedEmail,
-            DisplayName = normalizedDisplayName,
-            Role = UserRole.User,
-            IsActive = true,
-            IsEmailConfirmed = false,
-            IsTwoFactorEnabled = _emailTwoFactorSettings.Enabled && _emailTwoFactorSettings.EnableForNewUsers,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        user.PasswordHash = _passwordHasher.HashPassword(user, password);
+        var user = User.Create(
+            normalizedEmail,
+            normalizedDisplayName,
+            UserRole.User,
+            isActive: true,
+            isEmailConfirmed: false,
+            isTwoFactorEnabled: _emailTwoFactorSettings.Enabled && _emailTwoFactorSettings.EnableForNewUsers);
+        user.SetPasswordHash(_passwordHasher.HashPassword(user, password));
 
         _dbContext.Users.Add(user);
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -202,10 +188,7 @@ public class DatabaseAuthService : IAuthService
             return false;
         }
 
-        user.PasswordHash = _passwordHasher.HashPassword(user, newPassword);
-        user.FailedLoginAttempts = 0;
-        user.LockoutEndAt = null;
-        user.ConcurrencyStamp = GenerateConcurrencyStamp();
+        user.ChangePasswordHash(_passwordHasher.HashPassword(user, newPassword));
         await RevokeActiveRefreshTokensAsync(user.Id, RevocationReason.PasswordChanged, DateTime.UtcNow, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
         return true;
@@ -299,10 +282,7 @@ public class DatabaseAuthService : IAuthService
             return false;
         }
 
-        user.PasswordHash = _passwordHasher.HashPassword(user, newPassword);
-        user.FailedLoginAttempts = 0;
-        user.LockoutEndAt = null;
-        user.ConcurrencyStamp = GenerateConcurrencyStamp();
+        user.ChangePasswordHash(_passwordHasher.HashPassword(user, newPassword));
         resetRequest.ConsumedAt = now;
 
         var remainingRequests = await _dbContext.PasswordResetRequests
@@ -383,7 +363,7 @@ public class DatabaseAuthService : IAuthService
             return false;
         }
 
-        user.IsEmailConfirmed = true;
+        user.SetEmailConfirmed(true);
         token.ConsumedAt = now;
 
         var remainingTokens = await _dbContext.EmailConfirmationTokens
@@ -570,7 +550,7 @@ public class DatabaseAuthService : IAuthService
         }
 
         var sharedKey = Base32Encoding.ToString(RandomNumberGenerator.GetBytes(20));
-        user.ProtectedAuthenticatorSecret = _authenticatorSecretProtector.Protect(sharedKey);
+        user.SetProtectedAuthenticatorSecret(_authenticatorSecretProtector.Protect(sharedKey));
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         var issuer = "dotnet-react-starter";
@@ -590,7 +570,7 @@ public class DatabaseAuthService : IAuthService
         }
 
         var recoveryCodes = Enumerable.Range(0, 10).Select(_ => GenerateRecoveryCode()).ToArray();
-        user.IsAuthenticatorEnabled = true;
+        user.EnableAuthenticator();
         _dbContext.AuthenticatorRecoveryCodes.AddRange(recoveryCodes.Select(code => new AuthenticatorRecoveryCode
         {
             Id = Guid.NewGuid(),
@@ -676,8 +656,7 @@ public class DatabaseAuthService : IAuthService
             return false;
         }
 
-        user.IsAuthenticatorEnabled = false;
-        user.ProtectedAuthenticatorSecret = null;
+        user.DisableAuthenticator();
         var recoveryCodes = await _dbContext.AuthenticatorRecoveryCodes.Where(recoveryCode => recoveryCode.UserId == userId).ToListAsync(cancellationToken);
         _dbContext.AuthenticatorRecoveryCodes.RemoveRange(recoveryCodes);
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -768,9 +747,6 @@ public class DatabaseAuthService : IAuthService
             return false;
         }
     }
-
-    private static string GenerateConcurrencyStamp()
-        => Guid.NewGuid().ToString("N");
 
     private async Task RevokeActiveRefreshTokensAsync(Guid userId, RevocationReason reason, DateTime revokedAt, CancellationToken cancellationToken)
     {

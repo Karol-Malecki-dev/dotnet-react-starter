@@ -88,7 +88,7 @@ public class DatabaseUserService : IUserService
                 return ApiResponse<UserDto>.Error(400, "Display name is invalid");
             }
 
-            user.DisplayName = normalizedDisplayName;
+            user.ChangeDisplayName(normalizedDisplayName);
         }
 
         if (dto.Email is not null)
@@ -109,7 +109,7 @@ public class DatabaseUserService : IUserService
                 return ApiResponse<UserDto>.Error(400, "User with this email already exists");
             }
 
-            user.Email = normalizedEmail;
+            user.ChangeEmail(normalizedEmail);
         }
 
         if (dto.AvatarUrl is not null)
@@ -118,7 +118,7 @@ public class DatabaseUserService : IUserService
 
             if (string.IsNullOrWhiteSpace(avatarUrl))
             {
-                user.AvatarUrl = null;
+                user.ChangeAvatarUrl(null);
             }
             else if (!IsValidHttpUrl(avatarUrl))
             {
@@ -126,7 +126,7 @@ public class DatabaseUserService : IUserService
             }
             else
             {
-                user.AvatarUrl = avatarUrl;
+                user.ChangeAvatarUrl(avatarUrl);
             }
         }
 
@@ -143,7 +143,7 @@ public class DatabaseUserService : IUserService
             return ApiResponse<bool>.Error(404, "User not found");
         }
 
-        user.IsActive = false;
+        user.Deactivate();
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return ApiResponse<bool>.Success(true, "User deactivated");
@@ -157,7 +157,7 @@ public class DatabaseUserService : IUserService
             return ApiResponse<bool>.Error(404, "User not found");
         }
 
-        user.IsActive = true;
+        user.Activate();
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return ApiResponse<bool>.Success(true, "User activated");
@@ -190,7 +190,7 @@ public class DatabaseUserService : IUserService
             return ApiResponse<UserDto>.Error(400, "Display name is invalid");
         }
 
-        user.DisplayName = normalizedDisplayName;
+        user.ChangeDisplayName(normalizedDisplayName);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return ApiResponse<UserDto>.Success(MapToDto(user), "Display name updated");
@@ -209,7 +209,7 @@ public class DatabaseUserService : IUserService
             return ApiResponse<UserDto>.Error(400, "Invalid user role");
         }
 
-        user.Role = parsedRole;
+        user.ChangeRole(parsedRole);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return ApiResponse<UserDto>.Success(MapToDto(user), "User role updated");
@@ -301,7 +301,7 @@ public class DatabaseUserService : IUserService
             return ApiResponse<UserDto>.Error(400, "Email has an invalid format");
         }
 
-        user.Email = normalizedEmail;
+        user.ChangeEmail(normalizedEmail);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return ApiResponse<UserDto>.Success(MapToDto(user), "Email updated");
@@ -314,7 +314,7 @@ public class DatabaseUserService : IUserService
         {
             return ApiResponse<UserDto>.Error(404, "User not found");
         }
-        user.PasswordHash = passwordHash;
+        user.SetPasswordHash(passwordHash);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return ApiResponse<UserDto>.Success(MapToDto(user), "Password updated");
@@ -332,7 +332,7 @@ public class DatabaseUserService : IUserService
             return ApiResponse<UserDto>.Error(400, "Display name is invalid");
         }
 
-        user.DisplayName = normalizedDisplayName;
+        user.ChangeDisplayName(normalizedDisplayName);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return ApiResponse<UserDto>.Success(MapToDto(user), "Display name updated");
@@ -345,7 +345,7 @@ public class DatabaseUserService : IUserService
         {
             return ApiResponse<UserDto>.Error(404, "User not found");
         }
-        user.AvatarUrl = avatarUrl;
+        user.ChangeAvatarUrl(avatarUrl);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return ApiResponse<UserDto>.Success(MapToDto(user), "Avatar URL updated");
@@ -365,7 +365,7 @@ public class DatabaseUserService : IUserService
             return ApiResponse<UserSecurityDto>.Error(400, "Email must be confirmed before enabling two-factor authentication");
         }
 
-        user.IsTwoFactorEnabled = enable.Enable;
+        user.SetTwoFactorEnabled(enable.Enable);
         await _dbContext.SaveChangesAsync(cancellationToken);
         return ApiResponse<UserSecurityDto>.Success(
             MapToSecurityDto(user),

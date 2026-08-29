@@ -10,7 +10,7 @@ Nie chodzi o mechaniczne dodanie wszystkich wzorców DDD. Chodzi o uzasadnienie 
 
 ## Stan wyjściowy
 
-`ProjectTask` jest obecnie najlepiej zamodelowaną encją: posiada prywatny konstruktor, ograniczone settery i metody domenowe. `Project` i `User` mają słabszą enkapsulację. Moduł zadań używa już feature-specific ports, co daje dobry punkt wyjścia do dalszego rozdzielania odpowiedzialności.
+`ProjectTask` jest obecnie najlepiej zamodelowaną encją: posiada prywatny konstruktor, ograniczone settery i metody domenowe. `Project` ma częściową enkapsulację, a `User` używa już fabryki, prywatnych setterów i jawnych metod domenowych przy zachowaniu płaskiego mappingu EF Core. Moduł zadań używa już feature-specific ports, co daje dobry punkt wyjścia do dalszego rozdzielania odpowiedzialności.
 
 ## Status realizacji
 
@@ -19,7 +19,7 @@ Stan na: **2026-08-30**.
 | Obszar | Postęp | Status i dowód |
 |---|---:|---|
 | 1. Granica agregatów projektu i zadań | 75% | `Project` chroni członkostwo przez metody domenowe, automatycznie tworzy właściciela i ma prywatne settery; `ProjectTask` został przyjęty jako osobny agregat, a niezależność tokenu projektu potwierdza test integracyjny. |
-| 2. Model użytkownika i value objects | 35% | `User.Email` i `User.DisplayName` używają kanonicznych value objectów domenowych, z konwersją EF do istniejących kolumn tekstowych oraz testami walidacji, normalizacji i persystencji. `Address` oraz rozdzielenie profilu od stanu bezpieczeństwa nadal wymagają oceny. |
+| 2. Model użytkownika i value objects | 55% | `User.Email` i `User.DisplayName` używają kanonicznych value objectów domenowych, a `User` ma fabrykę, prywatne settery i jawne metody zmian profilu oraz stanu bezpieczeństwa; istniejąca płaska tabela `Users` i kontrakty HTTP zostały zachowane. Zastosowanie value objectu dla `Address` oraz pełne rozdzielenie profilu od stanu bezpieczeństwa nadal wymagają oceny. |
 | 3. Application services i porty | 50% | Warstwy i feature-specific ports istnieją; część odpowiedzialności nadal wymaga doprecyzowania. |
 | 4. Mapping i kontrakty | 50% | DTO i kontrakty HTTP są obecne oraz dokumentowane; pełne rozdzielenie modeli nie jest zakończone. |
 | 5. Transakcje i partial failure | 70% | Akceptacja zaproszenia, bezpośrednie dodanie członka oraz usunięcie członka mają relacyjne granice transakcji; usunięcie obejmuje także unassign zadań i aktywność, a rollbacki przy błędzie notification są pokryte dla dwóch workflowów z powiadomieniami. |
@@ -59,6 +59,12 @@ kanonicznej wartości potrzebne do sortowania wyników także przez provider InM
 Kontrakty HTTP i application nadal używają `string`, więc granica domeny nie zmienia
 publicznego API. Stary helper `Shared.Helpers.EmailAddress` został usunięty, aby nie
 pozostawiać dwóch konkurencyjnych implementacji.
+
+W bieżącej iteracji `User` pozostaje jednym aggregate rootem mapowanym do istniejącej tabeli
+`Users`, ale jego stan jest zmieniany przez `User.Create(...)` oraz jawne metody domenowe.
+Settery są prywatne, a metody profilu, hasła, roli, aktywacji, potwierdzenia emaila,
+two-factor i lockoutu nie wymagają zmiany schematu bazy. Jest to etap enkapsulacji zachowania,
+nie pełny podział persystencji na osobne `UserProfile` i `UserSecurityState`.
 
 ### 3. Application services i porty
 
@@ -132,6 +138,7 @@ Nie trzeba dodawać concurrency tokenu do każdej tabeli. Wybór powinien wynika
 - niepoprawne zmiany stanu projektu;
 - zakazane przejścia statusów zadania;
 - reguły członkostwa i roli;
+- fabryka `User` oraz metody zmian profilu i stanu bezpieczeństwa;
 - value objects i normalizacja;
 - mapowanie wyników application service.
 

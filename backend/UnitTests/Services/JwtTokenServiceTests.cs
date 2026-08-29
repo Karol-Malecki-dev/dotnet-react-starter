@@ -35,14 +35,11 @@ public class JwtTokenServiceTests
         await using var context = new ApplicationDbContext(options);
         var service = CreateService(context);
 
-        var user = new User
-        {
-            Id = Guid.NewGuid(),
-            Email = EmailAddress.Create("tokenuser@example.com"),
-            DisplayName = DisplayName.Create("Token User"),
-            Role = UserRole.User,
-            IsEmailConfirmed = true
-        };
+        var user = User.Create(
+            EmailAddress.Create("tokenuser@example.com"),
+            DisplayName.Create("Token User"),
+            UserRole.User,
+            isEmailConfirmed: true);
 
         var tokens = await service.GenerateTokensAsync(user);
 
@@ -60,14 +57,11 @@ public class JwtTokenServiceTests
         await using var context = new ApplicationDbContext(options);
         var service = CreateService(context);
 
-        var user = new User
-        {
-            Id = Guid.NewGuid(),
-            Email = EmailAddress.Create("verify@example.com"),
-            DisplayName = DisplayName.Create("Verify User"),
-            Role = UserRole.User,
-            IsEmailConfirmed = true
-        };
+        var user = User.Create(
+            EmailAddress.Create("verify@example.com"),
+            DisplayName.Create("Verify User"),
+            UserRole.User,
+            isEmailConfirmed: true);
 
         var tokens = await service.GenerateTokensAsync(user);
         var principal = await service.ValidateTokenAsync(tokens.AccessToken);
@@ -108,15 +102,12 @@ public class JwtTokenServiceTests
         await using var context = new ApplicationDbContext(options);
         var service = CreateService(context);
 
-        var user = new User
-        {
-            Id = Guid.NewGuid(),
-            Email = EmailAddress.Create("refresh@example.com"),
-            DisplayName = DisplayName.Create("Refresh User"),
-            Role = UserRole.User,
-            IsActive = true,
-            IsEmailConfirmed = true
-        };
+        var user = User.Create(
+            EmailAddress.Create("refresh@example.com"),
+            DisplayName.Create("Refresh User"),
+            UserRole.User,
+            isActive: true,
+            isEmailConfirmed: true);
         context.Users.Add(user);
         await context.SaveChangesAsync();
 
@@ -138,23 +129,19 @@ public class JwtTokenServiceTests
         await using var context = new ApplicationDbContext(options);
         var service = CreateService(context);
 
-        var user = new User
-        {
-            Id = Guid.NewGuid(),
-            Email = EmailAddress.Create("current-state@example.com"),
-            DisplayName = DisplayName.Create("Original Name"),
-            Role = UserRole.User,
-            IsActive = true,
-            IsEmailConfirmed = true,
-            CreatedAt = DateTime.UtcNow
-        };
+        var user = User.Create(
+            EmailAddress.Create("current-state@example.com"),
+            DisplayName.Create("Original Name"),
+            UserRole.User,
+            isActive: true,
+            isEmailConfirmed: true);
         context.Users.Add(user);
         await context.SaveChangesAsync();
 
         var originalTokens = await service.GenerateTokensAsync(user);
-        user.DisplayName = DisplayName.Create("Updated Name");
-        user.Role = UserRole.Admin;
-        user.IsEmailConfirmed = false;
+        user.ChangeDisplayName(DisplayName.Create("Updated Name"));
+        user.ChangeRole(UserRole.Admin);
+        user.SetEmailConfirmed(false);
         await context.SaveChangesAsync();
 
         var refreshedTokens = await service.RefreshTokensAsync(originalTokens.RefreshToken);
@@ -182,21 +169,17 @@ public class JwtTokenServiceTests
         await using var context = new ApplicationDbContext(options);
         var service = CreateService(context);
 
-        var user = new User
-        {
-            Id = Guid.NewGuid(),
-            Email = EmailAddress.Create("inactive-refresh@example.com"),
-            DisplayName = DisplayName.Create("Inactive Refresh User"),
-            Role = UserRole.User,
-            IsActive = true,
-            IsEmailConfirmed = true,
-            CreatedAt = DateTime.UtcNow
-        };
+        var user = User.Create(
+            EmailAddress.Create("inactive-refresh@example.com"),
+            DisplayName.Create("Inactive Refresh User"),
+            UserRole.User,
+            isActive: true,
+            isEmailConfirmed: true);
         context.Users.Add(user);
         await context.SaveChangesAsync();
 
         var tokens = await service.GenerateTokensAsync(user);
-        user.IsActive = false;
+        user.Deactivate();
         await context.SaveChangesAsync();
 
         var refreshedTokens = await service.RefreshTokensAsync(tokens.RefreshToken);
@@ -212,14 +195,11 @@ public class JwtTokenServiceTests
         await using var context = new ApplicationDbContext(options);
         var service = CreateService(context);
 
-        var user = new User
-        {
-            Id = Guid.NewGuid(),
-            Email = EmailAddress.Create("revoke@example.com"),
-            DisplayName = DisplayName.Create("Revoke User"),
-            Role = UserRole.User,
-            IsEmailConfirmed = true
-        };
+        var user = User.Create(
+            EmailAddress.Create("revoke@example.com"),
+            DisplayName.Create("Revoke User"),
+            UserRole.User,
+            isEmailConfirmed: true);
 
         var tokens = await service.GenerateTokensAsync(user);
 
@@ -237,14 +217,11 @@ public class JwtTokenServiceTests
         await using var context = new ApplicationDbContext(options);
         var service = CreateService(context);
 
-        var user = new User
-        {
-            Id = Guid.NewGuid(),
-            Email = EmailAddress.Create("active-refresh@example.com"),
-            DisplayName = DisplayName.Create("Active Refresh User"),
-            Role = UserRole.User,
-            IsEmailConfirmed = true
-        };
+        var user = User.Create(
+            EmailAddress.Create("active-refresh@example.com"),
+            DisplayName.Create("Active Refresh User"),
+            UserRole.User,
+            isEmailConfirmed: true);
 
         var tokens = await service.GenerateTokensAsync(user);
 
@@ -260,14 +237,11 @@ public class JwtTokenServiceTests
         await using var context = new ApplicationDbContext(options);
         var service = CreateService(context);
 
-        var user = new User
-        {
-            Id = Guid.NewGuid(),
-            Email = EmailAddress.Create("revoked-refresh@example.com"),
-            DisplayName = DisplayName.Create("Revoked Refresh User"),
-            Role = UserRole.User,
-            IsEmailConfirmed = true
-        };
+        var user = User.Create(
+            EmailAddress.Create("revoked-refresh@example.com"),
+            DisplayName.Create("Revoked Refresh User"),
+            UserRole.User,
+            isEmailConfirmed: true);
 
         var tokens = await service.GenerateTokensAsync(user);
 
@@ -285,15 +259,12 @@ public class JwtTokenServiceTests
         await using var context = new ApplicationDbContext(options);
         var service = CreateService(context);
 
-        var user = new User
-        {
-            Id = Guid.NewGuid(),
-            Email = EmailAddress.Create("reuse-refresh@example.com"),
-            DisplayName = DisplayName.Create("Reuse Refresh User"),
-            Role = UserRole.User,
-            IsActive = true,
-            IsEmailConfirmed = true
-        };
+        var user = User.Create(
+            EmailAddress.Create("reuse-refresh@example.com"),
+            DisplayName.Create("Reuse Refresh User"),
+            UserRole.User,
+            isActive: true,
+            isEmailConfirmed: true);
         context.Users.Add(user);
         await context.SaveChangesAsync();
 
@@ -317,16 +288,12 @@ public class JwtTokenServiceTests
         var databaseName = "JwtTokenServiceTestsConcurrentRefresh";
         await using (var setupContext = new ApplicationDbContext(UnitTestHelper.CreateInMemoryDatabaseOptions(databaseName)))
         {
-            var user = new User
-            {
-                Id = Guid.NewGuid(),
-                Email = EmailAddress.Create("concurrent-refresh@example.com"),
-                DisplayName = DisplayName.Create("Concurrent Refresh User"),
-                Role = UserRole.User,
-                IsActive = true,
-                IsEmailConfirmed = true,
-                CreatedAt = DateTime.UtcNow
-            };
+            var user = User.Create(
+                EmailAddress.Create("concurrent-refresh@example.com"),
+                DisplayName.Create("Concurrent Refresh User"),
+                UserRole.User,
+                isActive: true,
+                isEmailConfirmed: true);
             setupContext.Users.Add(user);
             await setupContext.SaveChangesAsync();
 

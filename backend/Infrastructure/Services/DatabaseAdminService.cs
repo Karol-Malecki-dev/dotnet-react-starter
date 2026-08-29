@@ -198,7 +198,7 @@ namespace Infrastructure.Services
                 if (emailInUse)
                     return ApiResponse<AdminUserDetailsDto>.Error(400, "User with this email already exists");
 
-                user.Email = normalizedEmail;
+                user.ChangeEmail(normalizedEmail);
             }
 
             if (!string.IsNullOrWhiteSpace(dto.DisplayName))
@@ -206,14 +206,22 @@ namespace Infrastructure.Services
                 if (!DisplayName.TryCreate(dto.DisplayName, out var normalizedDisplayName) || normalizedDisplayName is null)
                     return ApiResponse<AdminUserDetailsDto>.Error(400, "Display name is invalid");
 
-                user.DisplayName = normalizedDisplayName;
+                user.ChangeDisplayName(normalizedDisplayName);
             }
 
-            user.AvatarUrl = string.IsNullOrWhiteSpace(dto.AvatarUrl) ? null : dto.AvatarUrl.Trim();
-            user.IsActive = dto.IsActive;
-            user.IsEmailConfirmed = dto.IsEmailConfirmed;
-            user.IsTwoFactorEnabled = dto.IsTwoFactorEnabled;
-            user.Address = string.IsNullOrWhiteSpace(dto.Address) ? null : dto.Address.Trim();
+            user.ChangeAvatarUrl(string.IsNullOrWhiteSpace(dto.AvatarUrl) ? null : dto.AvatarUrl.Trim());
+            if (dto.IsActive)
+            {
+                user.Activate();
+            }
+            else
+            {
+                user.Deactivate();
+            }
+
+            user.SetEmailConfirmed(dto.IsEmailConfirmed);
+            user.SetTwoFactorEnabled(dto.IsTwoFactorEnabled);
+            user.ChangeAddress(string.IsNullOrWhiteSpace(dto.Address) ? null : dto.Address.Trim());
 
             await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -239,7 +247,7 @@ namespace Infrastructure.Services
             if (user == null)
                 return ApiResponse<AdminUserDetailsDto>.Error(404, "User not found");
 
-            user.Role = newRole;
+            user.ChangeRole(newRole);
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             var result = new AdminUserDetailsDto
@@ -265,7 +273,7 @@ namespace Infrastructure.Services
             if (user == null)
                 return ApiResponse<AdminUserDetailsDto>.Error(404, "User not found");
 
-            user.IsActive = true;
+            user.Activate();
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             var result = new AdminUserDetailsDto
@@ -291,7 +299,7 @@ namespace Infrastructure.Services
             if (user == null)
                 return ApiResponse<AdminUserDetailsDto>.Error(404, "User not found");
 
-            user.IsActive = false;
+            user.Deactivate();
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             var result = new AdminUserDetailsDto

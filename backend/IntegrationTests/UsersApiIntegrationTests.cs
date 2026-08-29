@@ -247,19 +247,14 @@ public class UsersApiIntegrationTests
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var passwordHasher = new PasswordHasher<User>();
-        var user = new User
-        {
-            Id = Guid.NewGuid(),
-            Email = EmailAddress.Create(email),
-            DisplayName = DisplayName.Create(displayName),
-            Role = role,
-            IsActive = true,
-            IsEmailConfirmed = isEmailConfirmed,
-            IsTwoFactorEnabled = isTwoFactorEnabled,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        user.PasswordHash = passwordHasher.HashPassword(user, password);
+        var user = User.Create(
+            EmailAddress.Create(email),
+            DisplayName.Create(displayName),
+            role,
+            isActive: true,
+            isEmailConfirmed: isEmailConfirmed,
+            isTwoFactorEnabled: isTwoFactorEnabled);
+        user.SetPasswordHash(passwordHasher.HashPassword(user, password));
         dbContext.Users.Add(user);
         await dbContext.SaveChangesAsync();
         return user.Id;
@@ -277,12 +272,12 @@ public class UsersApiIntegrationTests
 
         if (isEmailConfirmed.HasValue)
         {
-            user!.IsEmailConfirmed = isEmailConfirmed.Value;
+            user!.SetEmailConfirmed(isEmailConfirmed.Value);
         }
 
         if (isTwoFactorEnabled.HasValue)
         {
-            user!.IsTwoFactorEnabled = isTwoFactorEnabled.Value;
+            user!.SetTwoFactorEnabled(isTwoFactorEnabled.Value);
         }
 
         await dbContext.SaveChangesAsync();
