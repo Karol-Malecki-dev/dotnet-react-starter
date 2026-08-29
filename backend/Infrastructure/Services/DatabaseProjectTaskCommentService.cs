@@ -27,16 +27,28 @@ public sealed class DatabaseProjectTaskCommentService : IProjectTaskCommentAppli
             .AsNoTracking()
             .Where(comment => comment.ProjectTaskId == taskId)
             .OrderBy(comment => comment.CreatedAt)
+            .Select(comment => new
+            {
+                comment.Id,
+                comment.ProjectTaskId,
+                comment.AuthorUserId,
+                AuthorDisplayName = comment.AuthorUser.DisplayName,
+                comment.Content,
+                comment.CreatedAt
+            })
+            .ToListAsync(cancellationToken);
+
+        var commentViews = comments
             .Select(comment => new ProjectTaskCommentView(
                 comment.Id,
                 comment.ProjectTaskId,
                 comment.AuthorUserId,
-                comment.AuthorUser.DisplayName,
+                comment.AuthorDisplayName.Value,
                 comment.Content,
                 comment.CreatedAt))
-            .ToListAsync(cancellationToken);
+            .ToList();
 
-        return ProjectOperationResult<IReadOnlyList<ProjectTaskCommentView>>.Success(comments);
+        return ProjectOperationResult<IReadOnlyList<ProjectTaskCommentView>>.Success(commentViews);
     }
 
     public async Task<ProjectOperationResult<ProjectTaskCommentView>> CreateProjectTaskCommentAsync(CreateProjectTaskCommentCommand command, CancellationToken cancellationToken = default)
@@ -80,7 +92,7 @@ public sealed class DatabaseProjectTaskCommentService : IProjectTaskCommentAppli
             .Select(user => user.DisplayName)
             .SingleAsync(cancellationToken);
         return ProjectOperationResult<ProjectTaskCommentView>.Success(
-            new ProjectTaskCommentView(comment.Id, comment.ProjectTaskId, comment.AuthorUserId, authorDisplayName, comment.Content, comment.CreatedAt),
+            new ProjectTaskCommentView(comment.Id, comment.ProjectTaskId, comment.AuthorUserId, authorDisplayName.Value, comment.Content, comment.CreatedAt),
             "Project task comment created",
             201);
     }

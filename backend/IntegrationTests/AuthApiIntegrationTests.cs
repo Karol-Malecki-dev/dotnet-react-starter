@@ -961,7 +961,7 @@ public class AuthApiIntegrationTests
         {
             Id = Guid.NewGuid(),
             Email = EmailAddress.Create(email),
-            DisplayName = displayName,
+            DisplayName = DisplayName.Create(displayName),
             Role = role,
             IsActive = true,
             IsEmailConfirmed = true,

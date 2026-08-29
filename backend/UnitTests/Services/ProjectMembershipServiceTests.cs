@@ -29,7 +29,7 @@ public sealed class ProjectMembershipServiceTests
         _membershipStore.Setup(store => store.GetOwnedProjectWithMembersAsync(ownerId, projectId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(Project.Create(ownerId, "Project"));
         _membershipStore.Setup(store => store.GetActiveUserAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new User { Id = userId, DisplayName = "Member", Email = EmailAddress.Create("member@example.com") });
+            .ReturnsAsync(new User { Id = userId, DisplayName = DisplayName.Create("Member"), Email = EmailAddress.Create("member@example.com") });
         _membershipStore.Setup(store => store.IsMemberAsync(projectId, userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         var service = CreateService();

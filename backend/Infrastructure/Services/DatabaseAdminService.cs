@@ -69,7 +69,7 @@ namespace Infrastructure.Services
             {
                 Id = user.Id,
                 Email = user.Email.Value,
-                DisplayName = user.DisplayName,
+                DisplayName = user.DisplayName.Value,
                 AvatarUrl = user.AvatarUrl,
                 IsActive = user.IsActive,
                 IsEmailConfirmed = user.IsEmailConfirmed,
@@ -98,7 +98,7 @@ namespace Infrastructure.Services
             {
                 Id = user.Id,
                 Email = user.Email.Value,
-                DisplayName = user.DisplayName,
+                DisplayName = user.DisplayName.Value,
                 AvatarUrl = user.AvatarUrl,
                 IsActive = user.IsActive,
                 IsEmailConfirmed = user.IsEmailConfirmed,
@@ -170,7 +170,7 @@ namespace Infrastructure.Services
             {
                 Id = u.Id,
                 Email = u.Email.Value,
-                DisplayName = u.DisplayName,
+                DisplayName = u.DisplayName.Value,
                 Role = u.Role.ToString(),
                 IsActive = u.IsActive,
                 IsEmailConfirmed = u.IsEmailConfirmed,
@@ -202,7 +202,12 @@ namespace Infrastructure.Services
             }
 
             if (!string.IsNullOrWhiteSpace(dto.DisplayName))
-                user.DisplayName = dto.DisplayName.Trim();
+            {
+                if (!DisplayName.TryCreate(dto.DisplayName, out var normalizedDisplayName) || normalizedDisplayName is null)
+                    return ApiResponse<AdminUserDetailsDto>.Error(400, "Display name is invalid");
+
+                user.DisplayName = normalizedDisplayName;
+            }
 
             user.AvatarUrl = string.IsNullOrWhiteSpace(dto.AvatarUrl) ? null : dto.AvatarUrl.Trim();
             user.IsActive = dto.IsActive;
@@ -216,7 +221,7 @@ namespace Infrastructure.Services
             {
                 Id = user.Id,
                 Email = user.Email.Value,
-                DisplayName = user.DisplayName,
+                DisplayName = user.DisplayName.Value,
                 AvatarUrl = user.AvatarUrl,
                 IsActive = user.IsActive,
                 IsEmailConfirmed = user.IsEmailConfirmed,
@@ -241,7 +246,7 @@ namespace Infrastructure.Services
             {
                 Id = user.Id,
                 Email = user.Email.Value,
-                DisplayName = user.DisplayName,
+                DisplayName = user.DisplayName.Value,
                 AvatarUrl = user.AvatarUrl,
                 IsActive = user.IsActive,
                 IsEmailConfirmed = user.IsEmailConfirmed,
@@ -267,7 +272,7 @@ namespace Infrastructure.Services
             {
                 Id = user.Id,
                 Email = user.Email.Value,
-                DisplayName = user.DisplayName,
+                DisplayName = user.DisplayName.Value,
                 AvatarUrl = user.AvatarUrl,
                 IsActive = user.IsActive,
                 IsEmailConfirmed = user.IsEmailConfirmed,
@@ -293,7 +298,7 @@ namespace Infrastructure.Services
             {
                 Id = user.Id,
                 Email = user.Email.Value,
-                DisplayName = user.DisplayName,
+                DisplayName = user.DisplayName.Value,
                 AvatarUrl = user.AvatarUrl,
                 IsActive = user.IsActive,
                 IsEmailConfirmed = user.IsEmailConfirmed,
@@ -317,7 +322,7 @@ namespace Infrastructure.Services
             {
                 Id = user.Id,
                 Email = user.Email.Value,
-                DisplayName = user.DisplayName,
+                DisplayName = user.DisplayName.Value,
                 AvatarUrl = user.AvatarUrl,
                 IsActive = user.IsActive,
                 IsEmailConfirmed = user.IsEmailConfirmed,

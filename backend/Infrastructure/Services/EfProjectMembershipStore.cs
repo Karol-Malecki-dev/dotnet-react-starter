@@ -48,7 +48,7 @@ public sealed class EfProjectMembershipStore : IProjectMembershipStore
         return members
             .Select(member => new ProjectMemberView(
                 member.UserId,
-                member.DisplayName,
+                member.DisplayName.Value,
                 member.Email.Value,
                 member.Role,
                 member.AddedAt))
@@ -68,7 +68,7 @@ public sealed class EfProjectMembershipStore : IProjectMembershipStore
             .ToListAsync(cancellationToken);
 
         return users
-            .Select(user => new ProjectMemberUserView(user.Id, user.DisplayName, user.Email.Value))
+            .Select(user => new ProjectMemberUserView(user.Id, user.DisplayName.Value, user.Email.Value))
             .ToList();
     }
 

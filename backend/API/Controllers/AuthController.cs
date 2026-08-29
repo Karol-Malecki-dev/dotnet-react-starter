@@ -199,7 +199,7 @@ namespace API.Controllers
 
                 await _accountEmailSender.SendEmailConfirmationAsync(
                     user.Email.Value,
-                    user.DisplayName,
+                    user.DisplayName.Value,
                     BuildConfirmationLink(user.Id, confirmationToken),
                     cancellationToken);
 

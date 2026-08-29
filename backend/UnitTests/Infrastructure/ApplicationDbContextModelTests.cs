@@ -50,6 +50,21 @@ public sealed class ApplicationDbContextModelTests
     }
 
     [Fact]
+    public void User_display_name_is_required_and_limited()
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(nameof(User_display_name_is_required_and_limited))
+            .Options;
+
+        using var context = new ApplicationDbContext(options);
+        var user = context.Model.FindEntityType(typeof(User));
+
+        Assert.NotNull(user);
+        Assert.Equal(DisplayName.MaxLength, user.FindProperty(nameof(User.DisplayName))!.GetMaxLength());
+        Assert.False(user.FindProperty(nameof(User.DisplayName))!.IsNullable);
+    }
+
+    [Fact]
     public async Task User_email_converter_persists_canonical_value()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
@@ -62,7 +77,7 @@ public sealed class ApplicationDbContextModelTests
             {
                 Id = Guid.NewGuid(),
                 Email = EmailAddress.Create(" User@Example.com "),
-                DisplayName = "Email Converter User",
+                DisplayName = DisplayName.Create("Email Converter User"),
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow
             });
@@ -74,6 +89,33 @@ public sealed class ApplicationDbContextModelTests
         var user = await verificationContext.Users.SingleAsync();
 
         Assert.Equal("user@example.com", user.Email.Value);
+    }
+
+    [Fact]
+    public async Task User_display_name_converter_persists_canonical_value()
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase($"display-name-converter-{Guid.NewGuid():N}")
+            .Options;
+
+        await using (var context = new ApplicationDbContext(options))
+        {
+            context.Users.Add(new User
+            {
+                Id = Guid.NewGuid(),
+                Email = EmailAddress.Create("display-name@example.com"),
+                DisplayName = DisplayName.Create("  Display   Name "),
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            });
+
+            await context.SaveChangesAsync();
+        }
+
+        await using var verificationContext = new ApplicationDbContext(options);
+        var user = await verificationContext.Users.SingleAsync();
+
+        Assert.Equal("Display Name", user.DisplayName.Value);
     }
 
     [Fact]

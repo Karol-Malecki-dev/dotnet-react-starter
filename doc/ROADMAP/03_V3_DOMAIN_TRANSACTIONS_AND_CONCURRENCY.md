@@ -14,12 +14,12 @@ Nie chodzi o mechaniczne dodanie wszystkich wzorców DDD. Chodzi o uzasadnienie 
 
 ## Status realizacji
 
-Stan na: **2026-08-29**.
+Stan na: **2026-08-30**.
 
 | Obszar | Postęp | Status i dowód |
 |---|---:|---|
 | 1. Granica agregatów projektu i zadań | 75% | `Project` chroni członkostwo przez metody domenowe, automatycznie tworzy właściciela i ma prywatne settery; `ProjectTask` został przyjęty jako osobny agregat, a niezależność tokenu projektu potwierdza test integracyjny. |
-| 2. Model użytkownika i value objects | 25% | `User.Email` używa kanonicznego `Domain.ValueObjects.EmailAddress`, który normalizuje i waliduje wejście; konwerter EF zachowuje tekstową kolumnę i jest pokryty testami jednostkowymi oraz integracyjnymi. Pozostałe dane profilu nadal wymagają oceny. |
+| 2. Model użytkownika i value objects | 35% | `User.Email` i `User.DisplayName` używają kanonicznych value objectów domenowych, z konwersją EF do istniejących kolumn tekstowych oraz testami walidacji, normalizacji i persystencji. `Address` oraz rozdzielenie profilu od stanu bezpieczeństwa nadal wymagają oceny. |
 | 3. Application services i porty | 50% | Warstwy i feature-specific ports istnieją; część odpowiedzialności nadal wymaga doprecyzowania. |
 | 4. Mapping i kontrakty | 50% | DTO i kontrakty HTTP są obecne oraz dokumentowane; pełne rozdzielenie modeli nie jest zakończone. |
 | 5. Transakcje i partial failure | 70% | Akceptacja zaproszenia, bezpośrednie dodanie członka oraz usunięcie członka mają relacyjne granice transakcji; usunięcie obejmuje także unassign zadań i aktywność, a rollbacki przy błędzie notification są pokryte dla dwóch workflowów z powiadomieniami. |
@@ -49,12 +49,16 @@ Procent obejmuje istniejące fundamenty, nie samą liczbę klas lub endpointów.
 - rozdzielić dane profilu od stanu bezpieczeństwa, jeśli poprawi to granice modelu;
 - zachować prostotę mappingu EF Core.
 
-W bieżącej iteracji `EmailAddress` jest kanonicznym value objectem domenowym dla `User.Email`.
-Przyjmuje tylko poprawny adres, zapisuje go po `Trim()` i `ToLowerInvariant()`,
-udostępnia bezpieczne `TryCreate` oraz przechowuje w bazie jako zwykły tekst przez
-konwerter EF Core. Kontrakty HTTP i application nadal używają `string`, więc granica
-domeny nie zmienia publicznego API. Stary helper `Shared.Helpers.EmailAddress` został
-usunięty, aby nie pozostawiać dwóch konkurencyjnych implementacji.
+W bieżącej iteracji `EmailAddress` jest kanonicznym value objectem domenowym dla `User.Email`,
+a `DisplayName` dla `User.DisplayName`. `EmailAddress` przyjmuje tylko poprawny adres,
+zapisuje go po `Trim()` i `ToLowerInvariant()` oraz udostępnia bezpieczne `TryCreate`.
+`DisplayName` usuwa skrajne białe znaki, scala powtarzające się separatory, odrzuca puste
+wartości i zachowuje limit `200` znaków. Oba value objecty są przechowywane w bazie jako
+zwykły tekst przez konwertery EF Core, a `DisplayName` implementuje porównywanie
+kanonicznej wartości potrzebne do sortowania wyników także przez provider InMemory.
+Kontrakty HTTP i application nadal używają `string`, więc granica domeny nie zmienia
+publicznego API. Stary helper `Shared.Helpers.EmailAddress` został usunięty, aby nie
+pozostawiać dwóch konkurencyjnych implementacji.
 
 ### 3. Application services i porty
 

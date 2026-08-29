@@ -130,6 +130,11 @@ public class DatabaseAuthService : IAuthService
             return null;
         }
 
+        if (!DisplayName.TryCreate(displayName, out var normalizedDisplayName) || normalizedDisplayName is null)
+        {
+            return null;
+        }
+
         if (await _dbContext.Users.AnyAsync(x => x.Email == normalizedEmail, cancellationToken))
         {
             return null;
@@ -139,7 +144,7 @@ public class DatabaseAuthService : IAuthService
         {
             Id = Guid.NewGuid(),
             Email = normalizedEmail,
-            DisplayName = displayName.Trim(),
+            DisplayName = normalizedDisplayName,
             Role = UserRole.User,
             IsActive = true,
             IsEmailConfirmed = false,
@@ -450,7 +455,7 @@ public class DatabaseAuthService : IAuthService
             challenge.Id,
             user.Id,
             user.Email.Value,
-            user.DisplayName,
+            user.DisplayName.Value,
             code,
             challenge.ExpiresAt);
     }
@@ -550,7 +555,7 @@ public class DatabaseAuthService : IAuthService
             challenge.Id,
             user.Id,
             user.Email.Value,
-            user.DisplayName,
+            user.DisplayName.Value,
             code,
             challenge.ExpiresAt);
     }

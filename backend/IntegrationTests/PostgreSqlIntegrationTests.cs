@@ -254,7 +254,7 @@ public sealed class PostgreSqlIntegrationTests
                 {
                     Id = ownerId,
                     Email = EmailAddress.Create($"invitation-owner-{ownerId:N}@example.com"),
-                    DisplayName = "Invitation Concurrency Owner",
+                    DisplayName = DisplayName.Create("Invitation Concurrency Owner"),
                     Role = UserRole.User,
                     IsActive = true,
                     IsEmailConfirmed = true,
@@ -264,7 +264,7 @@ public sealed class PostgreSqlIntegrationTests
                 {
                     Id = recipientId,
                     Email = EmailAddress.Create($"invitation-recipient-{recipientId:N}@example.com"),
-                    DisplayName = "Invitation Concurrency Recipient",
+                    DisplayName = DisplayName.Create("Invitation Concurrency Recipient"),
                     Role = UserRole.User,
                     IsActive = true,
                     IsEmailConfirmed = true,
@@ -322,7 +322,7 @@ public sealed class PostgreSqlIntegrationTests
                 {
                     Id = ownerId,
                     Email = EmailAddress.Create($"rollback-owner-{ownerId:N}@example.com"),
-                    DisplayName = "Invitation Rollback Owner",
+                    DisplayName = DisplayName.Create("Invitation Rollback Owner"),
                     Role = UserRole.User,
                     IsActive = true,
                     IsEmailConfirmed = true,
@@ -332,7 +332,7 @@ public sealed class PostgreSqlIntegrationTests
                 {
                     Id = recipientId,
                     Email = EmailAddress.Create($"rollback-recipient-{recipientId:N}@example.com"),
-                    DisplayName = "Invitation Rollback Recipient",
+                    DisplayName = DisplayName.Create("Invitation Rollback Recipient"),
                     Role = UserRole.User,
                     IsActive = true,
                     IsEmailConfirmed = true,
@@ -389,7 +389,7 @@ public sealed class PostgreSqlIntegrationTests
                 {
                     Id = ownerId,
                     Email = EmailAddress.Create($"member-rollback-owner-{ownerId:N}@example.com"),
-                    DisplayName = "Member Rollback Owner",
+                    DisplayName = DisplayName.Create("Member Rollback Owner"),
                     Role = UserRole.User,
                     IsActive = true,
                     IsEmailConfirmed = true,
@@ -399,7 +399,7 @@ public sealed class PostgreSqlIntegrationTests
                 {
                     Id = memberId,
                     Email = EmailAddress.Create($"member-rollback-user-{memberId:N}@example.com"),
-                    DisplayName = "Member Rollback User",
+                    DisplayName = DisplayName.Create("Member Rollback User"),
                     Role = UserRole.User,
                     IsActive = true,
                     IsEmailConfirmed = true,
@@ -456,7 +456,7 @@ public sealed class PostgreSqlIntegrationTests
                 {
                     Id = ownerId,
                     Email = EmailAddress.Create($"member-removal-owner-{ownerId:N}@example.com"),
-                    DisplayName = "Member Removal Owner",
+                    DisplayName = DisplayName.Create("Member Removal Owner"),
                     Role = UserRole.User,
                     IsActive = true,
                     IsEmailConfirmed = true,
@@ -466,7 +466,7 @@ public sealed class PostgreSqlIntegrationTests
                 {
                     Id = memberId,
                     Email = EmailAddress.Create($"member-removal-user-{memberId:N}@example.com"),
-                    DisplayName = "Member Removal User",
+                    DisplayName = DisplayName.Create("Member Removal User"),
                     Role = UserRole.User,
                     IsActive = true,
                     IsEmailConfirmed = true,
@@ -507,7 +507,7 @@ public sealed class PostgreSqlIntegrationTests
         {
             Id = Guid.NewGuid(),
             Email = EmailAddress.Create("postgres-concurrent@example.com"),
-            DisplayName = "PostgreSQL Concurrent User",
+            DisplayName = DisplayName.Create("PostgreSQL Concurrent User"),
             Role = UserRole.User,
             IsActive = true,
             IsEmailConfirmed = true,
@@ -524,7 +524,7 @@ public sealed class PostgreSqlIntegrationTests
         {
             Id = ownerId,
             Email = EmailAddress.Create($"project-owner-{ownerId:N}@example.com"),
-            DisplayName = "Project Concurrency Owner",
+            DisplayName = DisplayName.Create("Project Concurrency Owner"),
             Role = UserRole.User,
             IsActive = true,
             IsEmailConfirmed = true,

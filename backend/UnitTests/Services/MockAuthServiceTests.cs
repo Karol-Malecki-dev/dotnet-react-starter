@@ -59,7 +59,7 @@ public class MockAuthServiceTests
 
         Assert.NotNull(result);
         Assert.Equal("newuser@example.com", result!.Email.Value);
-        Assert.Equal("New User", result.DisplayName);
+        Assert.Equal("New User", result.DisplayName.Value);
         Assert.NotEqual(Guid.Empty, result.Id);
     }
 }

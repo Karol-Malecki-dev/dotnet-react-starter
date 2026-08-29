@@ -70,7 +70,7 @@ public class DatabaseUserService : IUserService
             return ApiResponse<UserDto>.Error(404, "User not found");
         }
 
-        var (currentFirstName, currentLastName) = SplitDisplayName(user.DisplayName);
+        var (currentFirstName, currentLastName) = SplitDisplayName(user.DisplayName.Value);
 
         if (dto.FirstName is not null || dto.LastName is not null)
         {
@@ -83,7 +83,12 @@ public class DatabaseUserService : IUserService
                 return ApiResponse<UserDto>.Error(400, "First name or last name is required");
             }
 
-            user.DisplayName = displayName;
+            if (!DisplayName.TryCreate(displayName, out var normalizedDisplayName) || normalizedDisplayName is null)
+            {
+                return ApiResponse<UserDto>.Error(400, "Display name is invalid");
+            }
+
+            user.DisplayName = normalizedDisplayName;
         }
 
         if (dto.Email is not null)
@@ -180,7 +185,12 @@ public class DatabaseUserService : IUserService
             return ApiResponse<UserDto>.Error(404, "User not found");
         }
 
-        user.DisplayName = displayName.Trim();
+        if (!DisplayName.TryCreate(displayName, out var normalizedDisplayName) || normalizedDisplayName is null)
+        {
+            return ApiResponse<UserDto>.Error(400, "Display name is invalid");
+        }
+
+        user.DisplayName = normalizedDisplayName;
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return ApiResponse<UserDto>.Success(MapToDto(user), "Display name updated");
@@ -238,14 +248,14 @@ public class DatabaseUserService : IUserService
 
     private static UserDto MapToDto(User user)
     {
-        var (firstName, lastName) = SplitDisplayName(user.DisplayName);
+        var (firstName, lastName) = SplitDisplayName(user.DisplayName.Value);
 
         return new UserDto
         {
             Id = user.Id,
             FirstName = firstName,
             LastName = lastName,
-            DisplayName = user.DisplayName,
+            DisplayName = user.DisplayName.Value,
             Email = user.Email.Value,
             AvatarUrl = user.AvatarUrl,
             Role = user.Role.ToString(),
@@ -317,7 +327,12 @@ public class DatabaseUserService : IUserService
         {
             return ApiResponse<UserDto>.Error(404, "User not found");
         }
-        user.DisplayName = displayName;
+        if (!DisplayName.TryCreate(displayName, out var normalizedDisplayName) || normalizedDisplayName is null)
+        {
+            return ApiResponse<UserDto>.Error(400, "Display name is invalid");
+        }
+
+        user.DisplayName = normalizedDisplayName;
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return ApiResponse<UserDto>.Success(MapToDto(user), "Display name updated");

@@ -19,7 +19,12 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .IsRequired()
             .HasMaxLength(EmailAddress.MaxLength);
         builder.Property(x => x.PasswordHash).IsRequired().HasMaxLength(500);
-        builder.Property(x => x.DisplayName).IsRequired().HasMaxLength(200);
+        builder.Property(x => x.DisplayName)
+            .HasConversion(
+                displayName => displayName.Value,
+                value => DisplayName.Create(value))
+            .IsRequired()
+            .HasMaxLength(DisplayName.MaxLength);
         builder.Property(x => x.AvatarUrl).HasMaxLength(500);
         builder.Property(x => x.ProtectedAuthenticatorSecret).HasMaxLength(2000);
         builder.Property(x => x.ConcurrencyStamp).IsRequired().HasMaxLength(64).IsConcurrencyToken();
