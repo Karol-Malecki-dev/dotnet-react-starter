@@ -294,6 +294,35 @@ public class AuthControllerTests
     }
 
     [Fact]
+    public async Task LogoutAll_Returns_ok_and_revokes_all_user_sessions()
+    {
+        var userId = Guid.NewGuid();
+        var user = ControllerTestHelper.CreateAuthenticatedUser(userId.ToString(), "user@test.com");
+        _controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = ControllerTestHelper.CreateHttpContext(user)
+        };
+
+        _jwtTokenServiceMock
+            .Setup(x => x.RevokeAllUserTokensAsync(userId, RevocationReason.UserLogout))
+            .Returns(Task.CompletedTask);
+
+        var actionResult = await _controller.LogoutAll();
+
+        var okResult = Assert.IsType<OkObjectResult>(actionResult);
+        var response = Assert.IsType<ApiResponse>(okResult.Value);
+        var setCookieHeader = _controller.Response.Headers.SetCookie.ToString();
+
+        Assert.Equal(200, okResult.StatusCode);
+        Assert.Equal("All sessions logged out successfully", response.Message);
+        Assert.Contains("drs.refreshToken=", setCookieHeader);
+        Assert.Contains("expires=thu, 01 jan 1970", setCookieHeader, StringComparison.OrdinalIgnoreCase);
+        _jwtTokenServiceMock.Verify(
+            x => x.RevokeAllUserTokensAsync(userId, RevocationReason.UserLogout),
+            Times.Once);
+    }
+
+    [Fact]
     public async Task VerifyToken_Returns_ok_when_token_is_valid()
     {
         var request = new VerifyTokenRequest { Token = "valid-token" };
@@ -540,14 +569,21 @@ public class AuthControllerTests
         _authServiceMock
             .Setup(x => x.ResetPasswordAsync(request.Email, request.Token!, request.NewPassword))
             .ReturnsAsync(true);
+        _controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext()
+        };
 
         var actionResult = await _controller.ResetPassword(request);
 
         var okResult = Assert.IsType<OkObjectResult>(actionResult);
         var response = Assert.IsType<ApiResponse<object>>(okResult.Value);
+        var setCookieHeader = _controller.Response.Headers.SetCookie.ToString();
 
         Assert.Equal(200, okResult.StatusCode);
         Assert.Equal("Password reset successful", response.Message);
+        Assert.Contains("drs.refreshToken=", setCookieHeader);
+        Assert.Contains("expires=thu, 01 jan 1970", setCookieHeader, StringComparison.OrdinalIgnoreCase);
         _authServiceMock.Verify(x => x.ResetPasswordAsync(request.Email, request.Token!, request.NewPassword), Times.Once);
     }
 

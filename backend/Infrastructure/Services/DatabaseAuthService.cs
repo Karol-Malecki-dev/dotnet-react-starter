@@ -186,6 +186,7 @@ public class DatabaseAuthService : IAuthService
         user.FailedLoginAttempts = 0;
         user.LockoutEndAt = null;
         user.ConcurrencyStamp = GenerateConcurrencyStamp();
+        await RevokeActiveRefreshTokensAsync(user.Id, RevocationReason.PasswordChanged, DateTime.UtcNow);
         await _dbContext.SaveChangesAsync();
         return true;
     }
@@ -294,6 +295,7 @@ public class DatabaseAuthService : IAuthService
             remainingRequest.RevokedAt = now;
         }
 
+        await RevokeActiveRefreshTokensAsync(user.Id, RevocationReason.PasswordReset, now);
         await _dbContext.SaveChangesAsync();
         return true;
     }
@@ -746,6 +748,21 @@ public class DatabaseAuthService : IAuthService
 
     private static string GenerateConcurrencyStamp()
         => Guid.NewGuid().ToString("N");
+
+    private async Task RevokeActiveRefreshTokensAsync(Guid userId, RevocationReason reason, DateTime revokedAt)
+    {
+        var activeTokens = await _dbContext.RefreshTokens
+            .Where(token => token.UserId == userId && !token.RevokedAt.HasValue)
+            .ToListAsync();
+
+        foreach (var token in activeTokens)
+        {
+            token.RevokedAt = revokedAt;
+            token.RevocationReason = reason;
+            token.ConcurrencyStamp = Guid.NewGuid().ToString("N");
+        }
+    }
+
 
     private static string GenerateRecoveryCode()
         => Convert.ToHexString(RandomNumberGenerator.GetBytes(8));

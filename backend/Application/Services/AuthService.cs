@@ -1,5 +1,6 @@
 ﻿using Domain.Entities;
 using Domain.Entities.JWT;
+using Domain.Enums;
 using Domain.Interfaces;
 using System;
 using System.Collections.Generic;
@@ -32,6 +33,11 @@ namespace Application.Services
         }
 
         public Task RevokeTokenAsync(string refreshToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task RevokeAllUserTokensAsync(Guid userId, RevocationReason reason)
         {
             throw new NotImplementedException();
         }

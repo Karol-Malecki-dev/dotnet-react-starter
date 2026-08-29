@@ -53,6 +53,7 @@ Backend przechowuje w bazie:
 
 - użytkownika
 - refresh token hash
+- concurrency stamp used to protect rotation updates
 - snapshot podstawowych danych użytkownika powiązany z refresh tokenem
 - metadane tokenu, takie jak `CreatedAt`, `ExpiresAt`, `LastUsedAt`, `RevokedAt`, `CreatedByIp`, `LastUsedByIp`
 
@@ -194,13 +195,32 @@ To jest jeden z najważniejszych wzorców bezpieczeństwa w tym projekcie.
 - można wykrywać zużyte lub ponownie użyte tokeny
 - sesja jest odnawiana bez ekspozycji refresh tokenu na frontend
 
+### Current-account and concurrency rules
+
+Before rotation, the backend reads the current `User` record. The refresh-token snapshot remains useful for audit, but it is not used as the source of truth for account activity, role, email confirmation, or profile data.
+
+The token family keeps one stable `FamilyId`. The previous row is marked `TokenRotated` and points to the successor through `ReplacedByTokenHash`. `ConcurrencyStamp` is an EF Core concurrency token, so two requests cannot both successfully rotate the same row. The losing request is rejected.
+
+If a rotated token is presented again, the request is treated as refresh-token replay. Active tokens in the family, including the successor, are revoked with `RefreshTokenReplay`. This intentionally favors terminating the family over silently accepting an ambiguous session.
+
+Refresh rejects a missing user or an inactive user. A role change is read on the next refresh, while an already issued access token keeps its claims until its normal expiry.
+
+The complete session-policy decision is recorded in [`doc/ROADMAP/09_ADR_AUTH_SESSION_POLICY.md`](ROADMAP/09_ADR_AUTH_SESSION_POLICY.md).
+
 ## Logout Flow
 
 1. Frontend wywołuje `POST /api/auth/logout` jako użytkownik zalogowany.
 2. Backend czyta refresh token z cookie.
+
 3. `JwtTokenService.RevokeTokenAsync()` oznacza token jako revoked z powodem `UserLogout`.
 4. Backend czyści refresh cookie.
 5. Frontend czyści localStorage z access tokenu i snapshotu usera.
+
+### Logout All and Credential Changes
+
+`POST /api/auth/logout-all` revokes all active refresh sessions for the authenticated user and clears the current refresh cookie. It does not invalidate an already issued access token before its expiry.
+
+After a successful password change, all active refresh sessions are revoked with `PasswordChanged`. After a successful password reset, they are revoked with `PasswordReset`. Both operations clear the current browser cookie after success, while other already issued access tokens remain valid until expiry.
 
 ## Session Bootstrap on the Frontend
 
@@ -281,6 +301,8 @@ Mocne strony tego podejścia:
 - rotacja ogranicza skutki wycieku pojedynczego refresh tokenu
 - access token jest krótkowieczny
 - backend prowadzi prosty audit trail użycia refresh tokenów
+- równoległa rotacja jednego refresh tokenu kończy się najwyżej jednym zaakceptowanym następcą
+- replay cofa aktywną rodzinę refresh tokenów
 
 ## Limits and Trade-Offs
 
@@ -289,7 +311,9 @@ Warto znać też kompromisy:
 - access token nadal siedzi w localStorage, więc XSS pozostaje ważnym ryzykiem
 - cookie-path jest ograniczone do `/api/auth`, więc inne endpointy nie mogą używać refresh tokenu bezpośrednio
 - `ClockSkew = 0` poprawia przewidywalność, ale wymaga sensownej synchronizacji czasu
-- snapshot danych usera przy refresh tokenie upraszcza odświeżenie sesji, ale wymaga pilnowania spójności modelu
+- snapshot danych usera przy refresh tokenie służy audytowi, ale bieżący rekord usera jest wymagany przy refreshu
+- logout-all, zmiana/reset hasła i dezaktywacja nie cofają już wydanego access JWT; do tego potrzebny byłby token version, deny-list albo introspection
+- po re-aktywacji konta niewygasły refresh token może ponownie stać się użyteczny, ponieważ ta wersja blokuje refresh podczas dezaktywacji, ale nie usuwa historycznych rekordów
 
 ## How To Extend Auth Safely
 

@@ -56,48 +56,26 @@ namespace Infrastructure.Services
         {
             ArgumentNullException.ThrowIfNull(user);
 
-            var now = DateTime.UtcNow;
-            var accessTokenExpiration = now.AddMinutes(_jwtSettings.AccessTokenExpiresInMinutes);
-            var accessTokenString = CreateAccessToken(user, accessTokenExpiration);
-
-            var rawRefreshToken = GenerateRefreshToken();
-            var refreshTokenHash = HashToken(rawRefreshToken);
-            var clientIp = GetClientIp();
-
-            _dbContext.RefreshTokens.Add(new RefreshToken
-            {
-                Id = Guid.NewGuid(),
-                UserId = user.Id,
-                UserEmail = user.Email,
-                UserDisplayName = user.DisplayName,
-                UserRole = user.Role,
-                IsEmailConfirmed = user.IsEmailConfirmed,
-                TokenHash = refreshTokenHash,
-                CreatedAt = now,
-                ExpiresAt = now.AddDays(_jwtSettings.RefreshTokenExpiresInDays),
-                CreatedByIp = clientIp,
-                FamilyId = Guid.NewGuid()
-            });
-
+            var tokenPair = CreateTokenPair(user, DateTime.UtcNow, Guid.NewGuid());
+            _dbContext.RefreshTokens.Add(tokenPair.RefreshToken);
             await _dbContext.SaveChangesAsync();
 
             _logger.LogInformation(
                 "Generated tokens for user {UserId} ({Email}), IP: {Ip}",
                 user.Id,
                 user.Email,
-                clientIp);
+                tokenPair.RefreshToken.CreatedByIp);
 
-            return new JwtTokens
-            {
-                AccessToken = accessTokenString,
-                RefreshToken = rawRefreshToken,
-                ExpiresIn = (long)(accessTokenExpiration - now).TotalSeconds,
-                TokenType = "Bearer"
-            };
+            return tokenPair.Tokens;
         }
 
         public async Task<JwtTokens?> RefreshTokensAsync(string refreshToken)
         {
+            if (string.IsNullOrWhiteSpace(refreshToken))
+            {
+                return null;
+            }
+
             var tokenHash = HashToken(refreshToken);
             var storedToken = await _dbContext.RefreshTokens
                 .FirstOrDefaultAsync(x => x.TokenHash == tokenHash);
@@ -108,36 +86,79 @@ namespace Infrastructure.Services
                 return null;
             }
 
-            if (storedToken.RevokedAt.HasValue || storedToken.ExpiresAt <= DateTime.UtcNow)
+            var now = DateTime.UtcNow;
+
+            if (storedToken.RevokedAt.HasValue)
             {
-                _logger.LogWarning("Refresh token is expired or revoked for user {UserId}", storedToken.UserId);
+                if (storedToken.RevocationReason == RevocationReason.TokenRotated
+                    && storedToken.ReplacedByTokenHash is not null)
+                {
+                    await RevokeTokenFamilyAsync(
+                        storedToken.FamilyId,
+                        now,
+                        RevocationReason.RefreshTokenReplay);
+                }
+
+                _logger.LogWarning("Refresh token is revoked for user {UserId}", storedToken.UserId);
+                return null;
+            }
+
+            if (storedToken.ExpiresAt <= now)
+            {
+                _logger.LogWarning("Refresh token is expired for user {UserId}", storedToken.UserId);
+                return null;
+            }
+
+            var user = await _dbContext.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == storedToken.UserId);
+
+            if (user is null || !user.IsActive)
+            {
+                _logger.LogWarning("Refresh token rejected because user {UserId} is missing or inactive", storedToken.UserId);
                 return null;
             }
 
             var clientIp = GetClientIp();
+            var familyId = storedToken.FamilyId ?? Guid.NewGuid();
+            var tokenPair = CreateTokenPair(user, now, familyId);
 
-            storedToken.LastUsedAt = DateTime.UtcNow;
+            storedToken.LastUsedAt = now;
             storedToken.LastUsedByIp = clientIp;
-
-            var newTokens = await GenerateTokensAsync(new User
-            {
-                Id = storedToken.UserId,
-                Email = storedToken.UserEmail,
-                DisplayName = storedToken.UserDisplayName,
-                Role = storedToken.UserRole,
-                IsEmailConfirmed = storedToken.IsEmailConfirmed,
-                IsActive = true,
-                PasswordHash = string.Empty,
-                CreatedAt = storedToken.CreatedAt
-            });
-
-            storedToken.RevokedAt = DateTime.UtcNow;
+            storedToken.FamilyId = familyId;
+            storedToken.RevokedAt = now;
             storedToken.RevocationReason = RevocationReason.TokenRotated;
-            storedToken.ReplacedByTokenHash = HashToken(newTokens.RefreshToken);
+            storedToken.ReplacedByTokenHash = tokenPair.RefreshToken.TokenHash;
+            storedToken.ConcurrencyStamp = GenerateConcurrencyStamp();
+            _dbContext.RefreshTokens.Add(tokenPair.RefreshToken);
 
-            await _dbContext.SaveChangesAsync();
+            try
+            {
+                await _dbContext.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                _dbContext.ChangeTracker.Clear();
 
-            return newTokens;
+                var latestToken = await _dbContext.RefreshTokens
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(x => x.TokenHash == tokenHash);
+
+                if (latestToken is not null
+                    && latestToken.RevocationReason == RevocationReason.TokenRotated
+                    && latestToken.ReplacedByTokenHash is not null)
+                {
+                    await RevokeTokenFamilyAsync(
+                        latestToken.FamilyId,
+                        DateTime.UtcNow,
+                        RevocationReason.RefreshTokenReplay);
+                }
+
+                _logger.LogWarning("Concurrent refresh rejected for user {UserId}", storedToken.UserId);
+                return null;
+            }
+
+            return tokenPair.Tokens;
         }
 
         public Task<ClaimsPrincipal?> ValidateTokenAsync(string token)
@@ -170,10 +191,44 @@ namespace Infrastructure.Services
             storedToken.RevocationReason = RevocationReason.UserLogout;
             storedToken.LastUsedAt = DateTime.UtcNow;
             storedToken.LastUsedByIp = GetClientIp();
+            storedToken.ConcurrencyStamp = GenerateConcurrencyStamp();
 
-            await _dbContext.SaveChangesAsync();
+            try
+            {
+                await _dbContext.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                _logger.LogInformation("Refresh token was already changed during logout");
+                return;
+            }
 
             _logger.LogInformation("Refresh token revoked for user {UserId}", storedToken.UserId);
+        }
+
+        public async Task RevokeAllUserTokensAsync(Guid userId, RevocationReason reason)
+        {
+            if (userId == Guid.Empty)
+            {
+                return;
+            }
+
+            var now = DateTime.UtcNow;
+            var activeTokens = await _dbContext.RefreshTokens
+                .Where(x => x.UserId == userId && !x.RevokedAt.HasValue)
+                .ToListAsync();
+
+            foreach (var token in activeTokens)
+            {
+                token.RevokedAt = now;
+                token.RevocationReason = reason;
+                token.ConcurrencyStamp = GenerateConcurrencyStamp();
+            }
+
+            if (activeTokens.Count > 0)
+            {
+                await _dbContext.SaveChangesAsync();
+            }
         }
 
         public async Task<bool> IsTokenRevokedAsync(string refreshToken)
@@ -190,6 +245,61 @@ namespace Infrastructure.Services
 
         private string GetClientIp()
             => _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+        private (JwtTokens Tokens, RefreshToken RefreshToken) CreateTokenPair(User user, DateTime now, Guid familyId)
+        {
+            var accessTokenExpiration = now.AddMinutes(_jwtSettings.AccessTokenExpiresInMinutes);
+            var rawRefreshToken = GenerateRefreshToken();
+            var refreshToken = new RefreshToken
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                UserEmail = user.Email,
+                UserDisplayName = user.DisplayName,
+                UserRole = user.Role,
+                IsEmailConfirmed = user.IsEmailConfirmed,
+                TokenHash = HashToken(rawRefreshToken),
+                ConcurrencyStamp = GenerateConcurrencyStamp(),
+                CreatedAt = now,
+                ExpiresAt = now.AddDays(_jwtSettings.RefreshTokenExpiresInDays),
+                CreatedByIp = GetClientIp(),
+                FamilyId = familyId
+            };
+
+            return (
+                new JwtTokens
+                {
+                    AccessToken = CreateAccessToken(user, accessTokenExpiration),
+                    RefreshToken = rawRefreshToken,
+                    ExpiresIn = (long)(accessTokenExpiration - now).TotalSeconds,
+                    TokenType = "Bearer"
+                },
+                refreshToken);
+        }
+
+        private async Task RevokeTokenFamilyAsync(Guid? familyId, DateTime revokedAt, RevocationReason reason)
+        {
+            if (!familyId.HasValue)
+            {
+                return;
+            }
+
+            var activeTokens = await _dbContext.RefreshTokens
+                .Where(x => x.FamilyId == familyId.Value && !x.RevokedAt.HasValue)
+                .ToListAsync();
+
+            foreach (var token in activeTokens)
+            {
+                token.RevokedAt = revokedAt;
+                token.RevocationReason = reason;
+                token.ConcurrencyStamp = GenerateConcurrencyStamp();
+            }
+
+            if (activeTokens.Count > 0)
+            {
+                await _dbContext.SaveChangesAsync();
+            }
+        }
 
         private string CreateAccessToken(User user, DateTime expiresAt)
         {
@@ -233,5 +343,8 @@ namespace Infrastructure.Services
             var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(token));
             return Convert.ToHexString(hashBytes);
         }
+
+        private static string GenerateConcurrencyStamp()
+            => Guid.NewGuid().ToString("N");
     }
 }
