@@ -8,7 +8,7 @@ The project is a .NET 9 modular monolith with a React frontend. Backend correctn
 
 ## Current priority
 
-**V3: Domain boundaries, transactions and concurrency** is the next implementation stage.
+**V2: Stabilization and security** is the next implementation stage.
 
 V1 is complete as the junior baseline and V2 is complete for the current security-hardening scope. The application already contains authentication, projects, tasks, membership, invitations, comments, attachments, activity, notifications, workers, health checks, Docker wiring and automated tests. The next value comes from stronger domain boundaries, transaction semantics and domain-level concurrency handling.
 
