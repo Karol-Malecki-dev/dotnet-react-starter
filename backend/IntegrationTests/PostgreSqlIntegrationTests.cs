@@ -315,6 +315,62 @@ public sealed class PostgreSqlIntegrationTests
             .SingleAsync());
     }
 
+    [Fact]
+    public async Task PostgreSql_project_member_addition_rolls_back_when_notification_fails()
+    {
+        var ownerId = Guid.NewGuid();
+        var memberId = Guid.NewGuid();
+        var projectId = Guid.Empty;
+
+        await using (var setupScope = _factory.Services.CreateAsyncScope())
+        {
+            var setupContext = setupScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var project = Project.Create(ownerId, "Member rollback project");
+            projectId = project.Id;
+            setupContext.Users.AddRange(
+                new User
+                {
+                    Id = ownerId,
+                    Email = $"member-rollback-owner-{ownerId:N}@example.com",
+                    DisplayName = "Member Rollback Owner",
+                    Role = UserRole.User,
+                    IsActive = true,
+                    IsEmailConfirmed = true,
+                    CreatedAt = DateTime.UtcNow
+                },
+                new User
+                {
+                    Id = memberId,
+                    Email = $"member-rollback-user-{memberId:N}@example.com",
+                    DisplayName = "Member Rollback User",
+                    Role = UserRole.User,
+                    IsActive = true,
+                    IsEmailConfirmed = true,
+                    CreatedAt = DateTime.UtcNow
+                });
+            setupContext.Projects.Add(project);
+            await setupContext.SaveChangesAsync();
+        }
+
+        await using (var responseScope = _factory.Services.CreateAsyncScope())
+        {
+            var responseContext = responseScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var service = new DatabaseProjectMembershipApplicationService(
+                responseContext,
+                new EfProjectMembershipStore(responseContext),
+                new FailingNotificationService());
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                service.AddProjectMemberAsync(ownerId, projectId, memberId));
+        }
+
+        await using var verificationScope = _factory.Services.CreateAsyncScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal(1, await verificationContext.ProjectMembers.CountAsync(member => member.ProjectId == projectId && member.UserId == ownerId));
+        Assert.Equal(0, await verificationContext.ProjectMembers.CountAsync(member => member.ProjectId == projectId && member.UserId == memberId));
+        Assert.Equal(0, await verificationContext.ProjectActivities.CountAsync(activity => activity.ProjectId == projectId));
+    }
+
     private async Task SeedUserAsync()
     {
         await using var scope = _factory.Services.CreateAsyncScope();

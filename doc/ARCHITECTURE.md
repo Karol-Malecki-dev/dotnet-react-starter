@@ -159,6 +159,11 @@ użytkownika. Provider InMemory nie obsługuje transakcji relacyjnych, dlatego t
 jednostkowe używają tam zachowania bez transakcji, a atomowość jest weryfikowana
 testami PostgreSQL.
 
+Bezpośrednie dodanie członka przez właściciela używa tego samego portu
+`IProjectTransaction`. Relacyjny commit następuje dopiero po zapisie członkostwa,
+aktywności i notification/outbox, dlatego błąd notification nie zostawia częściowego
+członkostwa ani aktywności. Ten rollback jest również sprawdzany w teście PostgreSQL.
+
 `Project.ConcurrencyStamp` chroni równoległe zmiany agregatu, a
 `ProjectInvitation.ConcurrencyStamp` chroni przejścia stanu zaproszenia. Dodatkowo
 unikalny indeks `(ProjectId, UserId)` pozostaje obroną na poziomie bazy. Naruszenie

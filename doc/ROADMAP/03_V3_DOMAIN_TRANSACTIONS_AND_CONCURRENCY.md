@@ -22,7 +22,7 @@ Stan na: **2026-08-29**.
 | 2. Model użytkownika i value objects | 10% | Istnieją wybrane value objects, ale model użytkownika nie został jeszcze konsekwentnie rozdzielony. |
 | 3. Application services i porty | 50% | Warstwy i feature-specific ports istnieją; część odpowiedzialności nadal wymaga doprecyzowania. |
 | 4. Mapping i kontrakty | 50% | DTO i kontrakty HTTP są obecne oraz dokumentowane; pełne rozdzielenie modeli nie jest zakończone. |
-| 5. Transakcje i partial failure | 45% | Akceptacja zaproszenia ma relacyjną granicę transakcji obejmującą członkostwo, aktywność, powiadomienie i outbox; pozostałe przypadki wieloetapowe wymagają decyzji. |
+| 5. Transakcje i partial failure | 60% | Akceptacja zaproszenia oraz bezpośrednie dodanie członka mają relacyjne granice transakcji obejmujące członkostwo, aktywność, powiadomienie i outbox; oba przepływy mają test rollbacku PostgreSQL przy błędzie notification. |
 | 6. Optimistic concurrency | 70% | `Project`, `ProjectInvitation` i `ProjectTask` mają tokeny wersji, konflikty są mapowane na `409`, a konflikty zapisów projektu i zadania oraz wyścig akceptacji są testowane na PostgreSQL. |
 | 7. Zapytania dashboardu | 45% | Statystyki dashboardu są agregowane po stronie SQL, a listy overdue/upcoming są pobierane limitowanymi zapytaniami; pomiar planów SQL nadal wymaga wykonania. |
 
@@ -73,6 +73,12 @@ Zidentyfikować operacje obejmujące więcej niż jeden zapis, między innymi:
 - zmiana członka oraz wyczyszczenie przypisań zadań;
 - zmiana biznesowa, activity i notification/outbox;
 - reset lub zmiana hasła oraz unieważnienie sesji.
+
+Akceptacja zaproszenia i bezpośrednie dodanie członka używają wspólnego portu
+`IProjectTransaction`. W providerze relacyjnym commit następuje dopiero po zapisie
+członkostwa, aktywności oraz notification/outbox. Awaria notification wycofuje cały
+workflow; provider InMemory zachowuje dotychczasowe zachowanie bez transakcji
+relacyjnej.
 
 Dla każdej operacji określić:
 

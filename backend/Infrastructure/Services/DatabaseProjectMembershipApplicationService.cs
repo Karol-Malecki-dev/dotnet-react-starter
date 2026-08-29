@@ -64,6 +64,8 @@ public sealed class DatabaseProjectMembershipApplicationService : IProjectMember
             return ProjectOperationResult<ProjectMemberView>.Failure(ProjectOperationStatus.Conflict, "User is already a project member");
         }
 
+        await using var transaction = await _membershipStore.BeginTransactionAsync(cancellationToken);
+
         ProjectMember member;
         try
         {
@@ -86,6 +88,11 @@ public sealed class DatabaseProjectMembershipApplicationService : IProjectMember
             "Project",
             projectId,
             cancellationToken: cancellationToken);
+
+        if (transaction is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+        }
 
         return ProjectOperationResult<ProjectMemberView>.Success(new ProjectMemberView(
             user.Id,

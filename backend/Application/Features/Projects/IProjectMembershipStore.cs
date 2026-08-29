@@ -16,6 +16,7 @@ public interface IProjectMembershipStore
     Task<bool> IsMemberAsync(Guid projectId, Guid userId, CancellationToken cancellationToken = default);
     Task<ProjectMember?> GetMemberWithUserAsync(Guid projectId, Guid userId, CancellationToken cancellationToken = default);
     Task<List<ProjectTask>> GetAssignedTasksAsync(Guid projectId, Guid userId, CancellationToken cancellationToken = default);
+    Task<IProjectTransaction?> BeginTransactionAsync(CancellationToken cancellationToken = default);
     void AddMember(ProjectMember member);
     void RemoveMember(ProjectMember member);
     void AddActivity(ProjectActivity activity);

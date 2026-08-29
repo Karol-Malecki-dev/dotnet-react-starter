@@ -20,7 +20,7 @@ As of **2026-08-29**. Percentages follow the calculation documented in the canon
 |---|---:|---|
 | V1 | 100% | Complete baseline. |
 | V2 | 96% | Complete for the current scope; minor follow-ups remain. |
-| V3 | 40% | Project and ProjectTask aggregate boundaries are documented and tested; project, invitation and task concurrency plus invitation transactions have PostgreSQL coverage; implementation is not complete. |
+| V3 | 40% | Project and ProjectTask aggregate boundaries are documented and tested; project, invitation and task concurrency plus invitation and member transactions have PostgreSQL coverage; implementation is not complete. |
 | V4 | 28% | Foundations present; implementation not complete. |
 | V5 | 41% | Local Docker/CI foundations; no real target hosting yet. |
 | V6 | 13% | Initial foundations; measurement work not started. |
