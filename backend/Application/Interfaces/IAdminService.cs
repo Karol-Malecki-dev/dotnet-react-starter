@@ -12,16 +12,16 @@ namespace Application.Interfaces
 {
     public interface IAdminService
     {
-        Task<ApiResponse<AdminDashboardStatsDto>> GetDashboardStatsAsync();
-        Task<ApiResponse<List<AdminUserListItemDto>>> GetUsersAsync(AdminUserFilterRequestDto adminUserGetRequestDto);
-        Task<ApiResponse<AdminUserDetailsDto>> GetUserDetailsByIdAsync(Guid userId);
-        Task<ApiResponse<AdminUserDetailsDto>> GetUserDetailsByEmailAsync(string email);
+        Task<ApiResponse<AdminDashboardStatsDto>> GetDashboardStatsAsync(CancellationToken cancellationToken = default);
+        Task<ApiResponse<List<AdminUserListItemDto>>> GetUsersAsync(AdminUserFilterRequestDto adminUserGetRequestDto, CancellationToken cancellationToken = default);
+        Task<ApiResponse<AdminUserDetailsDto>> GetUserDetailsByIdAsync(Guid userId, CancellationToken cancellationToken = default);
+        Task<ApiResponse<AdminUserDetailsDto>> GetUserDetailsByEmailAsync(string email, CancellationToken cancellationToken = default);
 
-        Task<ApiResponse<AdminUserDetailsDto>> UpdateUserAsync(Guid userId, AdminUpdateUserRequestDto dto);
-        Task<ApiResponse<AdminUserDetailsDto>> UpdateUserRoleAsync(Guid userId, UserRole newRole);
-        Task<ApiResponse<AdminUserDetailsDto>> ActivateUserAsync(Guid userId);
-        Task<ApiResponse<AdminUserDetailsDto>> DeactivateUserAsync(Guid userId);
-        Task<ApiResponse<AdminUserDetailsDto>> DeleteUserAsync(Guid userId);
+        Task<ApiResponse<AdminUserDetailsDto>> UpdateUserAsync(Guid userId, AdminUpdateUserRequestDto dto, CancellationToken cancellationToken = default);
+        Task<ApiResponse<AdminUserDetailsDto>> UpdateUserRoleAsync(Guid userId, UserRole newRole, CancellationToken cancellationToken = default);
+        Task<ApiResponse<AdminUserDetailsDto>> ActivateUserAsync(Guid userId, CancellationToken cancellationToken = default);
+        Task<ApiResponse<AdminUserDetailsDto>> DeactivateUserAsync(Guid userId, CancellationToken cancellationToken = default);
+        Task<ApiResponse<AdminUserDetailsDto>> DeleteUserAsync(Guid userId, CancellationToken cancellationToken = default);
 
 
     }

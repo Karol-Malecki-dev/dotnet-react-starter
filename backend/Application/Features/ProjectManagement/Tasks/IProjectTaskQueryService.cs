@@ -7,6 +7,6 @@ namespace Application.Features.ProjectManagement.Tasks;
 /// </summary>
 public interface IProjectTaskQueryService
 {
-    Task<ProjectOperationResult<PagedProjectTaskView>> GetProjectTasksAsync(ProjectTaskQuery query);
-    Task<ProjectOperationResult<ProjectTaskView>> GetProjectTaskAsync(Guid userId, Guid projectId, Guid taskId);
+    Task<ProjectOperationResult<PagedProjectTaskView>> GetProjectTasksAsync(ProjectTaskQuery query, CancellationToken cancellationToken = default);
+    Task<ProjectOperationResult<ProjectTaskView>> GetProjectTaskAsync(Guid userId, Guid projectId, Guid taskId, CancellationToken cancellationToken = default);
 }

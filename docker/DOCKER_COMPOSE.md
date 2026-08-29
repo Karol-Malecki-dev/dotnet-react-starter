@@ -20,7 +20,7 @@ docker-compose up --build
 Najważniejsze grupy zmiennych:
 
 - PostgreSQL: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`
-- Backend: `DEFAULT_CONNECTION`, `JWT_SECRET`, `JWT_*`, `CORS_*`, `EMAIL_CONFIRMATION_*`, `EMAIL_TWO_FACTOR_*`, `EMAIL_DELIVERY_*`
+- Backend: `DEFAULT_CONNECTION`, `JWT_SECRET`, `JWT_*`, `CORS_*`, `DATA_PROTECTION_*`, `FORWARDED_HEADERS_*`, `EMAIL_CONFIRMATION_*`, `EMAIL_TWO_FACTOR_*`, `EMAIL_DELIVERY_*`
 - Frontend build: `FRONTEND_REACT_APP_API_URL` (passed to Vite as `VITE_API_URL`)
 - Mailpit: `MAILPIT_SMTP_PORT`, `MAILPIT_HTTP_PORT`
 
@@ -78,6 +78,28 @@ environment:
 ```
 - Zmienne środowiskowe są wstrzykiwane z root `.env`
 - Backend nie trzyma sekretów w obrazie ani w `appsettings.json`
+
+### Ustawienia bezpieczeństwa backendu
+
+Root `.env.example` opisuje lokalny scenariusz HTTP:
+
+- `ASPNETCORE_ENVIRONMENT=Development`;
+- `JWT_REFRESH_TOKEN_COOKIE_SECURE_POLICY=SameAsRequest`;
+- `DATA_PROTECTION_KEY_RING_PATH=/home/app/.aspnet/DataProtection-Keys`;
+- `FORWARDED_HEADERS_ENABLED=true`;
+- `FORWARDED_HEADERS_KNOWN_NETWORK_0=172.28.0.0/16`.
+
+Backend zapisuje klucze Data Protection w named volume `data-protection-keys`. Ten
+wolumen trzeba zachować między restartami i wdrożeniami, jeśli zaszyfrowane dane mają
+pozostać dostępne. Obraz backendu przygotowuje katalog z uprawnieniami użytkownika
+non-root, a `docker-compose.yml` montuje do niego named volume.
+
+Przed wdrożeniem produkcyjnym ustaw `ASPNETCORE_ENVIRONMENT=Production`, własny losowy
+`JWT_SECRET`, `JWT_REFRESH_TOKEN_COOKIE_SECURE_POLICY=Always`, trwały
+`DATA_PROTECTION_KEY_RING_PATH` oraz rzeczywiste zaufane `FORWARDED_HEADERS_KNOWN_*`.
+Walidacja opcji zatrzymuje backend przy starcie, jeśli którykolwiek z tych warunków nie
+jest spełniony. Nie ustawiaj forwarded headers jako zaufanych bez jawnego proxy lub
+zakresu sieci.
 
 ## Mailpit Service
 
@@ -203,6 +225,7 @@ docker-compose down
 docker-compose down -v
 ```
 - `-v` = remove volumes (usuwa dane/bazy)
+- Usuwa również `data-protection-keys`, więc unieważnia poprzedni key ring.
 
 ### Przebudowanie po zmianie kodu:
 ```bash
@@ -282,18 +305,17 @@ var dbUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
 const logLevel = process.env.LOG_LEVEL;
 ```
 
-## Production vs Development
+## Zakres tego Compose
 
-### Production (docker-compose.yml):
-- Multi-stage builds (mniejsze obrazy)
-- Optimized builds
-- Bez hot-reload
+`docker-compose.yml` jest przeznaczony do lokalnego developmentu i smoke testów. Używa
+multi-stage buildów oraz obrazu runtime bez hot-reloadu, ale nadal uruchamia środowisko
+`Development`, lokalnego PostgreSQL, Mailpit i HTTP na portach hosta. Nie jest kompletną
+konfiguracją produkcyjną ani zamiennikiem hostingu, TLS, zarządzania sekretami,
+monitoringu, migracji i strategii rollbacku.
 
-### Development (docker-compose.dev.yml - będziemy mieć):
-- Volume mounts (zmiana kodu na żywo)
-- Nie buduje, tylko mount'a folder
-- Hot-reload (React/nodemon)
-- Debug ports
+Nie ma w repozytorium osobnego `docker-compose.dev.yml`; zmiany kodu na żywo i debugowanie
+lokalne uruchamiaj bezpośrednio z `dotnet run` oraz `npm start`, zgodnie z dokumentacją
+setupu.
 
 ## Checklist - co się dzieje przy `docker-compose up`:
 

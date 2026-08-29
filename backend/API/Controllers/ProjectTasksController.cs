@@ -29,7 +29,7 @@ public class ProjectTasksController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetTasks(Guid projectId, [FromQuery] ProjectTaskQueryRequest request)
+    public async Task<IActionResult> GetTasks(Guid projectId, [FromQuery] ProjectTaskQueryRequest request, CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var ownerId))
         {
@@ -48,25 +48,25 @@ public class ProjectTasksController : ControllerBase
             request.Label,
             request.DueBefore,
             request.SortBy,
-            request.SortDirection));
+            request.SortDirection), cancellationToken);
         return ToActionResult(result, page => new PagedProjectTaskResponse(
             page.Items.Select(MapTask).ToList(), page.PageNumber, page.PageSize, page.TotalCount));
     }
 
     [HttpGet("{taskId:guid}")]
-    public async Task<IActionResult> GetTask(Guid projectId, Guid taskId)
+    public async Task<IActionResult> GetTask(Guid projectId, Guid taskId, CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var ownerId))
         {
             return Unauthorized(ApiResponse<ProjectTaskResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectTaskQueryService.GetProjectTaskAsync(ownerId, projectId, taskId);
+        var result = await _projectTaskQueryService.GetProjectTaskAsync(ownerId, projectId, taskId, cancellationToken);
         return ToActionResult(result, MapTask);
     }
 
     [HttpPost]
-    public async Task<IActionResult> CreateTask(Guid projectId, CreateProjectTaskRequest request)
+    public async Task<IActionResult> CreateTask(Guid projectId, CreateProjectTaskRequest request, CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var ownerId))
         {
@@ -74,12 +74,12 @@ public class ProjectTasksController : ControllerBase
         }
 
         var result = await _projectTaskCommandService.CreateProjectTaskAsync(new CreateProjectTaskCommand(
-            ownerId, projectId, request.Title, request.Description, request.Priority, request.DueDate, request.AssignedUserId, request.Labels ?? []));
+            ownerId, projectId, request.Title, request.Description, request.Priority, request.DueDate, request.AssignedUserId, request.Labels ?? []), cancellationToken);
         return ToActionResult(result, MapTask);
     }
 
     [HttpPut("{taskId:guid}")]
-    public async Task<IActionResult> UpdateTask(Guid projectId, Guid taskId, UpdateProjectTaskRequest request)
+    public async Task<IActionResult> UpdateTask(Guid projectId, Guid taskId, UpdateProjectTaskRequest request, CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var ownerId))
         {
@@ -87,12 +87,12 @@ public class ProjectTasksController : ControllerBase
         }
 
         var result = await _projectTaskCommandService.UpdateProjectTaskAsync(new UpdateProjectTaskCommand(
-            ownerId, projectId, taskId, request.Title, request.Description, request.Priority, request.DueDate, request.AssignedUserId, request.Labels ?? []));
+            ownerId, projectId, taskId, request.Title, request.Description, request.Priority, request.DueDate, request.AssignedUserId, request.Labels ?? []), cancellationToken);
         return ToActionResult(result, MapTask);
     }
 
     [HttpPatch("{taskId:guid}/status")]
-    public async Task<IActionResult> UpdateTaskStatus(Guid projectId, Guid taskId, UpdateProjectTaskStatusRequest request)
+    public async Task<IActionResult> UpdateTaskStatus(Guid projectId, Guid taskId, UpdateProjectTaskStatusRequest request, CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var ownerId))
         {
@@ -100,38 +100,38 @@ public class ProjectTasksController : ControllerBase
         }
 
         var result = await _projectTaskCommandService.UpdateProjectTaskStatusAsync(new UpdateProjectTaskStatusCommand(
-            ownerId, projectId, taskId, request.Status));
+            ownerId, projectId, taskId, request.Status), cancellationToken);
         return ToActionResult(result, MapTask);
     }
 
     [HttpDelete("{taskId:guid}")]
-    public async Task<IActionResult> DeleteTask(Guid projectId, Guid taskId)
+    public async Task<IActionResult> DeleteTask(Guid projectId, Guid taskId, CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var ownerId))
         {
             return Unauthorized(ApiResponse<bool>.Error(401, "User not authenticated"));
         }
 
-        var result = await _projectTaskCommandService.DeleteProjectTaskAsync(ownerId, projectId, taskId);
+        var result = await _projectTaskCommandService.DeleteProjectTaskAsync(ownerId, projectId, taskId, cancellationToken);
         return ToActionResult(result, value => value);
     }
 
     [HttpGet("{taskId:guid}/attachments")]
-    public async Task<IActionResult> GetAttachments(Guid projectId, Guid taskId)
+    public async Task<IActionResult> GetAttachments(Guid projectId, Guid taskId, CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var userId))
         {
             return Unauthorized(ApiResponse<IReadOnlyList<ProjectTaskAttachmentResponse>>.Error(401, "User not authenticated"));
         }
 
-        var result = await _attachmentService.GetProjectTaskAttachmentsAsync(userId, projectId, taskId);
+        var result = await _attachmentService.GetProjectTaskAttachmentsAsync(userId, projectId, taskId, cancellationToken);
         return ToActionResult(result, attachments => attachments.Select(MapAttachment).ToList());
     }
 
     [HttpPost("{taskId:guid}/attachments")]
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(11 * 1024 * 1024)]
-    public async Task<IActionResult> UploadAttachment(Guid projectId, Guid taskId, IFormFile? file)
+    public async Task<IActionResult> UploadAttachment(Guid projectId, Guid taskId, IFormFile? file, CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var userId))
         {
@@ -151,19 +151,19 @@ public class ProjectTasksController : ControllerBase
             file.FileName,
             file.ContentType,
             file.Length,
-            content));
+            content), cancellationToken);
         return ToActionResult(result, MapAttachment);
     }
 
     [HttpGet("{taskId:guid}/attachments/{attachmentId:guid}/download")]
-    public async Task<IActionResult> DownloadAttachment(Guid projectId, Guid taskId, Guid attachmentId)
+    public async Task<IActionResult> DownloadAttachment(Guid projectId, Guid taskId, Guid attachmentId, CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var userId))
         {
             return Unauthorized(ApiResponse<ProjectTaskAttachmentResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _attachmentService.OpenProjectTaskAttachmentAsync(userId, projectId, taskId, attachmentId);
+        var result = await _attachmentService.OpenProjectTaskAttachmentAsync(userId, projectId, taskId, attachmentId, cancellationToken);
         if (!result.IsSuccess)
         {
             var statusCode = MapStatusCode(result.Status);
@@ -175,14 +175,14 @@ public class ProjectTasksController : ControllerBase
     }
 
     [HttpDelete("{taskId:guid}/attachments/{attachmentId:guid}")]
-    public async Task<IActionResult> DeleteAttachment(Guid projectId, Guid taskId, Guid attachmentId)
+    public async Task<IActionResult> DeleteAttachment(Guid projectId, Guid taskId, Guid attachmentId, CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var userId))
         {
             return Unauthorized(ApiResponse<bool>.Error(401, "User not authenticated"));
         }
 
-        var result = await _attachmentService.DeleteProjectTaskAttachmentAsync(userId, projectId, taskId, attachmentId);
+        var result = await _attachmentService.DeleteProjectTaskAttachmentAsync(userId, projectId, taskId, attachmentId, cancellationToken);
         return ToActionResult(result, value => value);
     }
 

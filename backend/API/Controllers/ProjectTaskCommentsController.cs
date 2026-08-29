@@ -26,20 +26,20 @@ public class ProjectTaskCommentsController : ControllerBase
 
     /// <summary>Returns comments in chronological order for a project task.</summary>
     [HttpGet]
-    public async Task<IActionResult> GetComments(Guid projectId, Guid taskId)
+    public async Task<IActionResult> GetComments(Guid projectId, Guid taskId, CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var userId))
         {
             return Unauthorized(ApiResponse<IReadOnlyList<ProjectTaskCommentResponse>>.Error(401, "User not authenticated"));
         }
 
-        var result = await _commentService.GetProjectTaskCommentsAsync(userId, projectId, taskId);
+        var result = await _commentService.GetProjectTaskCommentsAsync(userId, projectId, taskId, cancellationToken);
         return ToActionResult(result, comments => comments.Select(MapComment).ToList());
     }
 
     /// <summary>Adds a comment to a project task for an eligible project member.</summary>
     [HttpPost]
-    public async Task<IActionResult> CreateComment(Guid projectId, Guid taskId, CreateProjectTaskCommentRequest request)
+    public async Task<IActionResult> CreateComment(Guid projectId, Guid taskId, CreateProjectTaskCommentRequest request, CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var userId))
         {
@@ -47,20 +47,20 @@ public class ProjectTaskCommentsController : ControllerBase
         }
 
         var result = await _commentService.CreateProjectTaskCommentAsync(
-            new CreateProjectTaskCommentCommand(userId, projectId, taskId, request.Content));
+            new CreateProjectTaskCommentCommand(userId, projectId, taskId, request.Content), cancellationToken);
         return ToActionResult(result, MapComment);
     }
 
     /// <summary>Deletes a comment when requested by its author or the project owner.</summary>
     [HttpDelete("{commentId:guid}")]
-    public async Task<IActionResult> DeleteComment(Guid projectId, Guid taskId, Guid commentId)
+    public async Task<IActionResult> DeleteComment(Guid projectId, Guid taskId, Guid commentId, CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var userId))
         {
             return Unauthorized(ApiResponse<bool>.Error(401, "User not authenticated"));
         }
 
-        var result = await _commentService.DeleteProjectTaskCommentAsync(userId, projectId, taskId, commentId);
+        var result = await _commentService.DeleteProjectTaskCommentAsync(userId, projectId, taskId, commentId, cancellationToken);
         return ToActionResult(result, value => value);
     }
 

@@ -4,6 +4,24 @@
 
 V5 ma przeprowadzić aplikację z lokalnego Docker Compose i CI do jednego realnego środowiska staging lub production. Nie chodzi o wybór najbardziej złożonej platformy. Chodzi o umiejętność wdrożenia, obserwowania, odtworzenia i wycofania aplikacji.
 
+## Status realizacji
+
+Stan na: **2026-08-29**.
+
+| Obszar | Postęp | Status i dowód |
+|---|---:|---|
+| 1. Środowiska i konfiguracja | 40% | Local, Integration i konfiguracja przez środowisko są opisane; nie ma jeszcze realnego staging/production. |
+| 2. Obrazy i registry | 50% | Obrazy są multi-stage, runtime backendu działa jako non-root, a CI publikuje obrazy; brakuje skanowania i pełnej polityki artefaktów. |
+| 3. Migracje bazy | 30% | Migracje i startup migration działają lokalnie; brakuje osobnego kontrolowanego joba, testu upgrade/rollback i planu naprawy. |
+| 4. Reverse proxy i TLS | 50% | Nginx, forwarded headers i lokalne cookie są sprawdzone; docelowe HTTPS, nagłówki bezpieczeństwa i limity proxy zależą od hostingu. |
+| 5. Baza, storage i backup | 20% | Compose ma trwałe wolumeny lokalne; brak próbnego backupu, restore i produkcyjnego storage załączników. |
+| 6. CI/CD | 60% | CI buduje i testuje backend/frontend/Compose, a CD publikuje obrazy GHCR; brak wdrożenia na konkretną platformę. |
+| 7. Monitoring i procedury | 35% | Logi, correlation ID i health checks działają; brak alertów, dashboardów, runbooka i przetestowanego rollbacku. |
+
+**Postęp V5: 41%**.
+
+Wynik nie oznacza gotowości produkcyjnej. Największy brak V5 to wybrane, realne środowisko wdrożeniowe z backupem, monitoringiem i rollbackiem.
+
 ## Decyzja o środowisku
 
 Najpierw należy wybrać jeden cel wdrożenia i opisać powód wyboru. Przykładowe opcje to:

@@ -76,7 +76,7 @@ namespace API.Controllers
         [HttpPost("login")]
         [AllowAnonymous]
         [EnableRateLimiting("AuthPolicy")]
-        public async Task<IActionResult> Login([FromBody] LoginUserDto dto)
+        public async Task<IActionResult> Login([FromBody] LoginUserDto dto, CancellationToken cancellationToken = default)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ApiResponse<object>.Error(400, "Invalid login data", null));
@@ -86,7 +86,7 @@ namespace API.Controllers
                 _logger.LogInformation("🔐 Login attempt for email: {Email}", dto.Email);
 
                 // Authenticate user (verify email and password)
-                var user = await _authService.AuthenticateAsync(dto.Email, dto.Password);
+                var user = await _authService.AuthenticateAsync(dto.Email, dto.Password, cancellationToken);
                 if (user == null)
                 {
                     _logger.LogWarning("⚠️ Login failed for email: {Email}", dto.Email);
@@ -101,7 +101,7 @@ namespace API.Controllers
 
                 if (user.IsAuthenticatorEnabled)
                 {
-                    var challenge = await _authService.CreateAuthenticatorLoginChallengeAsync(user.Id);
+                    var challenge = await _authService.CreateAuthenticatorLoginChallengeAsync(user.Id, cancellationToken);
                     if (challenge is null)
                     {
                         _logger.LogError("Authenticator challenge generation failed for user: {UserId}", user.Id);
@@ -116,7 +116,7 @@ namespace API.Controllers
 
                 if (_emailTwoFactorSettings.Enabled && user.IsTwoFactorEnabled)
                 {
-                    var challenge = await _authService.CreateEmailTwoFactorChallengeAsync(user.Id);
+                    var challenge = await _authService.CreateEmailTwoFactorChallengeAsync(user.Id, cancellationToken);
                     if (challenge is null)
                     {
                         _logger.LogError("❌ Two-factor challenge generation failed for user: {UserId}", user.Id);
@@ -127,7 +127,8 @@ namespace API.Controllers
                         challenge.Email,
                         challenge.DisplayName,
                         challenge.Code,
-                        challenge.ExpiresAt);
+                        challenge.ExpiresAt,
+                        cancellationToken);
 
                     _logger.LogInformation("📨 Two-factor challenge created for user: {UserId}", user.Id);
 
@@ -138,14 +139,14 @@ namespace API.Controllers
                 }
 
                 // Generate JWT tokens
-                var tokens = await _jwtTokenService.GenerateTokensAsync(user);
+                var tokens = await _jwtTokenService.GenerateTokensAsync(user, cancellationToken);
                 SetRefreshTokenCookie(tokens.RefreshToken);
 
                 _logger.LogInformation("✓ Login successful for user: {UserId} ({Email})", user.Id, user.Email);
 
                 return Ok(ApiResponse<AuthTokenResponse>.Success(CreateTokenResponse(tokens), "Login successful", 200));
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "❌ Login error");
                 return StatusCode(500, ApiResponse<object>.Error(500, "Internal server error", null));
@@ -163,7 +164,7 @@ namespace API.Controllers
         [HttpPost("register")]
         [AllowAnonymous]
         [EnableRateLimiting("AuthPolicy")]
-        public async Task<IActionResult> Register([FromBody] RegisterUserDto dto)
+        public async Task<IActionResult> Register([FromBody] RegisterUserDto dto, CancellationToken cancellationToken = default)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ApiResponse<object>.Error(400, "Invalid registration data", null));
@@ -173,7 +174,7 @@ namespace API.Controllers
                 _logger.LogInformation("📝 Registration attempt for email: {Email}", dto.Email);
 
                 // Check if user already exists
-                var userExists = await _authService.UserExistsAsync(dto.Email);
+                var userExists = await _authService.UserExistsAsync(dto.Email, cancellationToken);
                 if (userExists)
                 {
                     _logger.LogWarning("⚠️ Registration failed: User already exists with email: {Email}", dto.Email);
@@ -182,14 +183,14 @@ namespace API.Controllers
 
                 // Register user
                 var displayName = $"{dto.FirstName} {dto.LastName}".Trim();
-                var user = await _authService.RegisterAsync(dto.Email, dto.Password, displayName);
+                var user = await _authService.RegisterAsync(dto.Email, dto.Password, displayName, cancellationToken);
                 if (user == null)
                 {
                     _logger.LogError("❌ User registration failed for email: {Email}", dto.Email);
                     return StatusCode(500, ApiResponse<object>.Error(500, "User registration failed", null));
                 }
 
-                var confirmationToken = await _authService.GenerateEmailConfirmationTokenAsync(user.Id);
+                var confirmationToken = await _authService.GenerateEmailConfirmationTokenAsync(user.Id, cancellationToken);
                 if (string.IsNullOrWhiteSpace(confirmationToken))
                 {
                     _logger.LogError("❌ Confirmation token generation failed for user: {UserId}", user.Id);
@@ -199,7 +200,8 @@ namespace API.Controllers
                 await _accountEmailSender.SendEmailConfirmationAsync(
                     user.Email,
                     user.DisplayName,
-                    BuildConfirmationLink(user.Id, confirmationToken));
+                    BuildConfirmationLink(user.Id, confirmationToken),
+                    cancellationToken);
 
                 _logger.LogInformation("✓ Registration successful for user: {UserId} ({Email})", user.Id, user.Email);
 
@@ -214,7 +216,7 @@ namespace API.Controllers
                         "Registration successful. Check your email to confirm the account.",
                         201));
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "❌ Registration error");
                 return StatusCode(500, ApiResponse<object>.Error(500, "Internal server error", null));
@@ -232,14 +234,14 @@ namespace API.Controllers
         [HttpPost("confirm-email")]
         [AllowAnonymous]
         [EnableRateLimiting("AuthPolicy")]
-        public async Task<IActionResult> ConfirmEmail([FromBody] ConfirmEmailRequestDto request)
+        public async Task<IActionResult> ConfirmEmail([FromBody] ConfirmEmailRequestDto request, CancellationToken cancellationToken = default)
         {
             if (!ModelState.IsValid || request.UserId == Guid.Empty || string.IsNullOrWhiteSpace(request.Token))
                 return BadRequest(ApiResponse<object>.Error(400, "Invalid confirmation request", null));
 
             try
             {
-                var confirmed = await _authService.ConfirmEmailAsync(request.UserId, request.Token);
+                var confirmed = await _authService.ConfirmEmailAsync(request.UserId, request.Token, cancellationToken);
                 if (!confirmed)
                 {
                     return BadRequest(ApiResponse<object>.Error(400, "Invalid or expired confirmation link", null));
@@ -247,7 +249,7 @@ namespace API.Controllers
 
                 return Ok(ApiResponse<object?>.Success(null, "Email confirmed successfully", 200));
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "❌ Confirm email error for user {UserId}", request.UserId);
                 return StatusCode(500, ApiResponse<object>.Error(500, "Internal server error", null));
@@ -266,28 +268,29 @@ namespace API.Controllers
         [HttpPost("resend-confirmation")]
         [AllowAnonymous]
         [EnableRateLimiting("AuthPolicy")]
-        public async Task<IActionResult> ResendConfirmation([FromBody] ResendConfirmationEmailRequestDto request)
+        public async Task<IActionResult> ResendConfirmation([FromBody] ResendConfirmationEmailRequestDto request, CancellationToken cancellationToken = default)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ApiResponse<object>.Error(400, "Invalid request data", null));
 
             try
             {
-                var userResult = await _userService.GetUserByEmailAsync(request.Email);
+                var userResult = await _userService.GetUserByEmailAsync(request.Email, cancellationToken);
                 var userId = userResult.Data?.Id;
 
                 if (userId is Guid existingUserId && existingUserId != Guid.Empty)
                 {
-                    var isConfirmed = await _authService.IsEmailConfirmedAsync(existingUserId);
+                    var isConfirmed = await _authService.IsEmailConfirmedAsync(existingUserId, cancellationToken);
                     if (!isConfirmed)
                     {
-                        var confirmationToken = await _authService.GenerateEmailConfirmationTokenAsync(existingUserId);
+                        var confirmationToken = await _authService.GenerateEmailConfirmationTokenAsync(existingUserId, cancellationToken);
                         if (!string.IsNullOrWhiteSpace(confirmationToken) && userResult.Data is not null)
                         {
                             await _accountEmailSender.SendEmailConfirmationAsync(
                                 userResult.Data.Email,
                                 userResult.Data.DisplayName,
-                                BuildConfirmationLink(existingUserId, confirmationToken));
+                                BuildConfirmationLink(existingUserId, confirmationToken),
+                                cancellationToken);
                         }
                     }
                 }
@@ -297,7 +300,7 @@ namespace API.Controllers
                     "If the account exists and is not yet confirmed, a confirmation email has been sent.",
                     200));
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "❌ Resend confirmation error for {Email}", request.Email);
                 return StatusCode(500, ApiResponse<object>.Error(500, "Internal server error", null));
@@ -317,21 +320,21 @@ namespace API.Controllers
         [HttpPost("verify-2fa")]
         [AllowAnonymous]
         [EnableRateLimiting("AuthPolicy")]
-        public async Task<IActionResult> VerifyTwoFactor([FromBody] VerifyTwoFactorRequestDto request)
+        public async Task<IActionResult> VerifyTwoFactor([FromBody] VerifyTwoFactorRequestDto request, CancellationToken cancellationToken = default)
         {
             if (!ModelState.IsValid || request.ChallengeId == Guid.Empty || string.IsNullOrWhiteSpace(request.Code))
                 return BadRequest(ApiResponse<object>.Error(400, "Invalid two-factor verification request", null));
 
             try
             {
-                var user = await _authService.VerifyAuthenticatorLoginChallengeAsync(request.ChallengeId, request.Code)
-                    ?? await _authService.VerifyEmailTwoFactorChallengeAsync(request.ChallengeId, request.Code);
+                var user = await _authService.VerifyAuthenticatorLoginChallengeAsync(request.ChallengeId, request.Code, cancellationToken)
+                    ?? await _authService.VerifyEmailTwoFactorChallengeAsync(request.ChallengeId, request.Code, cancellationToken);
                 if (user is null)
                 {
                     return Unauthorized(ApiResponse<object>.Error(401, "Invalid or expired two-factor code", null));
                 }
 
-                var tokens = await _jwtTokenService.GenerateTokensAsync(user);
+                var tokens = await _jwtTokenService.GenerateTokensAsync(user, cancellationToken);
                 SetRefreshTokenCookie(tokens.RefreshToken);
 
                 return Ok(ApiResponse<AuthTokenResponse>.Success(
@@ -339,7 +342,7 @@ namespace API.Controllers
                     "Two-factor verification successful",
                     200));
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "❌ Verify 2FA error for challenge {ChallengeId}", request.ChallengeId);
                 return StatusCode(500, ApiResponse<object>.Error(500, "Internal server error", null));
@@ -358,14 +361,14 @@ namespace API.Controllers
         [HttpPost("resend-2fa")]
         [AllowAnonymous]
         [EnableRateLimiting("AuthPolicy")]
-        public async Task<IActionResult> ResendTwoFactor([FromBody] ResendTwoFactorRequestDto request)
+        public async Task<IActionResult> ResendTwoFactor([FromBody] ResendTwoFactorRequestDto request, CancellationToken cancellationToken = default)
         {
             if (!ModelState.IsValid || request.ChallengeId == Guid.Empty)
                 return BadRequest(ApiResponse<object>.Error(400, "Invalid two-factor resend request", null));
 
             try
             {
-                var challenge = await _authService.ResendEmailTwoFactorChallengeAsync(request.ChallengeId);
+                var challenge = await _authService.ResendEmailTwoFactorChallengeAsync(request.ChallengeId, cancellationToken);
                 if (challenge is null)
                 {
                     return BadRequest(ApiResponse<object>.Error(400, "Invalid or expired two-factor challenge", null));
@@ -375,14 +378,15 @@ namespace API.Controllers
                     challenge.Email,
                     challenge.DisplayName,
                     challenge.Code,
-                    challenge.ExpiresAt);
+                    challenge.ExpiresAt,
+                    cancellationToken);
 
                 return Ok(ApiResponse<TwoFactorChallengeResponseDto>.Success(
                     CreateTwoFactorChallengeResponse(challenge),
                     "A new verification code has been sent.",
                     200));
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "❌ Resend 2FA error for challenge {ChallengeId}", request.ChallengeId);
                 return StatusCode(500, ApiResponse<object>.Error(500, "Internal server error", null));
@@ -393,14 +397,14 @@ namespace API.Controllers
         [HttpPost("authenticator/setup")]
         [Authorize]
         [EnableRateLimiting("AuthPolicy")]
-        public async Task<IActionResult> BeginAuthenticatorSetup()
+        public async Task<IActionResult> BeginAuthenticatorSetup(CancellationToken cancellationToken = default)
         {
             if (!TryGetCurrentUserId(out var userId))
             {
                 return Unauthorized(ApiResponse<AuthenticatorSetupDto>.Error(401, "User not authenticated"));
             }
 
-            var setup = await _authService.BeginAuthenticatorSetupAsync(userId);
+            var setup = await _authService.BeginAuthenticatorSetupAsync(userId, cancellationToken);
             if (setup is null)
             {
                 return BadRequest(ApiResponse<AuthenticatorSetupDto>.Error(400, "Authenticator setup is unavailable for this account"));
@@ -417,20 +421,20 @@ namespace API.Controllers
         [HttpPost("authenticator/confirm")]
         [Authorize]
         [EnableRateLimiting("AuthPolicy")]
-        public async Task<IActionResult> ConfirmAuthenticatorSetup([FromBody] ConfirmAuthenticatorSetupRequestDto request)
+        public async Task<IActionResult> ConfirmAuthenticatorSetup([FromBody] ConfirmAuthenticatorSetupRequestDto request, CancellationToken cancellationToken = default)
         {
             if (!ModelState.IsValid || !TryGetCurrentUserId(out var userId))
             {
                 return BadRequest(ApiResponse<AuthenticatorConfirmationDto>.Error(400, "Invalid authenticator confirmation request"));
             }
 
-            var confirmation = await _authService.ConfirmAuthenticatorSetupAsync(userId, request.Code);
+            var confirmation = await _authService.ConfirmAuthenticatorSetupAsync(userId, request.Code, cancellationToken);
             if (confirmation is null)
             {
                 return BadRequest(ApiResponse<AuthenticatorConfirmationDto>.Error(400, "Authenticator code is invalid"));
             }
 
-            await CreateSecurityAlertAsync(userId, "Authenticator enabled", "Your authenticator app was enabled and recovery codes were created.");
+            await CreateSecurityAlertAsync(userId, "Authenticator enabled", "Your authenticator app was enabled and recovery codes were created.", cancellationToken);
             return Ok(ApiResponse<AuthenticatorConfirmationDto>.Success(new AuthenticatorConfirmationDto
             {
                 RecoveryCodes = confirmation.RecoveryCodes
@@ -441,19 +445,19 @@ namespace API.Controllers
         [HttpPost("authenticator/disable")]
         [Authorize]
         [EnableRateLimiting("AuthPolicy")]
-        public async Task<IActionResult> DisableAuthenticator([FromBody] DisableAuthenticatorRequestDto request)
+        public async Task<IActionResult> DisableAuthenticator([FromBody] DisableAuthenticatorRequestDto request, CancellationToken cancellationToken = default)
         {
             if (!ModelState.IsValid || !TryGetCurrentUserId(out var userId))
             {
                 return BadRequest(ApiResponse<object>.Error(400, "Invalid authenticator disable request", null));
             }
 
-            if (!await _authService.DisableAuthenticatorAsync(userId, request.CurrentPassword, request.Code))
+            if (!await _authService.DisableAuthenticatorAsync(userId, request.CurrentPassword, request.Code, cancellationToken))
             {
                 return BadRequest(ApiResponse<object>.Error(400, "Password or authenticator code is invalid", null));
             }
 
-            await CreateSecurityAlertAsync(userId, "Authenticator disabled", "Your authenticator app was disabled after password re-authentication.");
+            await CreateSecurityAlertAsync(userId, "Authenticator disabled", "Your authenticator app was disabled after password re-authentication.", cancellationToken);
             return Ok(ApiResponse<object?>.Success(null, "Authenticator disabled", 200));
         }
 
@@ -461,20 +465,20 @@ namespace API.Controllers
         [HttpPost("authenticator/recovery-codes")]
         [Authorize]
         [EnableRateLimiting("AuthPolicy")]
-        public async Task<IActionResult> RegenerateAuthenticatorRecoveryCodes([FromBody] RegenerateAuthenticatorRecoveryCodesRequestDto request)
+        public async Task<IActionResult> RegenerateAuthenticatorRecoveryCodes([FromBody] RegenerateAuthenticatorRecoveryCodesRequestDto request, CancellationToken cancellationToken = default)
         {
             if (!ModelState.IsValid || !TryGetCurrentUserId(out var userId))
             {
                 return BadRequest(ApiResponse<AuthenticatorConfirmationDto>.Error(400, "Invalid recovery-code regeneration request"));
             }
 
-            var confirmation = await _authService.RegenerateAuthenticatorRecoveryCodesAsync(userId, request.CurrentPassword, request.Code);
+            var confirmation = await _authService.RegenerateAuthenticatorRecoveryCodesAsync(userId, request.CurrentPassword, request.Code, cancellationToken);
             if (confirmation is null)
             {
                 return BadRequest(ApiResponse<AuthenticatorConfirmationDto>.Error(400, "Password or authenticator code is invalid"));
             }
 
-            await CreateSecurityAlertAsync(userId, "Recovery codes regenerated", "Your authenticator recovery codes were replaced after password re-authentication.");
+            await CreateSecurityAlertAsync(userId, "Recovery codes regenerated", "Your authenticator recovery codes were replaced after password re-authentication.", cancellationToken);
             return Ok(ApiResponse<AuthenticatorConfirmationDto>.Success(new AuthenticatorConfirmationDto
             {
                 RecoveryCodes = confirmation.RecoveryCodes
@@ -493,7 +497,7 @@ namespace API.Controllers
         [HttpPost("refresh-token")]
         [AllowAnonymous]
         [EnableRateLimiting("AuthPolicy")]
-        public async Task<IActionResult> RefreshToken()
+        public async Task<IActionResult> RefreshToken(CancellationToken cancellationToken = default)
         {
             var refreshToken = Request.Cookies[_jwtSettings.RefreshTokenCookieName];
             if (string.IsNullOrWhiteSpace(refreshToken))
@@ -503,7 +507,7 @@ namespace API.Controllers
             {
                 _logger.LogInformation("🔄 Refresh token request");
 
-                var tokens = await _jwtTokenService.RefreshTokensAsync(refreshToken);
+                var tokens = await _jwtTokenService.RefreshTokensAsync(refreshToken, cancellationToken);
                 if (tokens == null)
                 {
                     ClearRefreshTokenCookie();
@@ -514,7 +518,7 @@ namespace API.Controllers
 
                 return Ok(ApiResponse<AuthTokenResponse>.Success(CreateTokenResponse(tokens), "Token refreshed successfully", 200));
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "❌ Refresh token error");
                 return StatusCode(500, ApiResponse<object>.Error(500, "Internal server error", null));
@@ -532,7 +536,7 @@ namespace API.Controllers
         /// <remarks>Requires a valid JWT access token and does not require a separate email-confirmation or 2FA check.</remarks>
         [HttpPost("logout")]
         [Authorize]
-        public async Task<IActionResult> Logout()
+        public async Task<IActionResult> Logout(CancellationToken cancellationToken = default)
         {
             var refreshToken = Request.Cookies[_jwtSettings.RefreshTokenCookieName];
             if (string.IsNullOrWhiteSpace(refreshToken))
@@ -544,14 +548,14 @@ namespace API.Controllers
                 _logger.LogInformation("🚪 Logout request from user: {UserId}", userId);
 
                 // Revoke refresh token
-                await _jwtTokenService.RevokeTokenAsync(refreshToken);
+                await _jwtTokenService.RevokeTokenAsync(refreshToken, cancellationToken);
                 ClearRefreshTokenCookie();
 
                 _logger.LogInformation("✓ Logout successful for user: {UserId}", userId);
 
                 return Ok(new ApiResponse(200, "Logout successful"));
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "❌ Logout error");
                 return StatusCode(500, ApiResponse.Error(500, "Internal server error", null));
@@ -568,7 +572,7 @@ namespace API.Controllers
         /// <remarks>The access token remains valid until its normal expiration because access-token revocation is not persisted by this slice.</remarks>
         [HttpPost("logout-all")]
         [Authorize]
-        public async Task<IActionResult> LogoutAll()
+        public async Task<IActionResult> LogoutAll(CancellationToken cancellationToken = default)
         {
             if (!TryGetCurrentUserId(out var userId))
             {
@@ -579,13 +583,13 @@ namespace API.Controllers
             {
                 _logger.LogInformation("🚪 Logout-all request from user: {UserId}", userId);
 
-                await _jwtTokenService.RevokeAllUserTokensAsync(userId, RevocationReason.UserLogout);
+                await _jwtTokenService.RevokeAllUserTokensAsync(userId, RevocationReason.UserLogout, cancellationToken);
                 ClearRefreshTokenCookie();
 
                 _logger.LogInformation("✓ All refresh sessions revoked for user: {UserId}", userId);
                 return Ok(new ApiResponse(200, "All sessions logged out successfully"));
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "❌ Logout-all error for user {UserId}", userId);
                 return StatusCode(500, ApiResponse.Error(500, "Internal server error", null));
@@ -602,7 +606,7 @@ namespace API.Controllers
         /// <response code="500">An unexpected server error occurred.</response>
         [HttpGet("me")]
         [Authorize]
-        public async Task<IActionResult> GetCurrentUser()
+        public async Task<IActionResult> GetCurrentUser(CancellationToken cancellationToken = default)
         {
             try
             {
@@ -612,7 +616,7 @@ namespace API.Controllers
                 if (!Guid.TryParse(userId, out var currentUserId))
                     return Unauthorized(ApiResponse<object>.Error(401, "User not authenticated", null));
 
-                var userResult = await _userService.GetUserByIdAsync(currentUserId);
+                var userResult = await _userService.GetUserByIdAsync(currentUserId, cancellationToken);
                 if (userResult.Data is null)
                 {
                     return NotFound(ApiResponse<object>.Error(404, "User not found", null));
@@ -631,7 +635,7 @@ namespace API.Controllers
 
                 return Ok(ApiResponse<object>.Success(userData, "Current user info", 200));
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "❌ Error retrieving current user");
                 return StatusCode(500, ApiResponse<object>.Error(500, "Internal server error", null));
@@ -650,7 +654,7 @@ namespace API.Controllers
         [HttpPost("verify-token")]
         [AllowAnonymous]
         [EnableRateLimiting("AuthPolicy")]
-        public async Task<IActionResult> VerifyToken([FromBody] VerifyTokenRequest request)
+        public async Task<IActionResult> VerifyToken([FromBody] VerifyTokenRequest request, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(request?.Token))
                 return BadRequest(ApiResponse<object>.Error(400, "Token is required", null));
@@ -659,7 +663,7 @@ namespace API.Controllers
             {
                 _logger.LogInformation("🔍 Token verification request");
 
-                var principal = await _jwtTokenService.ValidateTokenAsync(request.Token);
+                var principal = await _jwtTokenService.ValidateTokenAsync(request.Token, cancellationToken);
                 if (principal == null)
                 {
                     _logger.LogWarning("⚠️ Token validation failed");
@@ -670,7 +674,7 @@ namespace API.Controllers
 
                 return Ok(ApiResponse<object>.Success(new { isValid = true }, "Token is valid", 200));
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "❌ Token verification error");
                 return StatusCode(500, ApiResponse<object>.Error(500, "Internal server error", null));
@@ -691,7 +695,7 @@ namespace API.Controllers
         [HttpPost("change-password")]
         [Authorize]
         [EnableRateLimiting("AuthPolicy")]
-        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequestDto request)
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequestDto request, CancellationToken cancellationToken = default)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ApiResponse<object>.Error(400, "Invalid request data", null));
@@ -710,7 +714,7 @@ namespace API.Controllers
 
             try
             {
-                var success = await _authService.ChangePasswordAsync(currentUserId, request.CurrentPassword, request.NewPassword);
+                var success = await _authService.ChangePasswordAsync(currentUserId, request.CurrentPassword, request.NewPassword, cancellationToken);
 
                 if (!success)
                 {
@@ -720,7 +724,7 @@ namespace API.Controllers
                 ClearRefreshTokenCookie();
                 return Ok(ApiResponse<object?>.Success(null, "Password changed successfully", 200));
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "❌ Change password error");
                 return StatusCode(500, ApiResponse<object>.Error(500, "Internal server error", null));
@@ -765,7 +769,7 @@ namespace API.Controllers
             return Guid.TryParse(userIdValue, out userId);
         }
 
-        private async Task CreateSecurityAlertAsync(Guid userId, string title, string message)
+        private async Task CreateSecurityAlertAsync(Guid userId, string title, string message, CancellationToken cancellationToken)
         {
             if (_notificationService is null)
             {
@@ -774,9 +778,9 @@ namespace API.Controllers
 
             try
             {
-                await _notificationService.CreateAsync(userId, Domain.Enums.NotificationType.SecurityAlert, title, message, "authenticator");
+                await _notificationService.CreateAsync(userId, Domain.Enums.NotificationType.SecurityAlert, title, message, "authenticator", cancellationToken: cancellationToken);
             }
-            catch (Exception exception)
+            catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 _logger.LogError(exception, "Could not create authenticator security alert for user {UserId}", userId);
             }
@@ -894,7 +898,7 @@ namespace API.Controllers
         [HttpPost("forgot-password")]
         [AllowAnonymous]
         [EnableRateLimiting("AuthPolicy")]
-        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDto dto)
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDto dto, CancellationToken cancellationToken = default)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ApiResponse<object>.Error(400, "Invalid request data", null));
@@ -905,7 +909,7 @@ namespace API.Controllers
             try
             {
                 _logger.LogInformation("🔑 Forgot password request for email: {Email}", dto.Email);
-                var resetToken = await _authService.GeneratePasswordResetTokenAsync(dto.Email);
+                var resetToken = await _authService.GeneratePasswordResetTokenAsync(dto.Email, cancellationToken);
                 if (resetToken is null)
                 {
                     return Ok(ApiResponse<object?>.Success(
@@ -913,7 +917,7 @@ namespace API.Controllers
                         "If the account exists, a password reset message has been sent.",
                         200));
                 }
-                var userResult = await _userService.GetUserByEmailAsync(dto.Email);
+                var userResult = await _userService.GetUserByEmailAsync(dto.Email, cancellationToken);
                 var user = userResult.Data;
                 if (user is null)
                 {
@@ -926,7 +930,8 @@ namespace API.Controllers
                 await _accountEmailSender.SendPasswordResetLinkAsync(
                     user.Email,
                     user.DisplayName,
-                    BuildPasswordResetLink(user.Email, resetToken));
+                    BuildPasswordResetLink(user.Email, resetToken),
+                    cancellationToken);
 
                 _logger.LogInformation("✓ Password reset email sent to: {Email}", dto.Email);
                 return Ok(ApiResponse<object?>.Success(
@@ -934,7 +939,7 @@ namespace API.Controllers
                     "If the account exists, a password reset message has been sent.",
                     200));
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "❌ Forgot password error");
                 return StatusCode(500, ApiResponse<object>.Error(500, "Internal server error", null));
@@ -954,7 +959,7 @@ namespace API.Controllers
         [HttpPost("reset-password")]
         [AllowAnonymous]
         [EnableRateLimiting("AuthPolicy")]
-        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequestDto request)
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequestDto request, CancellationToken cancellationToken = default)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ApiResponse<object>.Error(400, "Invalid request data", null));
@@ -970,7 +975,8 @@ namespace API.Controllers
                 var success = await _authService.ResetPasswordAsync(
                     request.Email,
                     request.Token,
-                    request.NewPassword);
+                    request.NewPassword,
+                    cancellationToken);
 
                 if (!success)
                 {
@@ -980,7 +986,7 @@ namespace API.Controllers
                 ClearRefreshTokenCookie();
                 return Ok(ApiResponse<object?>.Success(null, "Password reset successful", 200));
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "❌ Reset password error");
                 return StatusCode(500, ApiResponse<object>.Error(500, "Internal server error", null));

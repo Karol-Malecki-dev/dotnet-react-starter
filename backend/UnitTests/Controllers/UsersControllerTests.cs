@@ -34,9 +34,9 @@ public class UsersControllerTests
         var userId = Guid.NewGuid();
         var userDto = new UserDto { Id = userId, Email = "user@test.com", FirstName = "John", LastName = "Doe" };
 
-        _userServiceMock.Setup(x => x.GetUserByIdAsync(userId)).ReturnsAsync(ApiResponse<UserDto>.Success(userDto));
+        _userServiceMock.Setup(x => x.GetUserByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(ApiResponse<UserDto>.Success(userDto));
 
-        var actionResult = await _controller.GetUserById(userId);
+        var actionResult = await _controller.GetUserById(userId, CancellationToken.None);
 
         var okResult = Assert.IsType<OkObjectResult>(actionResult.Result);
         var response = Assert.IsType<ApiResponse<UserDto>>(okResult.Value);
@@ -54,7 +54,7 @@ public class UsersControllerTests
             new() { Id = Guid.NewGuid(), Email = "user2@test.com", FirstName = "User", LastName = "Two" }
         };
 
-        _userServiceMock.Setup(x => x.GetAllUsersPagedAsync(1, 10)).ReturnsAsync(ApiResponse<List<UserDto>>.Success(users));
+        _userServiceMock.Setup(x => x.GetAllUsersPagedAsync(1, 10, It.IsAny<CancellationToken>())).ReturnsAsync(ApiResponse<List<UserDto>>.Success(users));
 
         var actionResult = await _controller.GetAllUsers();
 
@@ -67,9 +67,9 @@ public class UsersControllerTests
     [Fact]
     public async Task GetCount_Returns_ok_with_total_user_count()
     {
-        _userServiceMock.Setup(x => x.GetUserCountAsync()).ReturnsAsync(ApiResponse<int>.Success(42));
+        _userServiceMock.Setup(x => x.GetUserCountAsync(It.IsAny<CancellationToken>())).ReturnsAsync(ApiResponse<int>.Success(42));
 
-        var actionResult = await _controller.GetCount();
+        var actionResult = await _controller.GetCount(CancellationToken.None);
 
         var okResult = Assert.IsType<OkObjectResult>(actionResult.Result);
         var response = Assert.IsType<ApiResponse<int>>(okResult.Value);
@@ -81,9 +81,9 @@ public class UsersControllerTests
     public async Task Delete_Returns_ok_when_user_is_deleted()
     {
         var userId = Guid.NewGuid();
-        _userServiceMock.Setup(x => x.DeleteUserAsync(userId)).ReturnsAsync(ApiResponse<bool>.Success(true));
+        _userServiceMock.Setup(x => x.DeleteUserAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(ApiResponse<bool>.Success(true));
 
-        var actionResult = await _controller.Delete(userId);
+        var actionResult = await _controller.Delete(userId, CancellationToken.None);
 
         var okResult = Assert.IsType<OkObjectResult>(actionResult.Result);
         var response = Assert.IsType<ApiResponse<bool>>(okResult.Value);
@@ -97,9 +97,9 @@ public class UsersControllerTests
         var userId = Guid.NewGuid();
         var expected = new UserDto { Id = userId, Email = "user@test.com", FirstName = "New", LastName = "Name" };
 
-        _userServiceMock.Setup(x => x.UpdateDisplayNameAsync(userId, "NewName")).ReturnsAsync(ApiResponse<UserDto>.Success(expected));
+        _userServiceMock.Setup(x => x.UpdateDisplayNameAsync(userId, "NewName", It.IsAny<CancellationToken>())).ReturnsAsync(ApiResponse<UserDto>.Success(expected));
 
-        var actionResult = await _controller.UpdateDisplayName(userId, "NewName");
+        var actionResult = await _controller.UpdateDisplayName(userId, "NewName", CancellationToken.None);
 
         var okResult = Assert.IsType<OkObjectResult>(actionResult.Result);
         var response = Assert.IsType<ApiResponse<UserDto>>(okResult.Value);
@@ -114,9 +114,9 @@ public class UsersControllerTests
         var userId = Guid.NewGuid();
         var expected = new UserDto { Id = userId, Email = "user@test.com", FirstName = "John", LastName = "Doe" };
 
-        _userServiceMock.Setup(x => x.UpdateUserRoleAsync(userId, "Admin")).ReturnsAsync(ApiResponse<UserDto>.Success(expected));
+        _userServiceMock.Setup(x => x.UpdateUserRoleAsync(userId, "Admin", It.IsAny<CancellationToken>())).ReturnsAsync(ApiResponse<UserDto>.Success(expected));
 
-        var actionResult = await _controller.UpdateRole(userId, "Admin");
+        var actionResult = await _controller.UpdateRole(userId, "Admin", CancellationToken.None);
 
         var okResult = Assert.IsType<OkObjectResult>(actionResult.Result);
         var response = Assert.IsType<ApiResponse<UserDto>>(okResult.Value);

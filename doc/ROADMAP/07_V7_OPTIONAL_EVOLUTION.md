@@ -4,6 +4,21 @@
 
 V7 opisuje kierunki, które mogą być wartościowe, ale nie powinny być obowiązkową częścią startera. Ich kolejność ma wynikać z realnej potrzeby produktu, użytkowników, infrastruktury lub ograniczeń zespołu.
 
+## Status realizacji
+
+Stan na: **2026-08-29**.
+
+| Obszar | Postęp | Status |
+|---|---:|---|
+| Tożsamość | 0% | Brak kierunku V7 wymagającego obecnie implementacji. |
+| Model produktu | 0% | Brak potwierdzonej potrzeby multi-tenancy, API keys lub wersjonowania publicznego API. |
+| Architektura | 0% | Brak zmierzonego problemu uzasadniającego dalsze wyodrębnianie modułów lub usług. |
+| Operacje | 0% | Multi-region i disaster recovery pozostają opcjonalnymi kierunkami przyszłości. |
+
+**Postęp V7: 0%**.
+
+To celowy status: V7 rozpoczyna się dopiero po pojawieniu się konkretnego problemu i zaakceptowaniu ADR-u.
+
 ## Możliwe kierunki
 
 ### Tożsamość

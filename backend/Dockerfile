@@ -31,6 +31,12 @@ RUN apt-get -o Acquire::Check-Valid-Until=false -o Acquire::Check-Date=false upd
 # (Nie potrzebujemy SDK, tylko runtime - mały rozmiar!)
 COPY --from=builder /app/publish .
 
+# Runtime-owned directories must remain writable by the non-root application user.
+RUN mkdir -p /home/app/.aspnet/DataProtection-Keys /app/logs \
+	&& chown -R $APP_UID /home/app /app/logs
+
+USER $APP_UID
+
 # Otwieramy port 5000 (na tym porcie nasłuchuje API)
 EXPOSE 5000
 

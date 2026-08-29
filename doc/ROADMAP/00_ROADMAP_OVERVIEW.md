@@ -53,6 +53,24 @@ Najważniejsze braki nie polegają obecnie na braku kolejnych endpointów. Dotyc
 - dużej liczbie danych;
 - niespójnym kontrakcie błędów.
 
+## Status realizacji roadmapy
+
+Stan na: **2026-08-29**.
+
+Procent opisuje realizację głównych obszarów danego etapu, a nie liczbę linii kodu. `100%` oznacza spełniony obszar wraz z testem, dokumentacją albo zaakceptowaną decyzją. `50%` oznacza istniejący fundament bez pełnego Definition of Done, a `0%` oznacza brak rozpoczętej realizacji. Postęp całej roadmapy jest średnią arytmetyczną postępów siedmiu etapów i nie jest miarą gotowości produkcyjnej.
+
+| Etap | Postęp | Status | Najważniejszy dowód lub brak |
+|---|---:|---|---|
+| V1 | 100% | Ukończony | Fundament aplikacji, testy i lokalny workflow są dostępne. |
+| V2 | 96% | Ukończony dla bieżącego zakresu | Hardening auth, API, async i konfiguracji jest zwalidowany; pozostały drobne follow-upy porządkowe. |
+| V3 | 26% | Fundamenty | Istnieją warstwy, porty feature-specific i częściowa enkapsulacja; brak pełnego modelu agregatów i concurrency domenowego. |
+| V4 | 28% | Fundamenty | Istnieją workflowy, załączniki, activity i quick search; brak pełnego audytu, search workspace i browser E2E. |
+| V5 | 41% | W toku | Działają Docker, CI, obrazy i lokalny Compose; brak realnego staging/production, backupu i rollbacku. |
+| V6 | 13% | Planowany | Istnieją podstawy EF, PostgreSQL i workerów; brak baseline'ów, load testów i pomiarów. |
+| V7 | 0% | Opcjonalny | Brak kierunku wymagającego obecnie implementacji. |
+
+**Postęp całej roadmapy: 43%**.
+
 ## Priorytety
 
 1. Backend i poprawność zachowania systemu.
@@ -73,13 +91,13 @@ Dokument: [01_V1_JUNIOR_BASELINE.md](01_V1_JUNIOR_BASELINE.md)
 
 ### V2: Stabilizacja i bezpieczeństwo
 
-Najbliższy etap. Obejmuje politykę sesji, refresh tokeny, rate limiting, lockout, konfigurację wdrożeniową, kontrakty błędów, cancellation i testy przypadków awarii.
+Etap ukończony dla bieżącego zakresu. Obejmuje politykę sesji, refresh tokeny, rate limiting, lockout, konfigurację wdrożeniową, kontrakty błędów, cancellation i testy przypadków awarii.
 
 Dokument: [02_V2_STABILIZATION_AND_SECURITY.md](02_V2_STABILIZATION_AND_SECURITY.md)
 
 ### V3: Domena, transakcje i concurrency
 
-Odpowiada za dojrzalsze granice domeny, agregaty, transakcje, optimistic concurrency, konflikty `409` i bezpieczne operacje wielozapisowe.
+Następny etap. Odpowiada za dojrzalsze granice domeny, agregaty, transakcje, optimistic concurrency, konflikty `409` i bezpieczne operacje wielozapisowe.
 
 Dokument: [03_V3_DOMAIN_TRANSACTIONS_AND_CONCURRENCY.md](03_V3_DOMAIN_TRANSACTIONS_AND_CONCURRENCY.md)
 

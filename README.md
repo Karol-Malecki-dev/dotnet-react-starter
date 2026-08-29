@@ -88,6 +88,8 @@ Rules:
 - Frontend `VITE_*` values are public at build time. Never store secrets there.
 - For Docker/nginx deployments, use `FRONTEND_REACT_APP_API_URL=/api` (mapped to `VITE_API_URL` during the image build).
 - For local frontend to local backend development, use `VITE_API_URL=http://localhost:5000`.
+- The Compose example is intentionally `Development` over HTTP; it uses `SameAsRequest` for the refresh cookie.
+- Production requires a non-example `JWT_SECRET`, `Always` secure refresh cookies, a persistent Data Protection key ring, and explicitly trusted forwarded proxy networks.
 
 ## Runtime Feature Flags
 
@@ -157,6 +159,10 @@ VITE_API_URL=http://localhost:5000
 The frontend shell now waits for both auth and runtime config before rendering protected UI. When `GlobalSearchEnabled` is on, `Ctrl+K` opens the quick search bar in the navbar.
 
 The default Docker Compose configuration is intended for local development and smoke testing. The CD workflow publishes container images to GHCR but does not deploy them to a hosting platform. Production secrets, migrations, monitoring, rollback, and hosting configuration remain environment-specific.
+
+The backend persists Data Protection keys in the `data-protection-keys` Compose volume.
+Keep that volume when restarting the stack; removing it invalidates the key ring used to
+protect authenticator secrets.
 
 ## Operations
 

@@ -48,10 +48,10 @@ public class DatabaseAuthService : IAuthService
     }
 
     /// <inheritdoc />
-    public async Task<User?> AuthenticateAsync(string email, string password)
+    public async Task<User?> AuthenticateAsync(string email, string password, CancellationToken cancellationToken = default)
     {
         var normalizedEmail = NormalizeEmail(email);
-        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Email == normalizedEmail);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Email == normalizedEmail, cancellationToken);
 
         if (user is null || !user.IsActive)
         {
@@ -85,7 +85,7 @@ public class DatabaseAuthService : IAuthService
             }
 
             user.ConcurrencyStamp = GenerateConcurrencyStamp();
-            await PersistAuthenticationStateAsync(user.Id);
+            await PersistAuthenticationStateAsync(user.Id, cancellationToken);
             _logger.LogWarning("Authentication failed for {Email}", normalizedEmail);
             return null;
         }
@@ -109,7 +109,7 @@ public class DatabaseAuthService : IAuthService
         if (authenticationStateChanged)
         {
             user.ConcurrencyStamp = GenerateConcurrencyStamp();
-            if (!await PersistAuthenticationStateAsync(user.Id))
+            if (!await PersistAuthenticationStateAsync(user.Id, cancellationToken))
             {
                 return null;
             }
@@ -119,10 +119,10 @@ public class DatabaseAuthService : IAuthService
     }
 
     /// <inheritdoc />
-    public async Task<User?> RegisterAsync(string email, string password, string displayName)
+    public async Task<User?> RegisterAsync(string email, string password, string displayName, CancellationToken cancellationToken = default)
     {
         var normalizedEmail = NormalizeEmail(email);
-        if (await _dbContext.Users.AnyAsync(x => x.Email == normalizedEmail))
+        if (await _dbContext.Users.AnyAsync(x => x.Email == normalizedEmail, cancellationToken))
         {
             return null;
         }
@@ -142,35 +142,38 @@ public class DatabaseAuthService : IAuthService
         user.PasswordHash = _passwordHasher.HashPassword(user, password);
 
         _dbContext.Users.Add(user);
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Registered user {UserId} ({Email})", user.Id, user.Email);
         return user;
     }
 
     /// <inheritdoc />
-    public Task<bool> LogoutAsync(Guid userId)
-        => Task.FromResult(true);
-
-    /// <inheritdoc />
-    public async Task<bool> UserExistsAsync(string email)
+    public Task<bool> LogoutAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var normalizedEmail = NormalizeEmail(email);
-        return await _dbContext.Users.AnyAsync(x => x.Email == normalizedEmail);
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(true);
     }
 
     /// <inheritdoc />
-    public async Task<bool> IsEmailConfirmedAsync(Guid userId)
-        => await _dbContext.Users.AnyAsync(x => x.Id == userId && x.IsEmailConfirmed);
-
-    /// <inheritdoc />
-    public async Task<bool> IsUserActiveAsync(Guid userId)
-        => await _dbContext.Users.AnyAsync(x => x.Id == userId && x.IsActive);
-
-    /// <inheritdoc />
-    public async Task<bool> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword)
+    public async Task<bool> UserExistsAsync(string email, CancellationToken cancellationToken = default)
     {
-        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId);
+        var normalizedEmail = NormalizeEmail(email);
+        return await _dbContext.Users.AnyAsync(x => x.Email == normalizedEmail, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> IsEmailConfirmedAsync(Guid userId, CancellationToken cancellationToken = default)
+        => await _dbContext.Users.AnyAsync(x => x.Id == userId && x.IsEmailConfirmed, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<bool> IsUserActiveAsync(Guid userId, CancellationToken cancellationToken = default)
+        => await _dbContext.Users.AnyAsync(x => x.Id == userId && x.IsActive, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<bool> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword, CancellationToken cancellationToken = default)
+    {
+        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
         if (user is null)
         {
             return false;
@@ -186,19 +189,19 @@ public class DatabaseAuthService : IAuthService
         user.FailedLoginAttempts = 0;
         user.LockoutEndAt = null;
         user.ConcurrencyStamp = GenerateConcurrencyStamp();
-        await RevokeActiveRefreshTokensAsync(user.Id, RevocationReason.PasswordChanged, DateTime.UtcNow);
-        await _dbContext.SaveChangesAsync();
+        await RevokeActiveRefreshTokensAsync(user.Id, RevocationReason.PasswordChanged, DateTime.UtcNow, cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
         return true;
     }
 
     /// <inheritdoc />
-    public async Task<bool> SendPasswordResetEmailAsync(string email)
+    public async Task<bool> SendPasswordResetEmailAsync(string email, CancellationToken cancellationToken = default)
     {
-        return await GeneratePasswordResetTokenAsync(email) is not null;
+        return await GeneratePasswordResetTokenAsync(email, cancellationToken) is not null;
     }
 
     /// <inheritdoc />
-    public async Task<string?> GeneratePasswordResetTokenAsync(string email)
+    public async Task<string?> GeneratePasswordResetTokenAsync(string email, CancellationToken cancellationToken = default)
     {
         var normalizedEmail = NormalizeEmail(email);
         if (string.IsNullOrWhiteSpace(normalizedEmail))
@@ -206,7 +209,7 @@ public class DatabaseAuthService : IAuthService
             return null;
         }
 
-        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Email == normalizedEmail);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Email == normalizedEmail, cancellationToken);
         if (user is null)
         {
             return null;
@@ -215,7 +218,7 @@ public class DatabaseAuthService : IAuthService
         var now = DateTime.UtcNow;
         var activeRequests = await _dbContext.PasswordResetRequests
             .Where(x => x.UserId == user.Id && x.ConsumedAt == null && x.RevokedAt == null && x.ExpiresAt > now)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         foreach (var activeRequest in activeRequests)
         {
@@ -237,14 +240,14 @@ public class DatabaseAuthService : IAuthService
         };
 
         _dbContext.PasswordResetRequests.Add(resetRequest);
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Password reset request created for user {UserId} ({Email})", user.Id, user.Email);
         return rawToken;
     }
 
     /// <inheritdoc />
-    public async Task<bool> ResetPasswordAsync(string email, string resetToken, string newPassword)
+    public async Task<bool> ResetPasswordAsync(string email, string resetToken, string newPassword, CancellationToken cancellationToken = default)
     {
         var normalizedEmail = NormalizeEmail(email);
         if (string.IsNullOrWhiteSpace(normalizedEmail) || string.IsNullOrWhiteSpace(resetToken) || string.IsNullOrWhiteSpace(newPassword))
@@ -252,7 +255,7 @@ public class DatabaseAuthService : IAuthService
             return false;
         }
 
-        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Email == normalizedEmail);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Email == normalizedEmail, cancellationToken);
         if (user is null)
         {
             return false;
@@ -266,7 +269,7 @@ public class DatabaseAuthService : IAuthService
                 x.ResetType == ResetType.Link &&
                 x.TokenHash == tokenHash &&
                 x.ConsumedAt == null &&
-                x.RevokedAt == null);
+                x.RevokedAt == null, cancellationToken);
 
         if (resetRequest is null)
         {
@@ -276,7 +279,7 @@ public class DatabaseAuthService : IAuthService
         if (resetRequest.ExpiresAt <= now)
         {
             resetRequest.RevokedAt = now;
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync(cancellationToken);
             return false;
         }
 
@@ -288,22 +291,22 @@ public class DatabaseAuthService : IAuthService
 
         var remainingRequests = await _dbContext.PasswordResetRequests
             .Where(x => x.UserId == user.Id && x.Id != resetRequest.Id && x.ConsumedAt == null && x.RevokedAt == null)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         foreach (var remainingRequest in remainingRequests)
         {
             remainingRequest.RevokedAt = now;
         }
 
-        await RevokeActiveRefreshTokensAsync(user.Id, RevocationReason.PasswordReset, now);
-        await _dbContext.SaveChangesAsync();
+        await RevokeActiveRefreshTokensAsync(user.Id, RevocationReason.PasswordReset, now, cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
         return true;
     }
 
     /// <inheritdoc />
-    public async Task<string?> GenerateEmailConfirmationTokenAsync(Guid userId)
+    public async Task<string?> GenerateEmailConfirmationTokenAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == userId);
+        var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
         if (user is null || user.IsEmailConfirmed)
         {
             return null;
@@ -312,7 +315,7 @@ public class DatabaseAuthService : IAuthService
         var now = DateTime.UtcNow;
         var activeTokens = await _dbContext.EmailConfirmationTokens
             .Where(x => x.UserId == userId && x.ConsumedAt == null && x.RevokedAt == null && x.ExpiresAt > now)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         foreach (var activeToken in activeTokens)
         {
@@ -329,12 +332,12 @@ public class DatabaseAuthService : IAuthService
             ExpiresAt = now.AddHours(_emailConfirmationSettings.TokenExpiresInHours)
         });
 
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
         return rawToken;
     }
 
     /// <inheritdoc />
-    public async Task<bool> ConfirmEmailAsync(Guid userId, string confirmationToken)
+    public async Task<bool> ConfirmEmailAsync(Guid userId, string confirmationToken, CancellationToken cancellationToken = default)
     {
         if (userId == Guid.Empty || string.IsNullOrWhiteSpace(confirmationToken))
         {
@@ -344,7 +347,7 @@ public class DatabaseAuthService : IAuthService
         var now = DateTime.UtcNow;
         var tokenHash = HashToken(confirmationToken);
         var token = await _dbContext.EmailConfirmationTokens
-            .FirstOrDefaultAsync(x => x.UserId == userId && x.TokenHash == tokenHash);
+            .FirstOrDefaultAsync(x => x.UserId == userId && x.TokenHash == tokenHash, cancellationToken);
 
         if (token is null || token.ConsumedAt.HasValue || token.RevokedAt.HasValue)
         {
@@ -354,11 +357,11 @@ public class DatabaseAuthService : IAuthService
         if (token.ExpiresAt <= now)
         {
             token.RevokedAt = now;
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync(cancellationToken);
             return false;
         }
 
-        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
         if (user is null)
         {
             return false;
@@ -369,35 +372,35 @@ public class DatabaseAuthService : IAuthService
 
         var remainingTokens = await _dbContext.EmailConfirmationTokens
             .Where(x => x.UserId == userId && x.Id != token.Id && x.ConsumedAt == null && x.RevokedAt == null)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         foreach (var remainingToken in remainingTokens)
         {
             remainingToken.RevokedAt = now;
         }
 
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Confirmed email for user {UserId}", userId);
         return true;
     }
 
     /// <inheritdoc />
-    public async Task<bool> ConfirmEmailConfirmedAsync(string email)
+    public async Task<bool> ConfirmEmailConfirmedAsync(string email, CancellationToken cancellationToken = default)
     {
         var normalizedEmail = NormalizeEmail(email);
-        return await _dbContext.Users.AnyAsync(x => x.Email == normalizedEmail && x.IsEmailConfirmed);
+        return await _dbContext.Users.AnyAsync(x => x.Email == normalizedEmail && x.IsEmailConfirmed, cancellationToken);
     }
 
     /// <inheritdoc />
-    public async Task<EmailTwoFactorChallengeDelivery?> CreateEmailTwoFactorChallengeAsync(Guid userId)
+    public async Task<EmailTwoFactorChallengeDelivery?> CreateEmailTwoFactorChallengeAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         if (!_emailTwoFactorSettings.Enabled || userId == Guid.Empty)
         {
             return null;
         }
 
-        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
         if (user is null || !user.IsActive || !user.IsEmailConfirmed || !user.IsTwoFactorEnabled)
         {
             return null;
@@ -406,7 +409,7 @@ public class DatabaseAuthService : IAuthService
         var now = DateTime.UtcNow;
         var activeChallenges = await _dbContext.EmailTwoFactorChallenges
             .Where(x => x.UserId == userId && x.ConsumedAt == null && x.RevokedAt == null && x.ExpiresAt > now)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         foreach (var activeChallenge in activeChallenges)
         {
@@ -426,7 +429,7 @@ public class DatabaseAuthService : IAuthService
         };
 
         _dbContext.EmailTwoFactorChallenges.Add(challenge);
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return new EmailTwoFactorChallengeDelivery(
             challenge.Id,
@@ -438,7 +441,7 @@ public class DatabaseAuthService : IAuthService
     }
 
     /// <inheritdoc />
-    public async Task<User?> VerifyEmailTwoFactorChallengeAsync(Guid challengeId, string code)
+    public async Task<User?> VerifyEmailTwoFactorChallengeAsync(Guid challengeId, string code, CancellationToken cancellationToken = default)
     {
         if (!_emailTwoFactorSettings.Enabled || challengeId == Guid.Empty || string.IsNullOrWhiteSpace(code))
         {
@@ -446,7 +449,7 @@ public class DatabaseAuthService : IAuthService
         }
 
         var now = DateTime.UtcNow;
-        var challenge = await _dbContext.EmailTwoFactorChallenges.FirstOrDefaultAsync(x => x.Id == challengeId);
+        var challenge = await _dbContext.EmailTwoFactorChallenges.FirstOrDefaultAsync(x => x.Id == challengeId, cancellationToken);
         if (challenge is null || challenge.ConsumedAt.HasValue || challenge.RevokedAt.HasValue)
         {
             return null;
@@ -455,11 +458,11 @@ public class DatabaseAuthService : IAuthService
         if (challenge.ExpiresAt <= now)
         {
             challenge.RevokedAt = now;
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync(cancellationToken);
             return null;
         }
 
-        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == challenge.UserId);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == challenge.UserId, cancellationToken);
         if (user is null || !user.IsActive || !user.IsEmailConfirmed || !user.IsTwoFactorEnabled)
         {
             return null;
@@ -473,7 +476,7 @@ public class DatabaseAuthService : IAuthService
                 challenge.RevokedAt = now;
             }
 
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync(cancellationToken);
             return null;
         }
 
@@ -481,19 +484,19 @@ public class DatabaseAuthService : IAuthService
 
         var remainingChallenges = await _dbContext.EmailTwoFactorChallenges
             .Where(x => x.UserId == user.Id && x.Id != challenge.Id && x.ConsumedAt == null && x.RevokedAt == null)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         foreach (var remainingChallenge in remainingChallenges)
         {
             remainingChallenge.RevokedAt = now;
         }
 
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
         return user;
     }
 
     /// <inheritdoc />
-    public async Task<EmailTwoFactorChallengeDelivery?> ResendEmailTwoFactorChallengeAsync(Guid challengeId)
+    public async Task<EmailTwoFactorChallengeDelivery?> ResendEmailTwoFactorChallengeAsync(Guid challengeId, CancellationToken cancellationToken = default)
     {
         if (!_emailTwoFactorSettings.Enabled || challengeId == Guid.Empty)
         {
@@ -501,7 +504,7 @@ public class DatabaseAuthService : IAuthService
         }
 
         var now = DateTime.UtcNow;
-        var challenge = await _dbContext.EmailTwoFactorChallenges.FirstOrDefaultAsync(x => x.Id == challengeId);
+        var challenge = await _dbContext.EmailTwoFactorChallenges.FirstOrDefaultAsync(x => x.Id == challengeId, cancellationToken);
         if (challenge is null || challenge.ConsumedAt.HasValue || challenge.RevokedAt.HasValue)
         {
             return null;
@@ -510,11 +513,11 @@ public class DatabaseAuthService : IAuthService
         if (challenge.ExpiresAt <= now)
         {
             challenge.RevokedAt = now;
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync(cancellationToken);
             return null;
         }
 
-        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == challenge.UserId);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == challenge.UserId, cancellationToken);
         if (user is null || !user.IsActive || !user.IsEmailConfirmed || !user.IsTwoFactorEnabled)
         {
             return null;
@@ -526,7 +529,7 @@ public class DatabaseAuthService : IAuthService
         challenge.ExpiresAt = now.AddMinutes(_emailTwoFactorSettings.CodeExpiresInMinutes);
         challenge.FailedAttempts = 0;
 
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return new EmailTwoFactorChallengeDelivery(
             challenge.Id,
@@ -538,9 +541,9 @@ public class DatabaseAuthService : IAuthService
     }
 
     /// <inheritdoc />
-    public async Task<AuthenticatorSetup?> BeginAuthenticatorSetupAsync(Guid userId)
+    public async Task<AuthenticatorSetup?> BeginAuthenticatorSetupAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var user = await _dbContext.Users.FirstOrDefaultAsync(candidate => candidate.Id == userId);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(candidate => candidate.Id == userId, cancellationToken);
         if (user is null || !user.IsActive || !user.IsEmailConfirmed || user.IsAuthenticatorEnabled)
         {
             return null;
@@ -548,7 +551,7 @@ public class DatabaseAuthService : IAuthService
 
         var sharedKey = Base32Encoding.ToString(RandomNumberGenerator.GetBytes(20));
         user.ProtectedAuthenticatorSecret = _authenticatorSecretProtector.Protect(sharedKey);
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         var issuer = "dotnet-react-starter";
         var label = Uri.EscapeDataString($"{issuer}:{user.Email}");
@@ -557,9 +560,9 @@ public class DatabaseAuthService : IAuthService
     }
 
     /// <inheritdoc />
-    public async Task<AuthenticatorConfirmation?> ConfirmAuthenticatorSetupAsync(Guid userId, string code)
+    public async Task<AuthenticatorConfirmation?> ConfirmAuthenticatorSetupAsync(Guid userId, string code, CancellationToken cancellationToken = default)
     {
-        var user = await _dbContext.Users.FirstOrDefaultAsync(candidate => candidate.Id == userId);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(candidate => candidate.Id == userId, cancellationToken);
         if (user is null || user.IsAuthenticatorEnabled || string.IsNullOrWhiteSpace(user.ProtectedAuthenticatorSecret)
             || !VerifyAuthenticatorCode(user.ProtectedAuthenticatorSecret, code))
         {
@@ -575,14 +578,14 @@ public class DatabaseAuthService : IAuthService
             CodeHash = HashToken(code),
             CreatedAt = DateTime.UtcNow
         }));
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
         return new AuthenticatorConfirmation(recoveryCodes);
     }
 
     /// <inheritdoc />
-    public async Task<AuthenticatorLoginChallengeInfo?> CreateAuthenticatorLoginChallengeAsync(Guid userId)
+    public async Task<AuthenticatorLoginChallengeInfo?> CreateAuthenticatorLoginChallengeAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(candidate => candidate.Id == userId);
+        var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(candidate => candidate.Id == userId, cancellationToken);
         if (user is null || !user.IsActive || !user.IsEmailConfirmed || !user.IsAuthenticatorEnabled)
         {
             return null;
@@ -591,7 +594,7 @@ public class DatabaseAuthService : IAuthService
         var now = DateTime.UtcNow;
         var activeChallenges = await _dbContext.AuthenticatorLoginChallenges
             .Where(challenge => challenge.UserId == userId && challenge.ConsumedAt == null && challenge.ExpiresAt > now)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
         foreach (var activeChallenge in activeChallenges)
         {
             activeChallenge.ConsumedAt = now;
@@ -605,41 +608,41 @@ public class DatabaseAuthService : IAuthService
             ExpiresAt = now.AddMinutes(5)
         };
         _dbContext.AuthenticatorLoginChallenges.Add(challenge);
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
         return new AuthenticatorLoginChallengeInfo(challenge.Id, challenge.ExpiresAt);
     }
 
     /// <inheritdoc />
-    public async Task<User?> VerifyAuthenticatorLoginChallengeAsync(Guid challengeId, string code)
+    public async Task<User?> VerifyAuthenticatorLoginChallengeAsync(Guid challengeId, string code, CancellationToken cancellationToken = default)
     {
         var now = DateTime.UtcNow;
-        var challenge = await _dbContext.AuthenticatorLoginChallenges.FirstOrDefaultAsync(candidate => candidate.Id == challengeId);
+        var challenge = await _dbContext.AuthenticatorLoginChallenges.FirstOrDefaultAsync(candidate => candidate.Id == challengeId, cancellationToken);
         if (challenge is null || challenge.ConsumedAt.HasValue || challenge.ExpiresAt <= now)
         {
             return null;
         }
 
-        var user = await _dbContext.Users.FirstOrDefaultAsync(candidate => candidate.Id == challenge.UserId);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(candidate => candidate.Id == challenge.UserId, cancellationToken);
         if (user is null || !user.IsActive || !user.IsAuthenticatorEnabled || string.IsNullOrWhiteSpace(user.ProtectedAuthenticatorSecret))
         {
             return null;
         }
 
-        var isValid = VerifyAuthenticatorCode(user.ProtectedAuthenticatorSecret, code) || await ConsumeRecoveryCodeAsync(user.Id, code, now);
+        var isValid = VerifyAuthenticatorCode(user.ProtectedAuthenticatorSecret, code) || await ConsumeRecoveryCodeAsync(user.Id, code, now, cancellationToken);
         if (!isValid)
         {
             return null;
         }
 
         challenge.ConsumedAt = now;
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
         return user;
     }
 
     /// <inheritdoc />
-    public async Task<bool> DisableAuthenticatorAsync(Guid userId, string currentPassword, string code)
+    public async Task<bool> DisableAuthenticatorAsync(Guid userId, string currentPassword, string code, CancellationToken cancellationToken = default)
     {
-        var user = await _dbContext.Users.FirstOrDefaultAsync(candidate => candidate.Id == userId);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(candidate => candidate.Id == userId, cancellationToken);
         if (user is null || !user.IsAuthenticatorEnabled || string.IsNullOrWhiteSpace(user.ProtectedAuthenticatorSecret))
         {
             return false;
@@ -647,7 +650,7 @@ public class DatabaseAuthService : IAuthService
 
         var now = DateTime.UtcNow;
         var isValid = VerifyCurrentPassword(user, currentPassword)
-            && (VerifyAuthenticatorCode(user.ProtectedAuthenticatorSecret, code) || await ConsumeRecoveryCodeAsync(user.Id, code, now));
+            && (VerifyAuthenticatorCode(user.ProtectedAuthenticatorSecret, code) || await ConsumeRecoveryCodeAsync(user.Id, code, now, cancellationToken));
         if (!isValid)
         {
             return false;
@@ -655,16 +658,16 @@ public class DatabaseAuthService : IAuthService
 
         user.IsAuthenticatorEnabled = false;
         user.ProtectedAuthenticatorSecret = null;
-        var recoveryCodes = await _dbContext.AuthenticatorRecoveryCodes.Where(recoveryCode => recoveryCode.UserId == userId).ToListAsync();
+        var recoveryCodes = await _dbContext.AuthenticatorRecoveryCodes.Where(recoveryCode => recoveryCode.UserId == userId).ToListAsync(cancellationToken);
         _dbContext.AuthenticatorRecoveryCodes.RemoveRange(recoveryCodes);
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
         return true;
     }
 
     /// <inheritdoc />
-    public async Task<AuthenticatorConfirmation?> RegenerateAuthenticatorRecoveryCodesAsync(Guid userId, string currentPassword, string code)
+    public async Task<AuthenticatorConfirmation?> RegenerateAuthenticatorRecoveryCodesAsync(Guid userId, string currentPassword, string code, CancellationToken cancellationToken = default)
     {
-        var user = await _dbContext.Users.FirstOrDefaultAsync(candidate => candidate.Id == userId);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(candidate => candidate.Id == userId, cancellationToken);
         if (user is null || !user.IsAuthenticatorEnabled || string.IsNullOrWhiteSpace(user.ProtectedAuthenticatorSecret))
         {
             return null;
@@ -672,13 +675,13 @@ public class DatabaseAuthService : IAuthService
 
         var now = DateTime.UtcNow;
         var isValid = VerifyCurrentPassword(user, currentPassword)
-            && (VerifyAuthenticatorCode(user.ProtectedAuthenticatorSecret, code) || await ConsumeRecoveryCodeAsync(user.Id, code, now));
+            && (VerifyAuthenticatorCode(user.ProtectedAuthenticatorSecret, code) || await ConsumeRecoveryCodeAsync(user.Id, code, now, cancellationToken));
         if (!isValid)
         {
             return null;
         }
 
-        var existingRecoveryCodes = await _dbContext.AuthenticatorRecoveryCodes.Where(recoveryCode => recoveryCode.UserId == userId).ToListAsync();
+        var existingRecoveryCodes = await _dbContext.AuthenticatorRecoveryCodes.Where(recoveryCode => recoveryCode.UserId == userId).ToListAsync(cancellationToken);
         _dbContext.AuthenticatorRecoveryCodes.RemoveRange(existingRecoveryCodes);
         var recoveryCodes = Enumerable.Range(0, 10).Select(_ => GenerateRecoveryCode()).ToArray();
         _dbContext.AuthenticatorRecoveryCodes.AddRange(recoveryCodes.Select(recoveryCode => new AuthenticatorRecoveryCode
@@ -688,7 +691,7 @@ public class DatabaseAuthService : IAuthService
             CodeHash = HashToken(recoveryCode),
             CreatedAt = now
         }));
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
         return new AuthenticatorConfirmation(recoveryCodes);
     }
 
@@ -707,11 +710,11 @@ public class DatabaseAuthService : IAuthService
         }
     }
 
-    private async Task<bool> ConsumeRecoveryCodeAsync(Guid userId, string code, DateTime now)
+    private async Task<bool> ConsumeRecoveryCodeAsync(Guid userId, string code, DateTime now, CancellationToken cancellationToken)
     {
         var codeHash = HashToken(code.Trim());
         var recoveryCode = await _dbContext.AuthenticatorRecoveryCodes
-            .FirstOrDefaultAsync(candidate => candidate.UserId == userId && candidate.CodeHash == codeHash && candidate.UsedAt == null);
+            .FirstOrDefaultAsync(candidate => candidate.UserId == userId && candidate.CodeHash == codeHash && candidate.UsedAt == null, cancellationToken);
         if (recoveryCode is null)
         {
             return false;
@@ -731,11 +734,11 @@ public class DatabaseAuthService : IAuthService
         return _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, currentPassword) != PasswordVerificationResult.Failed;
     }
 
-    private async Task<bool> PersistAuthenticationStateAsync(Guid userId)
+    private async Task<bool> PersistAuthenticationStateAsync(Guid userId, CancellationToken cancellationToken)
     {
         try
         {
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync(cancellationToken);
             return true;
         }
         catch (DbUpdateConcurrencyException)
@@ -749,11 +752,11 @@ public class DatabaseAuthService : IAuthService
     private static string GenerateConcurrencyStamp()
         => Guid.NewGuid().ToString("N");
 
-    private async Task RevokeActiveRefreshTokensAsync(Guid userId, RevocationReason reason, DateTime revokedAt)
+    private async Task RevokeActiveRefreshTokensAsync(Guid userId, RevocationReason reason, DateTime revokedAt, CancellationToken cancellationToken)
     {
         var activeTokens = await _dbContext.RefreshTokens
             .Where(token => token.UserId == userId && !token.RevokedAt.HasValue)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         foreach (var token in activeTokens)
         {

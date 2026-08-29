@@ -4,6 +4,23 @@
 
 V6 uczy optymalizacji na podstawie pomiarów oraz projektowania odporności na retry, chwilowe błędy i większą liczbę danych. Nie należy zaczynać od dodawania cache lub kolejki. Najpierw trzeba mieć hipotezę, pomiar i kryterium sukcesu.
 
+## Status realizacji
+
+Stan na: **2026-08-29**.
+
+| Obszar | Postęp | Status i dowód |
+|---|---:|---|
+| 1. Baseline i pomiary | 0% | Nie ma jeszcze raportu p50/p95/p99, throughputu ani realistycznego baseline'u. |
+| 2. EF Core i PostgreSQL | 25% | EF Core, PostgreSQL, migracje, indeksy i paginacja istnieją; brak systematycznej analizy `EXPLAIN ANALYZE`. |
+| 3. Cache | 0% | Brak uzasadnionego przypadku cache wymagającego implementacji. |
+| 4. Idempotencja i retry | 10% | Outbox i retry workerów są fundamentem; brak jawnych idempotency keys i pełnego testu powtórzeń. |
+| 5. Background processing | 35% | Outbox, workery i graceful shutdown działają; brak koordynacji multi-instance, lease i pełnej strategii dead-letter. |
+| 6. Frontend request coordination | 10% | Istnieje centralny HttpClient i obsługa sesji; single-flight refresh oraz pełne scenariusze offline/retry nie są jeszcze zwalidowane. |
+
+**Postęp V6: 13%**.
+
+V6 powinien ruszyć dopiero po wybraniu scenariuszy, danych testowych i mierzalnego kryterium sukcesu.
+
 ## Zakres implementacyjny
 
 ### 1. Baseline i pomiary

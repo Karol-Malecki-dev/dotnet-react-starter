@@ -23,9 +23,9 @@ public sealed class DatabaseProjectInvitationApplicationService : IProjectInvita
         _notificationService = notificationService;
     }
 
-    public async Task<ProjectOperationResult<CreatedProjectInvitationView>> CreateProjectInvitationAsync(CreateProjectInvitationCommand command)
+    public async Task<ProjectOperationResult<CreatedProjectInvitationView>> CreateProjectInvitationAsync(CreateProjectInvitationCommand command, CancellationToken cancellationToken = default)
     {
-        if (!await _membershipStore.OwnedProjectExistsAsync(command.OwnerId, command.ProjectId))
+        if (!await _membershipStore.OwnedProjectExistsAsync(command.OwnerId, command.ProjectId, cancellationToken))
         {
             return ProjectOperationResult<CreatedProjectInvitationView>.Failure(ProjectOperationStatus.NotFound, "Project not found");
         }
@@ -36,18 +36,18 @@ public sealed class DatabaseProjectInvitationApplicationService : IProjectInvita
         }
 
         var email = command.Email.Trim();
-        var invitedUser = await _invitationStore.GetActiveUserByEmailAsync(email);
+        var invitedUser = await _invitationStore.GetActiveUserByEmailAsync(email, cancellationToken);
         if (invitedUser is null)
         {
             return ProjectOperationResult<CreatedProjectInvitationView>.Failure(ProjectOperationStatus.NotFound, "An active user with this email was not found");
         }
 
-        if (invitedUser.Id == command.OwnerId || await _invitationStore.IsMemberAsync(command.ProjectId, invitedUser.Id))
+        if (invitedUser.Id == command.OwnerId || await _invitationStore.IsMemberAsync(command.ProjectId, invitedUser.Id, cancellationToken))
         {
             return ProjectOperationResult<CreatedProjectInvitationView>.Failure(ProjectOperationStatus.Conflict, "User is already a project member");
         }
 
-        if (await _invitationStore.HasPendingInvitationAsync(command.ProjectId, invitedUser.Id, DateTime.UtcNow))
+        if (await _invitationStore.HasPendingInvitationAsync(command.ProjectId, invitedUser.Id, DateTime.UtcNow, cancellationToken))
         {
             return ProjectOperationResult<CreatedProjectInvitationView>.Failure(ProjectOperationStatus.Conflict, "User already has a pending invitation");
         }
@@ -64,12 +64,13 @@ public sealed class DatabaseProjectInvitationApplicationService : IProjectInvita
         };
         _invitationStore.AddInvitation(invitation);
         AddActivity(command.ProjectId, command.OwnerId, "invitation.created", $"invited {invitedUser.DisplayName} to the project.");
-        await _invitationStore.SaveChangesAsync();
+        await _invitationStore.SaveChangesAsync(cancellationToken);
 
-        var projectName = await _invitationStore.GetProjectNameAsync(command.ProjectId);
-        var inviterName = await _invitationStore.GetUserDisplayNameAsync(command.OwnerId);
+        var projectName = await _invitationStore.GetProjectNameAsync(command.ProjectId, cancellationToken);
+        var inviterName = await _invitationStore.GetUserDisplayNameAsync(command.OwnerId, cancellationToken);
         await _notificationService.CreateAsync(invitedUser.Id, NotificationType.ProjectInvitation,
-            "Project invitation", $"{inviterName} invited you to join '{projectName}'.", "ProjectInvitation", invitation.Id);
+            "Project invitation", $"{inviterName} invited you to join '{projectName}'.", "ProjectInvitation", invitation.Id,
+            cancellationToken: cancellationToken);
 
         return ProjectOperationResult<CreatedProjectInvitationView>.Success(
             new CreatedProjectInvitationView(MapInvitation(invitation, projectName, invitedUser, inviterName), token),
@@ -77,37 +78,37 @@ public sealed class DatabaseProjectInvitationApplicationService : IProjectInvita
             201);
     }
 
-    public async Task<ProjectOperationResult<IReadOnlyList<ProjectInvitationView>>> GetProjectInvitationsAsync(Guid ownerId, Guid projectId)
+    public async Task<ProjectOperationResult<IReadOnlyList<ProjectInvitationView>>> GetProjectInvitationsAsync(Guid ownerId, Guid projectId, CancellationToken cancellationToken = default)
     {
-        if (!await _membershipStore.OwnedProjectExistsAsync(ownerId, projectId))
+        if (!await _membershipStore.OwnedProjectExistsAsync(ownerId, projectId, cancellationToken))
         {
             return ProjectOperationResult<IReadOnlyList<ProjectInvitationView>>.Failure(ProjectOperationStatus.NotFound, "Project not found");
         }
 
-        var invitations = await _invitationStore.GetProjectInvitationsAsync(projectId);
+        var invitations = await _invitationStore.GetProjectInvitationsAsync(projectId, cancellationToken);
         return ProjectOperationResult<IReadOnlyList<ProjectInvitationView>>.Success(invitations.Select(MapInvitation).ToList());
     }
 
-    public async Task<ProjectOperationResult<IReadOnlyList<ProjectInvitationView>>> GetMyProjectInvitationsAsync(Guid userId)
+    public async Task<ProjectOperationResult<IReadOnlyList<ProjectInvitationView>>> GetMyProjectInvitationsAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var invitations = await _invitationStore.GetUserPendingInvitationsAsync(userId);
+        var invitations = await _invitationStore.GetUserPendingInvitationsAsync(userId, cancellationToken);
         return ProjectOperationResult<IReadOnlyList<ProjectInvitationView>>.Success(invitations.Select(MapInvitation).ToList());
     }
 
-    public Task<ProjectOperationResult<ProjectInvitationView>> AcceptProjectInvitationAsync(Guid userId, string token)
-        => RespondToProjectInvitationAsync(userId, token, ProjectInvitationStatus.Accepted);
+    public Task<ProjectOperationResult<ProjectInvitationView>> AcceptProjectInvitationAsync(Guid userId, string token, CancellationToken cancellationToken = default)
+        => RespondToProjectInvitationAsync(userId, token, ProjectInvitationStatus.Accepted, cancellationToken);
 
-    public Task<ProjectOperationResult<ProjectInvitationView>> DeclineProjectInvitationAsync(Guid userId, string token)
-        => RespondToProjectInvitationAsync(userId, token, ProjectInvitationStatus.Declined);
+    public Task<ProjectOperationResult<ProjectInvitationView>> DeclineProjectInvitationAsync(Guid userId, string token, CancellationToken cancellationToken = default)
+        => RespondToProjectInvitationAsync(userId, token, ProjectInvitationStatus.Declined, cancellationToken);
 
-    private async Task<ProjectOperationResult<ProjectInvitationView>> RespondToProjectInvitationAsync(Guid userId, string token, ProjectInvitationStatus responseStatus)
+    private async Task<ProjectOperationResult<ProjectInvitationView>> RespondToProjectInvitationAsync(Guid userId, string token, ProjectInvitationStatus responseStatus, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(token))
         {
             return ProjectOperationResult<ProjectInvitationView>.Failure(ProjectOperationStatus.ValidationError, "Invitation token is required");
         }
 
-        var invitation = await _invitationStore.GetInvitationWithDetailsAsync(HashToken(token));
+        var invitation = await _invitationStore.GetInvitationWithDetailsAsync(HashToken(token), cancellationToken);
         if (invitation is null || invitation.InvitedUserId != userId)
         {
             return ProjectOperationResult<ProjectInvitationView>.Failure(ProjectOperationStatus.NotFound, "Project invitation not found");
@@ -121,13 +122,13 @@ public sealed class DatabaseProjectInvitationApplicationService : IProjectInvita
         if (invitation.ExpiresAt <= DateTime.UtcNow || invitation.Project.IsArchived)
         {
             invitation.Status = ProjectInvitationStatus.Expired;
-            await _invitationStore.SaveChangesAsync();
+            await _invitationStore.SaveChangesAsync(cancellationToken);
             return ProjectOperationResult<ProjectInvitationView>.Failure(ProjectOperationStatus.Conflict, "Project invitation has expired");
         }
 
         if (responseStatus == ProjectInvitationStatus.Accepted)
         {
-            if (await _invitationStore.IsMemberAsync(invitation.ProjectId, userId))
+            if (await _invitationStore.IsMemberAsync(invitation.ProjectId, userId, cancellationToken))
             {
                 return ProjectOperationResult<ProjectInvitationView>.Failure(ProjectOperationStatus.Conflict, "User is already a project member");
             }
@@ -145,11 +146,11 @@ public sealed class DatabaseProjectInvitationApplicationService : IProjectInvita
         AddActivity(invitation.ProjectId, userId,
             responseStatus == ProjectInvitationStatus.Accepted ? "invitation.accepted" : "invitation.declined",
             responseStatus == ProjectInvitationStatus.Accepted ? "accepted a project invitation." : "declined a project invitation.");
-        await _invitationStore.SaveChangesAsync();
+        await _invitationStore.SaveChangesAsync(cancellationToken);
 
         await _notificationService.CreateAsync(invitation.InvitedByUserId, NotificationType.ProjectInvitation,
             "Project invitation response", $"{invitation.InvitedUser.DisplayName} {responseStatus.ToString().ToLowerInvariant()} the invitation to '{invitation.Project.Name}'.",
-            "ProjectInvitation", invitation.Id);
+            "ProjectInvitation", invitation.Id, cancellationToken: cancellationToken);
 
         return ProjectOperationResult<ProjectInvitationView>.Success(MapInvitation(invitation), "Project invitation updated");
     }

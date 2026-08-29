@@ -56,8 +56,8 @@ public class AuthControllerTests
             HttpContext = new DefaultHttpContext()
         };
 
-        _authServiceMock.Setup(x => x.AuthenticateAsync(dto.Email, dto.Password)).ReturnsAsync(user);
-        _jwtTokenServiceMock.Setup(x => x.GenerateTokensAsync(user)).ReturnsAsync(tokens);
+        _authServiceMock.Setup(x => x.AuthenticateAsync(dto.Email, dto.Password, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        _jwtTokenServiceMock.Setup(x => x.GenerateTokensAsync(user, It.IsAny<CancellationToken>())).ReturnsAsync(tokens);
 
         var actionResult = await _controller.Login(dto);
 
@@ -78,7 +78,7 @@ public class AuthControllerTests
     public async Task Login_Returns_unauthorized_when_authentication_fails()
     {
         var dto = new LoginUserDto { Email = "bad@example.com", Password = "wrong" };
-        _authServiceMock.Setup(x => x.AuthenticateAsync(dto.Email, dto.Password)).ReturnsAsync((User?)null);
+        _authServiceMock.Setup(x => x.AuthenticateAsync(dto.Email, dto.Password, It.IsAny<CancellationToken>())).ReturnsAsync((User?)null);
 
         var actionResult = await _controller.Login(dto);
 
@@ -91,7 +91,7 @@ public class AuthControllerTests
         var dto = new LoginUserDto { Email = "pending@example.com", Password = "password123" };
         var user = new User { Id = Guid.NewGuid(), Email = dto.Email, DisplayName = "Pending", Role = UserRole.User, IsEmailConfirmed = false, IsTwoFactorEnabled = false };
 
-        _authServiceMock.Setup(x => x.AuthenticateAsync(dto.Email, dto.Password)).ReturnsAsync(user);
+        _authServiceMock.Setup(x => x.AuthenticateAsync(dto.Email, dto.Password, It.IsAny<CancellationToken>())).ReturnsAsync(user);
 
         var actionResult = await _controller.Login(dto);
 
@@ -118,10 +118,10 @@ public class AuthControllerTests
         var challengeId = Guid.NewGuid();
         var expiresAt = DateTime.UtcNow.AddMinutes(10);
 
-        _authServiceMock.Setup(x => x.AuthenticateAsync(dto.Email, dto.Password)).ReturnsAsync(user);
-        _authServiceMock.Setup(x => x.CreateEmailTwoFactorChallengeAsync(user.Id)).ReturnsAsync(
+        _authServiceMock.Setup(x => x.AuthenticateAsync(dto.Email, dto.Password, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        _authServiceMock.Setup(x => x.CreateEmailTwoFactorChallengeAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(
             new EmailTwoFactorChallengeDelivery(challengeId, user.Id, user.Email, user.DisplayName, "123456", expiresAt));
-        _accountEmailSenderMock.Setup(x => x.SendTwoFactorCodeAsync(user.Email, user.DisplayName, "123456", expiresAt)).Returns(Task.CompletedTask);
+        _accountEmailSenderMock.Setup(x => x.SendTwoFactorCodeAsync(user.Email, user.DisplayName, "123456", expiresAt, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         var actionResult = await _controller.Login(dto);
 
@@ -132,7 +132,7 @@ public class AuthControllerTests
         Assert.Equal("Two-factor verification required. Check your email for the code.", response.Message);
         Assert.True(response.Data?.RequiresTwoFactor);
         Assert.Equal(challengeId, response.Data?.ChallengeId);
-        _accountEmailSenderMock.Verify(x => x.SendTwoFactorCodeAsync(user.Email, user.DisplayName, "123456", expiresAt), Times.Once);
+        _accountEmailSenderMock.Verify(x => x.SendTwoFactorCodeAsync(user.Email, user.DisplayName, "123456", expiresAt, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -146,10 +146,10 @@ public class AuthControllerTests
             HttpContext = new DefaultHttpContext()
         };
 
-        _authServiceMock.Setup(x => x.UserExistsAsync(dto.Email)).ReturnsAsync(false);
-        _authServiceMock.Setup(x => x.RegisterAsync(dto.Email, dto.Password, "New User")).ReturnsAsync(user);
-        _authServiceMock.Setup(x => x.GenerateEmailConfirmationTokenAsync(user.Id)).ReturnsAsync("confirmation-token-123456");
-        _accountEmailSenderMock.Setup(x => x.SendEmailConfirmationAsync(user.Email, user.DisplayName, It.IsAny<string>())).Returns(Task.CompletedTask);
+        _authServiceMock.Setup(x => x.UserExistsAsync(dto.Email, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        _authServiceMock.Setup(x => x.RegisterAsync(dto.Email, dto.Password, "New User", It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        _authServiceMock.Setup(x => x.GenerateEmailConfirmationTokenAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync("confirmation-token-123456");
+        _accountEmailSenderMock.Setup(x => x.SendEmailConfirmationAsync(user.Email, user.DisplayName, It.IsAny<string>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         var actionResult = await _controller.Register(dto);
 
@@ -165,7 +165,8 @@ public class AuthControllerTests
             x => x.SendEmailConfirmationAsync(
                 user.Email,
                 user.DisplayName,
-                It.Is<string>(link => link.Contains("confirmation-token-123456", StringComparison.Ordinal) && link.Contains(user.Id.ToString(), StringComparison.Ordinal))),
+                It.Is<string>(link => link.Contains("confirmation-token-123456", StringComparison.Ordinal) && link.Contains(user.Id.ToString(), StringComparison.Ordinal)),
+                It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -174,7 +175,7 @@ public class AuthControllerTests
     {
         var dto = new RegisterUserDto { Email = "test@example.com", Password = "password123", FirstName = "New", LastName = "User", CreatedAt = DateTime.UtcNow };
 
-        _authServiceMock.Setup(x => x.UserExistsAsync(dto.Email)).ReturnsAsync(true);
+        _authServiceMock.Setup(x => x.UserExistsAsync(dto.Email, It.IsAny<CancellationToken>())).ReturnsAsync(true);
 
         var actionResult = await _controller.Register(dto);
 
@@ -231,7 +232,7 @@ public class AuthControllerTests
             HttpContext = httpContext
         };
 
-        _jwtTokenServiceMock.Setup(x => x.RefreshTokensAsync("refresh-token")).ReturnsAsync(tokens);
+        _jwtTokenServiceMock.Setup(x => x.RefreshTokensAsync("refresh-token", It.IsAny<CancellationToken>())).ReturnsAsync(tokens);
 
         var actionResult = await _controller.RefreshToken();
 
@@ -256,7 +257,7 @@ public class AuthControllerTests
             HttpContext = httpContext
         };
 
-        _jwtTokenServiceMock.Setup(x => x.RefreshTokensAsync("invalid-refresh")).ReturnsAsync((JwtTokens?)null);
+        _jwtTokenServiceMock.Setup(x => x.RefreshTokensAsync("invalid-refresh", It.IsAny<CancellationToken>())).ReturnsAsync((JwtTokens?)null);
 
         var actionResult = await _controller.RefreshToken();
         var setCookieHeader = _controller.Response.Headers.SetCookie.ToString();
@@ -279,7 +280,7 @@ public class AuthControllerTests
             HttpContext = httpContext
         };
 
-        _jwtTokenServiceMock.Setup(x => x.RevokeTokenAsync("refresh-token")).Returns(Task.CompletedTask);
+        _jwtTokenServiceMock.Setup(x => x.RevokeTokenAsync("refresh-token", It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         var actionResult = await _controller.Logout();
 
@@ -304,7 +305,7 @@ public class AuthControllerTests
         };
 
         _jwtTokenServiceMock
-            .Setup(x => x.RevokeAllUserTokensAsync(userId, RevocationReason.UserLogout))
+            .Setup(x => x.RevokeAllUserTokensAsync(userId, RevocationReason.UserLogout, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var actionResult = await _controller.LogoutAll();
@@ -318,7 +319,7 @@ public class AuthControllerTests
         Assert.Contains("drs.refreshToken=", setCookieHeader);
         Assert.Contains("expires=thu, 01 jan 1970", setCookieHeader, StringComparison.OrdinalIgnoreCase);
         _jwtTokenServiceMock.Verify(
-            x => x.RevokeAllUserTokensAsync(userId, RevocationReason.UserLogout),
+            x => x.RevokeAllUserTokensAsync(userId, RevocationReason.UserLogout, It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -327,7 +328,7 @@ public class AuthControllerTests
     {
         var request = new VerifyTokenRequest { Token = "valid-token" };
 
-        _jwtTokenServiceMock.Setup(x => x.ValidateTokenAsync(request.Token)).ReturnsAsync(ControllerTestHelper.CreateAuthenticatedUser(Guid.NewGuid().ToString(), "verify@test.com"));
+        _jwtTokenServiceMock.Setup(x => x.ValidateTokenAsync(request.Token, It.IsAny<CancellationToken>())).ReturnsAsync(ControllerTestHelper.CreateAuthenticatedUser(Guid.NewGuid().ToString(), "verify@test.com"));
 
         var actionResult = await _controller.VerifyToken(request);
 
@@ -347,7 +348,7 @@ public class AuthControllerTests
             Token = "confirmation-token-123456"
         };
 
-        _authServiceMock.Setup(x => x.ConfirmEmailAsync(request.UserId, request.Token)).ReturnsAsync(true);
+        _authServiceMock.Setup(x => x.ConfirmEmailAsync(request.UserId, request.Token, It.IsAny<CancellationToken>())).ReturnsAsync(true);
 
         var actionResult = await _controller.ConfirmEmail(request);
 
@@ -374,8 +375,8 @@ public class AuthControllerTests
             HttpContext = new DefaultHttpContext()
         };
 
-        _authServiceMock.Setup(x => x.VerifyEmailTwoFactorChallengeAsync(challengeId, request.Code)).ReturnsAsync(user);
-        _jwtTokenServiceMock.Setup(x => x.GenerateTokensAsync(user)).ReturnsAsync(tokens);
+        _authServiceMock.Setup(x => x.VerifyEmailTwoFactorChallengeAsync(challengeId, request.Code, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        _jwtTokenServiceMock.Setup(x => x.GenerateTokensAsync(user, It.IsAny<CancellationToken>())).ReturnsAsync(tokens);
 
         var actionResult = await _controller.VerifyTwoFactor(request);
 
@@ -394,9 +395,9 @@ public class AuthControllerTests
         var expiresAt = DateTime.UtcNow.AddMinutes(10);
         var request = new ResendTwoFactorRequestDto { ChallengeId = challengeId };
 
-        _authServiceMock.Setup(x => x.ResendEmailTwoFactorChallengeAsync(challengeId)).ReturnsAsync(
+        _authServiceMock.Setup(x => x.ResendEmailTwoFactorChallengeAsync(challengeId, It.IsAny<CancellationToken>())).ReturnsAsync(
             new EmailTwoFactorChallengeDelivery(challengeId, Guid.NewGuid(), "2fa@example.com", "Two Factor", "654321", expiresAt));
-        _accountEmailSenderMock.Setup(x => x.SendTwoFactorCodeAsync("2fa@example.com", "Two Factor", "654321", expiresAt)).Returns(Task.CompletedTask);
+        _accountEmailSenderMock.Setup(x => x.SendTwoFactorCodeAsync("2fa@example.com", "Two Factor", "654321", expiresAt, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         var actionResult = await _controller.ResendTwoFactor(request);
 
@@ -406,7 +407,7 @@ public class AuthControllerTests
         Assert.Equal(200, okResult.StatusCode);
         Assert.Equal("A new verification code has been sent.", response.Message);
         Assert.Equal(challengeId, response.Data?.ChallengeId);
-        _accountEmailSenderMock.Verify(x => x.SendTwoFactorCodeAsync("2fa@example.com", "Two Factor", "654321", expiresAt), Times.Once);
+        _accountEmailSenderMock.Verify(x => x.SendTwoFactorCodeAsync("2fa@example.com", "Two Factor", "654321", expiresAt, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -416,10 +417,10 @@ public class AuthControllerTests
         var userId = Guid.NewGuid();
         var userDto = new UserDto { Id = userId, Email = request.Email, DisplayName = "Pending User" };
 
-        _userServiceMock.Setup(x => x.GetUserByEmailAsync(request.Email)).ReturnsAsync(ApiResponse<UserDto>.Success(userDto));
-        _authServiceMock.Setup(x => x.IsEmailConfirmedAsync(userId)).ReturnsAsync(false);
-        _authServiceMock.Setup(x => x.GenerateEmailConfirmationTokenAsync(userId)).ReturnsAsync("confirmation-token-123456");
-        _accountEmailSenderMock.Setup(x => x.SendEmailConfirmationAsync(userDto.Email, userDto.DisplayName, It.IsAny<string>())).Returns(Task.CompletedTask);
+        _userServiceMock.Setup(x => x.GetUserByEmailAsync(request.Email, It.IsAny<CancellationToken>())).ReturnsAsync(ApiResponse<UserDto>.Success(userDto));
+        _authServiceMock.Setup(x => x.IsEmailConfirmedAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        _authServiceMock.Setup(x => x.GenerateEmailConfirmationTokenAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync("confirmation-token-123456");
+        _accountEmailSenderMock.Setup(x => x.SendEmailConfirmationAsync(userDto.Email, userDto.DisplayName, It.IsAny<string>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         var actionResult = await _controller.ResendConfirmation(request);
 
@@ -450,7 +451,7 @@ public class AuthControllerTests
             HttpContext = ControllerTestHelper.CreateHttpContext(user)
         };
 
-        _userServiceMock.Setup(x => x.GetUserByIdAsync(userId)).ReturnsAsync(ApiResponse<UserDto>.Success(userDto));
+        _userServiceMock.Setup(x => x.GetUserByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(ApiResponse<UserDto>.Success(userDto));
 
         var actionResult = await _controller.GetCurrentUser();
 
@@ -469,7 +470,7 @@ public class AuthControllerTests
             ResetType = ResetType.Link
         };
 
-        _authServiceMock.Setup(x => x.GeneratePasswordResetTokenAsync(request.Email))
+        _authServiceMock.Setup(x => x.GeneratePasswordResetTokenAsync(request.Email, It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
 
         var actionResult = await _controller.ForgotPassword(request);
@@ -479,7 +480,7 @@ public class AuthControllerTests
 
         Assert.Equal(200, okResult.StatusCode);
         Assert.Equal("If the account exists, a password reset message has been sent.", response.Message);
-        _authServiceMock.Verify(x => x.GeneratePasswordResetTokenAsync(request.Email), Times.Once);
+        _authServiceMock.Verify(x => x.GeneratePasswordResetTokenAsync(request.Email, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -497,9 +498,9 @@ public class AuthControllerTests
             DisplayName = "Known User"
         };
 
-        _authServiceMock.Setup(x => x.GeneratePasswordResetTokenAsync(request.Email))
+        _authServiceMock.Setup(x => x.GeneratePasswordResetTokenAsync(request.Email, It.IsAny<CancellationToken>()))
             .ReturnsAsync("reset-token");
-        _userServiceMock.Setup(x => x.GetUserByEmailAsync(request.Email))
+        _userServiceMock.Setup(x => x.GetUserByEmailAsync(request.Email, It.IsAny<CancellationToken>()))
             .ReturnsAsync(ApiResponse<UserDto>.Success(user));
 
         var actionResult = await _controller.ForgotPassword(request);
@@ -509,9 +510,9 @@ public class AuthControllerTests
 
         Assert.Equal(200, okResult.StatusCode);
         Assert.Equal("If the account exists, a password reset message has been sent.", response.Message);
-        _authServiceMock.Verify(x => x.GeneratePasswordResetTokenAsync(request.Email), Times.Once);
+        _authServiceMock.Verify(x => x.GeneratePasswordResetTokenAsync(request.Email, It.IsAny<CancellationToken>()), Times.Once);
         _accountEmailSenderMock.Verify(
-            x => x.SendPasswordResetLinkAsync(request.Email, "Known User", It.Is<string>(link => link.Contains("reset-token"))),
+            x => x.SendPasswordResetLinkAsync(request.Email, "Known User", It.Is<string>(link => link.Contains("reset-token")), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -531,7 +532,7 @@ public class AuthControllerTests
 
         Assert.Equal(400, badRequestResult.StatusCode);
         Assert.Equal("Only link-based password reset is currently supported", response.Message);
-        _authServiceMock.Verify(x => x.GeneratePasswordResetTokenAsync(It.IsAny<string>()), Times.Never);
+        _authServiceMock.Verify(x => x.GeneratePasswordResetTokenAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -552,7 +553,7 @@ public class AuthControllerTests
 
         Assert.Equal(400, badRequestResult.StatusCode);
         Assert.Equal("Reset token is required", response.Message);
-        _authServiceMock.Verify(x => x.ResetPasswordAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        _authServiceMock.Verify(x => x.ResetPasswordAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -567,7 +568,7 @@ public class AuthControllerTests
         };
 
         _authServiceMock
-            .Setup(x => x.ResetPasswordAsync(request.Email, request.Token!, request.NewPassword))
+            .Setup(x => x.ResetPasswordAsync(request.Email, request.Token!, request.NewPassword, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         _controller.ControllerContext = new ControllerContext
         {
@@ -584,7 +585,7 @@ public class AuthControllerTests
         Assert.Equal("Password reset successful", response.Message);
         Assert.Contains("drs.refreshToken=", setCookieHeader);
         Assert.Contains("expires=thu, 01 jan 1970", setCookieHeader, StringComparison.OrdinalIgnoreCase);
-        _authServiceMock.Verify(x => x.ResetPasswordAsync(request.Email, request.Token!, request.NewPassword), Times.Once);
+        _authServiceMock.Verify(x => x.ResetPasswordAsync(request.Email, request.Token!, request.NewPassword, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -599,7 +600,7 @@ public class AuthControllerTests
         };
 
         _authServiceMock
-            .Setup(x => x.ResetPasswordAsync(request.Email, request.Token!, request.NewPassword))
+            .Setup(x => x.ResetPasswordAsync(request.Email, request.Token!, request.NewPassword, It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
         var actionResult = await _controller.ResetPassword(request);

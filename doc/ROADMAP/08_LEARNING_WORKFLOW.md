@@ -6,6 +6,21 @@ Starter jest rozwijany wspólnie z asystentem. Asystent może przygotowywać imp
 
 Głównym celem nie jest samo dopisanie funkcji. Celem jest zbudowanie rozumienia od teorii do praktyki.
 
+## Status dokumentu
+
+Stan na: **2026-08-29**.
+
+Ten plik opisuje proces pracy, a nie etap techniczny. Dlatego procent dotyczy kompletności i zastosowania workflowu, a nie funkcji produktu.
+
+| Obszar | Postęp | Status |
+|---|---:|---|
+| Role i zasady współpracy | 100% | Zdefiniowane w dokumencie. |
+| Schemat pracy i kryteria jakości | 100% | Obejmuje analizę, małą zmianę, test, dokumentację i szerszą walidację. |
+| Artefakty końca etapu | 100% | Lista kodu, testów, dokumentacji, ADR-ów i raportu ryzyk jest zdefiniowana. |
+| Dziennik tarcia i odpowiedzi na pytania kontrolne | N/A | To obowiązek realizowany osobno dla konkretnego zadania, a nie stan tego dokumentu. |
+
+**Kompletność workflowu: 100% dokumentacji**.
+
 ## Rola asystenta
 
 Asystent powinien:

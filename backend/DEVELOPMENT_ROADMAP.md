@@ -10,7 +10,23 @@ The project is a .NET 9 modular monolith with a React frontend. Backend correctn
 
 **V2: Stabilization and security** is the next implementation stage.
 
-V1 is mostly achieved. The application already contains authentication, projects, tasks, membership, invitations, comments, attachments, activity, notifications, workers, health checks, Docker wiring and automated tests. The next value comes from hardening existing behavior under replay, concurrency, account changes, restart and partial failure.
+V1 is complete as the junior baseline and V2 is complete for the current security-hardening scope. The application already contains authentication, projects, tasks, membership, invitations, comments, attachments, activity, notifications, workers, health checks, Docker wiring and automated tests. The next value comes from stronger domain boundaries, transaction semantics and domain-level concurrency handling.
+
+## Current progress
+
+As of **2026-08-29**. Percentages follow the calculation documented in the canonical [roadmap overview](../doc/ROADMAP/00_ROADMAP_OVERVIEW.md).
+
+| Stage | Progress | Status |
+|---|---:|---|
+| V1 | 100% | Complete baseline. |
+| V2 | 96% | Complete for the current scope; minor follow-ups remain. |
+| V3 | 26% | Foundations present; implementation not complete. |
+| V4 | 28% | Foundations present; implementation not complete. |
+| V5 | 41% | Local Docker/CI foundations; no real target hosting yet. |
+| V6 | 13% | Initial foundations; measurement work not started. |
+| V7 | 0% | Optional and intentionally not started. |
+
+**Overall roadmap progress: 43%**.
 
 ## Stage index
 
@@ -45,10 +61,10 @@ For the documentation work:
 docs/project-development-roadmap
 ```
 
-For the immediate V2 work, start with a focused branch such as:
+For the immediate V3 work, start with a focused branch such as:
 
 ```text
-feature/auth-session-hardening
+feature/domain-transactions-and-concurrency
 ```
 
 Other examples are `feature/optimistic-concurrency`, `feature/security-audit`, `feature/workspace-search`, `chore/deployment-readiness` and `perf/project-dashboard-query`.

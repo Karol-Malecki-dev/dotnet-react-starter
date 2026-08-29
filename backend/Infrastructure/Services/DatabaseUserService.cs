@@ -19,24 +19,24 @@ public class DatabaseUserService : IUserService
         _dbContext = dbContext;
     }
 
-    public async Task<ApiResponse<UserDto>> GetUserByIdAsync(Guid id)
+    public async Task<ApiResponse<UserDto>> GetUserByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+        var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         return user is null
             ? ApiResponse<UserDto>.Error(404, "User not found")
             : ApiResponse<UserDto>.Success(MapToDto(user));
     }
 
-    public async Task<ApiResponse<UserDto>> GetUserByEmailAsync(string email)
+    public async Task<ApiResponse<UserDto>> GetUserByEmailAsync(string email, CancellationToken cancellationToken = default)
     {
         var normalizedEmail = NormalizeEmail(email);
-        var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Email == normalizedEmail);
+        var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Email == normalizedEmail, cancellationToken);
         return user is null
             ? ApiResponse<UserDto>.Error(404, "User not found")
             : ApiResponse<UserDto>.Success(MapToDto(user));
     }
 
-    public async Task<ApiResponse<List<UserDto>>> GetAllUsersPagedAsync(int pageNumber, int pageSize)
+    public async Task<ApiResponse<List<UserDto>>> GetAllUsersPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
         var safePageNumber = Math.Max(pageNumber, 1);
         var safePageSize = Math.Clamp(pageSize, 1, 100);
@@ -46,20 +46,20 @@ public class DatabaseUserService : IUserService
             .OrderBy(x => x.Email)
             .Skip((safePageNumber - 1) * safePageSize)
             .Take(safePageSize)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         return ApiResponse<List<UserDto>>.Success(users.Select(MapToDto).ToList());
     }
 
-    public async Task<ApiResponse<int>> GetUserCountAsync()
+    public async Task<ApiResponse<int>> GetUserCountAsync(CancellationToken cancellationToken = default)
     {
-        var count = await _dbContext.Users.CountAsync();
+        var count = await _dbContext.Users.CountAsync(cancellationToken);
         return ApiResponse<int>.Success(count);
     }
 
-    public async Task<ApiResponse<UserDto>> UpdateUserAsync(Guid userId, UpdateUserDto dto)
+    public async Task<ApiResponse<UserDto>> UpdateUserAsync(Guid userId, UpdateUserDto dto, CancellationToken cancellationToken = default)
     {
-        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
         if (user is null)
         {
             return ApiResponse<UserDto>.Error(404, "User not found");
@@ -89,7 +89,7 @@ public class DatabaseUserService : IUserService
             }
 
             var normalizedEmail = NormalizeEmail(dto.Email);
-            var emailInUse = await _dbContext.Users.AnyAsync(x => x.Email == normalizedEmail && x.Id != userId);
+            var emailInUse = await _dbContext.Users.AnyAsync(x => x.Email == normalizedEmail && x.Id != userId, cancellationToken);
             if (emailInUse)
             {
                 return ApiResponse<UserDto>.Error(400, "User with this email already exists");
@@ -116,70 +116,70 @@ public class DatabaseUserService : IUserService
             }
         }
 
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return ApiResponse<UserDto>.Success(MapToDto(user), "User profile updated");
     }
 
-    public async Task<ApiResponse<bool>> DeactivateUserAsync(Guid userId)
+    public async Task<ApiResponse<bool>> DeactivateUserAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
         if (user is null)
         {
             return ApiResponse<bool>.Error(404, "User not found");
         }
 
         user.IsActive = false;
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return ApiResponse<bool>.Success(true, "User deactivated");
     }
 
-    public async Task<ApiResponse<bool>> ActivateUserAsync(Guid userId)
+    public async Task<ApiResponse<bool>> ActivateUserAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
         if (user is null)
         {
             return ApiResponse<bool>.Error(404, "User not found");
         }
 
         user.IsActive = true;
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return ApiResponse<bool>.Success(true, "User activated");
     }
 
-    public async Task<ApiResponse<bool>> DeleteUserAsync(Guid id)
+    public async Task<ApiResponse<bool>> DeleteUserAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == id);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (user is null)
         {
             return ApiResponse<bool>.Error(404, "User not found");
         }
 
         _dbContext.Users.Remove(user);
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return ApiResponse<bool>.Success(true, "User deleted");
     }
 
-    public async Task<ApiResponse<UserDto>> UpdateDisplayNameAsync(Guid userId, string displayName)
+    public async Task<ApiResponse<UserDto>> UpdateDisplayNameAsync(Guid userId, string displayName, CancellationToken cancellationToken = default)
     {
-        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
         if (user is null)
         {
             return ApiResponse<UserDto>.Error(404, "User not found");
         }
 
         user.DisplayName = displayName.Trim();
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return ApiResponse<UserDto>.Success(MapToDto(user), "Display name updated");
     }
 
-    public async Task<ApiResponse<UserDto>> UpdateUserRoleAsync(Guid userId, string role)
+    public async Task<ApiResponse<UserDto>> UpdateUserRoleAsync(Guid userId, string role, CancellationToken cancellationToken = default)
     {
-        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
         if (user is null)
         {
             return ApiResponse<UserDto>.Error(404, "User not found");
@@ -191,33 +191,33 @@ public class DatabaseUserService : IUserService
         }
 
         user.Role = parsedRole;
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return ApiResponse<UserDto>.Success(MapToDto(user), "User role updated");
     }
 
-    public async Task<ApiResponse<bool>> UserExistsAsync(Guid id)
+    public async Task<ApiResponse<bool>> UserExistsAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var exists = await _dbContext.Users.AnyAsync(x => x.Id == id);
+        var exists = await _dbContext.Users.AnyAsync(x => x.Id == id, cancellationToken);
         return ApiResponse<bool>.Success(exists);
     }
 
-    public async Task<ApiResponse<bool>> IsEmailUniqueAsync(string email, Guid? excludeUserId = null)
+    public async Task<ApiResponse<bool>> IsEmailUniqueAsync(string email, Guid? excludeUserId = null, CancellationToken cancellationToken = default)
     {
         var normalizedEmail = NormalizeEmail(email);
-        var exists = await _dbContext.Users.AnyAsync(x => x.Email == normalizedEmail && (!excludeUserId.HasValue || x.Id != excludeUserId.Value));
+        var exists = await _dbContext.Users.AnyAsync(x => x.Email == normalizedEmail && (!excludeUserId.HasValue || x.Id != excludeUserId.Value), cancellationToken);
         return ApiResponse<bool>.Success(!exists);
     }
 
-    public async Task<ApiResponse<bool>> IsUserActiveAsync(Guid userId)
+    public async Task<ApiResponse<bool>> IsUserActiveAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var isActive = await _dbContext.Users.AnyAsync(x => x.Id == userId && x.IsActive);
+        var isActive = await _dbContext.Users.AnyAsync(x => x.Id == userId && x.IsActive, cancellationToken);
         return ApiResponse<bool>.Success(isActive);
     }
 
-    public async Task<ApiResponse<string>> GetUserRoleAsync(Guid userId)
+    public async Task<ApiResponse<string>> GetUserRoleAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == userId);
+        var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
         return user is null
             ? ApiResponse<string>.Error(404, "User not found")
             : ApiResponse<string>.Success(user.Role.ToString());
@@ -268,63 +268,63 @@ public class DatabaseUserService : IUserService
             && (parsed.Scheme == Uri.UriSchemeHttp || parsed.Scheme == Uri.UriSchemeHttps);
     }
 
-    public async Task<ApiResponse<UserDto>> UpdateUserEmailAsync(Guid userId, string email)
+    public async Task<ApiResponse<UserDto>> UpdateUserEmailAsync(Guid userId, string email, CancellationToken cancellationToken = default)
     {
-        var user = _dbContext.Users.FirstOrDefault(x => x.Id == userId);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
         if (user is null)
         {
             return ApiResponse<UserDto>.Error(404, "User not found");
         }
 
         user.Email = NormalizeEmail(email);
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return ApiResponse<UserDto>.Success(MapToDto(user), "Email updated");
     }
 
-    public async Task<ApiResponse<UserDto>> UpdateUserPasswordHashAsync(Guid userId, string passwordHash)
+    public async Task<ApiResponse<UserDto>> UpdateUserPasswordHashAsync(Guid userId, string passwordHash, CancellationToken cancellationToken = default)
     {
-        var user = _dbContext.Users.FirstOrDefault(x => x.Id == userId);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
         if (user is null)
         {
             return ApiResponse<UserDto>.Error(404, "User not found");
         }
         user.PasswordHash = passwordHash;
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return ApiResponse<UserDto>.Success(MapToDto(user), "Password updated");
     }
 
-    public async Task<ApiResponse<UserDto>> UpdateUserDisplayNameAsync(Guid userId, string displayName)
+    public async Task<ApiResponse<UserDto>> UpdateUserDisplayNameAsync(Guid userId, string displayName, CancellationToken cancellationToken = default)
     {
-        var user = _dbContext.Users.FirstOrDefault(x => x.Id == userId);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
         if (user is null)
         {
             return ApiResponse<UserDto>.Error(404, "User not found");
         }
         user.DisplayName = displayName;
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return ApiResponse<UserDto>.Success(MapToDto(user), "Display name updated");
     }
 
-    public async Task<ApiResponse<UserDto>> UpdateUserAvatarUrlAsync(Guid userId, string avatarUrl)
+    public async Task<ApiResponse<UserDto>> UpdateUserAvatarUrlAsync(Guid userId, string avatarUrl, CancellationToken cancellationToken = default)
     {
-        var user = _dbContext.Users.FirstOrDefault(x => x.Id == userId);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
         if (user is null)
         {
             return ApiResponse<UserDto>.Error(404, "User not found");
         }
         user.AvatarUrl = avatarUrl;
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return ApiResponse<UserDto>.Success(MapToDto(user), "Avatar URL updated");
     }
 
-    public async Task<ApiResponse<UserSecurityDto>> UpdateTwoFactorAsync(Guid userId, UpdateTwoFactorPreferenceDto enable)
+    public async Task<ApiResponse<UserSecurityDto>> UpdateTwoFactorAsync(Guid userId, UpdateTwoFactorPreferenceDto enable, CancellationToken cancellationToken = default)
     {
 
-        var user = _dbContext.Users.FirstOrDefault(x => x.Id == userId);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
         if (user is null)
         {
             return ApiResponse<UserSecurityDto>.Error(404, "User not found");
@@ -336,15 +336,15 @@ public class DatabaseUserService : IUserService
         }
 
         user.IsTwoFactorEnabled = enable.Enable;
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
         return ApiResponse<UserSecurityDto>.Success(
             MapToSecurityDto(user),
             $"Two-factor authentication {(enable.Enable ? "enabled" : "disabled")} successfully"); 
     }
 
-    public async Task<ApiResponse<bool>> IsTwoFactorEnabled(Guid userId)
+    public async Task<ApiResponse<bool>> IsTwoFactorEnabled(Guid userId, CancellationToken cancellationToken = default)
     {
-        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
         if (user is null)
         {
             return ApiResponse<bool>.Error(404, "User not found");
@@ -352,9 +352,9 @@ public class DatabaseUserService : IUserService
         return ApiResponse<bool>.Success(user.IsTwoFactorEnabled);
     }
 
-    public async Task<ApiResponse<UserSecurityDto>> GetUserSecurityAsync(Guid userId)
+    public async Task<ApiResponse<UserSecurityDto>> GetUserSecurityAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
         if (user is null)
         {
             return ApiResponse<UserSecurityDto>.Error(404, "User not found");
@@ -363,9 +363,5 @@ public class DatabaseUserService : IUserService
         return ApiResponse<UserSecurityDto>.Success(MapToSecurityDto(user));
     }
 
-    public Task<ApiResponse<AdminDashboardStatsDto>> GetAdminDashboardStatsAsync(Guid userID)
-    {
-        throw new NotImplementedException();
-    }
 }
 

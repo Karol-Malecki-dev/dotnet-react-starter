@@ -4,7 +4,26 @@
 
 V2 ma domknąć istniejące fundamenty. Nie jest etapem dokładania wielu nowych funkcji. Jest etapem udowodnienia, że obecne auth, API i konfiguracja zachowują się poprawnie przy błędach, restartach, równoległych żądaniach i zmianach stanu konta.
 
-To jest najbliższy priorytet rozwoju backendu.
+Zakres V2 na bieżącej gałęzi jest ukończony i zwalidowany. Kolejnym priorytetem rozwoju backendu jest V3.
+
+## Status realizacji
+
+Stan na: **2026-08-29**.
+
+| Obszar | Postęp | Status i dowód |
+|---|---:|---|
+| 1. Polityka sesji | 100% | Zasady są opisane w ADR i pokryte testami auth. |
+| 2. Refresh-token rotation | 100% | Aktualny użytkownik, family rotation, replay detection i concurrency są zwalidowane. |
+| 3. Unieważnianie po zmianie poświadczeń | 100% | Zmiana i reset hasła odrzucają wcześniejsze sesje. |
+| 4. Brute-force protection | 100% | Rate limiting, lockout, neutralne odpowiedzi i testy są wdrożone. |
+| 5. Spójny kontrakt błędów | 100% | Walidacja i obsłużone błędy auth używają udokumentowanego kontraktu API. |
+| 6. Cancellation i async | 100% | Token requestu jest przekazywany przez przejrzane przepływy i workery. |
+| 7. Konfiguracja i deployment correctness | 90% | Local HTTP, Compose, proxy trust, key ring i walidacja produkcyjna są sprawdzone; docelowe HTTPS zależy od hostingu. |
+| 8. Usunięcie nieaktywnego lub mylącego kodu | 75% | Usunięto nieużywane stubs auth; pozostały świadomie odłożone decyzje dotyczące pustych seederów i części abstrakcji. |
+
+**Postęp V2: 96%**.
+
+Pozostałe 4% to follow-upy porządkowe i środowiskowe, które nie blokują publikacji bieżącego zakresu bezpieczeństwa V2.
 
 ## Dlaczego ten etap jest pierwszy
 

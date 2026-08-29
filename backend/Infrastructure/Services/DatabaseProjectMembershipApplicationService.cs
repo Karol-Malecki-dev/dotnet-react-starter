@@ -23,42 +23,42 @@ public sealed class DatabaseProjectMembershipApplicationService : IProjectMember
         _notificationService = notificationService;
     }
 
-    public async Task<ProjectOperationResult<List<ProjectMemberView>>> GetProjectMembersAsync(Guid ownerId, Guid projectId)
+    public async Task<ProjectOperationResult<List<ProjectMemberView>>> GetProjectMembersAsync(Guid ownerId, Guid projectId, CancellationToken cancellationToken = default)
     {
-        if (!await _membershipStore.HasProjectAccessAsync(ownerId, projectId))
+        if (!await _membershipStore.HasProjectAccessAsync(ownerId, projectId, cancellationToken))
         {
             return ProjectOperationResult<List<ProjectMemberView>>.Failure(ProjectOperationStatus.NotFound, "Project not found");
         }
 
-        var members = await _membershipStore.GetMembersAsync(projectId);
+        var members = await _membershipStore.GetMembersAsync(projectId, cancellationToken);
         return ProjectOperationResult<List<ProjectMemberView>>.Success(members.ToList());
     }
 
-    public async Task<ProjectOperationResult<List<ProjectMemberUserView>>> GetAvailableProjectMembersAsync(Guid ownerId, Guid projectId)
+    public async Task<ProjectOperationResult<List<ProjectMemberUserView>>> GetAvailableProjectMembersAsync(Guid ownerId, Guid projectId, CancellationToken cancellationToken = default)
     {
-        if (!await _membershipStore.OwnedProjectExistsAsync(ownerId, projectId))
+        if (!await _membershipStore.OwnedProjectExistsAsync(ownerId, projectId, cancellationToken))
         {
             return ProjectOperationResult<List<ProjectMemberUserView>>.Failure(ProjectOperationStatus.NotFound, "Project not found");
         }
 
-        var users = await _membershipStore.GetAvailableUsersAsync(projectId);
+        var users = await _membershipStore.GetAvailableUsersAsync(projectId, cancellationToken);
         return ProjectOperationResult<List<ProjectMemberUserView>>.Success(users.ToList());
     }
 
-    public async Task<ProjectOperationResult<ProjectMemberView>> AddProjectMemberAsync(Guid ownerId, Guid projectId, Guid userId)
+    public async Task<ProjectOperationResult<ProjectMemberView>> AddProjectMemberAsync(Guid ownerId, Guid projectId, Guid userId, CancellationToken cancellationToken = default)
     {
-        if (!await _membershipStore.OwnedProjectExistsAsync(ownerId, projectId))
+        if (!await _membershipStore.OwnedProjectExistsAsync(ownerId, projectId, cancellationToken))
         {
             return ProjectOperationResult<ProjectMemberView>.Failure(ProjectOperationStatus.NotFound, "Project not found");
         }
 
-        var user = await _membershipStore.GetActiveUserAsync(userId);
+        var user = await _membershipStore.GetActiveUserAsync(userId, cancellationToken);
         if (user is null)
         {
             return ProjectOperationResult<ProjectMemberView>.Failure(ProjectOperationStatus.NotFound, "User not found or inactive");
         }
 
-        if (await _membershipStore.IsMemberAsync(projectId, userId))
+        if (await _membershipStore.IsMemberAsync(projectId, userId, cancellationToken))
         {
             return ProjectOperationResult<ProjectMemberView>.Failure(ProjectOperationStatus.Conflict, "User is already a project member");
         }
@@ -66,19 +66,20 @@ public sealed class DatabaseProjectMembershipApplicationService : IProjectMember
         var member = new ProjectMember { ProjectId = projectId, UserId = userId };
         _membershipStore.AddMember(member);
         AddActivity(projectId, ownerId, "member.added", $"added {user.DisplayName} to the project.");
-        await _membershipStore.SaveChangesAsync();
+        await _membershipStore.SaveChangesAsync(cancellationToken);
 
         var projectName = await _dbContext.Projects
             .Where(project => project.Id == projectId)
             .Select(project => project.Name)
-            .FirstAsync();
+            .FirstAsync(cancellationToken);
         await _notificationService.CreateAsync(
             user.Id,
             NotificationType.ProjectInvitation,
             "You joined a project",
             $"You were added to the project '{projectName}'.",
             "Project",
-            projectId);
+            projectId,
+            cancellationToken: cancellationToken);
 
         return ProjectOperationResult<ProjectMemberView>.Success(new ProjectMemberView(
             user.Id,
@@ -88,9 +89,9 @@ public sealed class DatabaseProjectMembershipApplicationService : IProjectMember
             member.AddedAt), "Project member added", 201);
     }
 
-    public async Task<ProjectOperationResult<ProjectMemberView>> UpdateProjectMemberRoleAsync(Guid ownerId, Guid projectId, Guid userId, ProjectMemberRole role)
+    public async Task<ProjectOperationResult<ProjectMemberView>> UpdateProjectMemberRoleAsync(Guid ownerId, Guid projectId, Guid userId, ProjectMemberRole role, CancellationToken cancellationToken = default)
     {
-        if (!await _membershipStore.OwnedProjectExistsAsync(ownerId, projectId))
+        if (!await _membershipStore.OwnedProjectExistsAsync(ownerId, projectId, cancellationToken))
         {
             return ProjectOperationResult<ProjectMemberView>.Failure(ProjectOperationStatus.NotFound, "Project not found");
         }
@@ -105,14 +106,14 @@ public sealed class DatabaseProjectMembershipApplicationService : IProjectMember
             return ProjectOperationResult<ProjectMemberView>.Failure(ProjectOperationStatus.ValidationError, "Invalid project member role");
         }
 
-        var member = await _membershipStore.GetMemberWithUserAsync(projectId, userId);
+        var member = await _membershipStore.GetMemberWithUserAsync(projectId, userId, cancellationToken);
         if (member is null)
         {
             return ProjectOperationResult<ProjectMemberView>.Failure(ProjectOperationStatus.NotFound, "Project member not found");
         }
 
         member.Role = role;
-        await _membershipStore.SaveChangesAsync();
+        await _membershipStore.SaveChangesAsync(cancellationToken);
         return ProjectOperationResult<ProjectMemberView>.Success(new ProjectMemberView(
             member.UserId,
             member.User.DisplayName,
@@ -121,9 +122,9 @@ public sealed class DatabaseProjectMembershipApplicationService : IProjectMember
             member.AddedAt), "Project member role updated");
     }
 
-    public async Task<ProjectOperationResult<bool>> RemoveProjectMemberAsync(Guid ownerId, Guid projectId, Guid userId)
+    public async Task<ProjectOperationResult<bool>> RemoveProjectMemberAsync(Guid ownerId, Guid projectId, Guid userId, CancellationToken cancellationToken = default)
     {
-        if (!await _membershipStore.OwnedProjectExistsAsync(ownerId, projectId))
+        if (!await _membershipStore.OwnedProjectExistsAsync(ownerId, projectId, cancellationToken))
         {
             return ProjectOperationResult<bool>.Failure(ProjectOperationStatus.NotFound, "Project not found");
         }
@@ -133,13 +134,13 @@ public sealed class DatabaseProjectMembershipApplicationService : IProjectMember
             return ProjectOperationResult<bool>.Failure(ProjectOperationStatus.Conflict, "Project owner cannot be removed");
         }
 
-        var member = await _membershipStore.GetMemberWithUserAsync(projectId, userId);
+        var member = await _membershipStore.GetMemberWithUserAsync(projectId, userId, cancellationToken);
         if (member is null)
         {
             return ProjectOperationResult<bool>.Failure(ProjectOperationStatus.NotFound, "Project member not found");
         }
 
-        var assignedTasks = await _membershipStore.GetAssignedTasksAsync(projectId, userId);
+        var assignedTasks = await _membershipStore.GetAssignedTasksAsync(projectId, userId, cancellationToken);
         foreach (var task in assignedTasks)
         {
             task.Unassign();
@@ -147,7 +148,7 @@ public sealed class DatabaseProjectMembershipApplicationService : IProjectMember
 
         _membershipStore.RemoveMember(member);
         AddActivity(projectId, ownerId, "member.removed", "removed a project member.");
-        await _membershipStore.SaveChangesAsync();
+        await _membershipStore.SaveChangesAsync(cancellationToken);
 
         return ProjectOperationResult<bool>.Success(true, "Project member removed");
     }

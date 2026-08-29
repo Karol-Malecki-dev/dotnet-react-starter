@@ -11,11 +11,16 @@ using Infrastructure.Data;
 using Infrastructure.ProjectManagement.Tasks;
 using Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Shared.Responses;
 using Shared.Settings;
+using System.Net;
 using System.Threading.RateLimiting;
 
 namespace API.Services
@@ -28,10 +33,18 @@ namespace API.Services
         /// <summary>
         /// Registers controllers, options, authentication, infrastructure, and application services.
         /// </summary>
-        public static IServiceCollection AddProjectServices(this IServiceCollection services, IConfiguration configuration)
+        public static IServiceCollection AddProjectServices(
+            this IServiceCollection services,
+            IConfiguration configuration,
+            IHostEnvironment? hostEnvironment = null)
         {
+            var isProduction = hostEnvironment?.IsProduction()
+                ?? string.Equals(configuration["ASPNETCORE_ENVIRONMENT"], Environments.Production, StringComparison.OrdinalIgnoreCase);
+
             services.AddApiPipelineServices();
-            services.AddApplicationOptions(configuration);
+            services.AddApplicationOptions(configuration, isProduction);
+            services.AddDataProtectionInfrastructure(configuration);
+            services.AddForwardedHeadersInfrastructure(configuration);
             services.AddPersistence(configuration);
             services.AddAuthenticationInfrastructure();
             services.AddApplicationServices();
@@ -43,7 +56,12 @@ namespace API.Services
 
         private static IServiceCollection AddApiPipelineServices(this IServiceCollection services)
         {
-            services.AddControllers();
+            services.AddControllers()
+                .ConfigureApiBehaviorOptions(options =>
+                {
+                    options.InvalidModelStateResponseFactory = context =>
+                        new BadRequestObjectResult(ValidationResponseFactory.Create(context.ModelState));
+                });
             services.AddFluentValidationAutoValidation();
             services.AddValidatorsFromAssemblyContaining<global::Program>();
 
@@ -57,12 +75,17 @@ namespace API.Services
             return services;
         }
 
-        private static IServiceCollection AddApplicationOptions(this IServiceCollection services, IConfiguration configuration)
+        private static IServiceCollection AddApplicationOptions(
+            this IServiceCollection services,
+            IConfiguration configuration,
+            bool isProduction)
         {
             services.AddOptions<JwtSettings>()
                 .Bind(configuration.GetSection("Jwt"))
                 .Validate(settings => !string.IsNullOrWhiteSpace(settings.Secret), "JWT Secret is required.")
                 .Validate(settings => settings.Secret.Length >= 32, "JWT Secret must be at least 32 characters long.")
+                .Validate(settings => !isProduction || !IsKnownExampleJwtSecret(settings.Secret),
+                    "A non-example JWT Secret must be configured in production.")
                 .Validate(settings => !string.IsNullOrWhiteSpace(settings.Issuer), "JWT Issuer is required.")
                 .Validate(settings => !string.IsNullOrWhiteSpace(settings.Audience), "JWT Audience is required.")
                 .Validate(settings => settings.AccessTokenExpiresInMinutes > 0, "AccessTokenExpiresInMinutes must be greater than 0.")
@@ -74,15 +97,34 @@ namespace API.Services
                 .Validate(settings => !string.Equals(settings.RefreshTokenCookieSameSite, "None", StringComparison.OrdinalIgnoreCase)
                     || !string.Equals(settings.RefreshTokenCookieSecurePolicy, "None", StringComparison.OrdinalIgnoreCase),
                     "Refresh token cookies with SameSite=None must not use CookieSecurePolicy=None.")
+                .Validate(settings => IsValidCookieName(settings.RefreshTokenCookieName),
+                    "RefreshTokenCookieName contains invalid characters.")
+                .Validate(settings => IsValidCookiePath(settings.RefreshTokenCookiePath),
+                    "RefreshTokenCookiePath must be an absolute cookie path without control characters.")
+                .Validate(settings => IsValidCookieDomain(settings.RefreshTokenCookieDomain),
+                    "RefreshTokenCookieDomain must contain only a host name or IP address.")
+                .Validate(settings => !isProduction
+                    || string.Equals(settings.RefreshTokenCookieSecurePolicy, nameof(CookieSecurePolicy.Always), StringComparison.OrdinalIgnoreCase),
+                    "Production refresh token cookies must use CookieSecurePolicy=Always.")
                 .ValidateOnStart();
 
             services.AddOptions<CorsSettings>()
                 .Bind(configuration.GetSection("Cors"))
                 .Validate(settings => settings.AllowedOrigins.Length > 0, "At least one CORS allowed origin is required.")
-                .Validate(settings => settings.AllowedOrigins.All(origin => Uri.TryCreate(origin, UriKind.Absolute, out _)),
-                    "All CORS allowed origins must be absolute URLs.")
+                .Validate(settings => settings.AllowedOrigins.All(IsValidCorsOrigin),
+                    "All CORS allowed origins must be absolute HTTP or HTTPS origins without paths or credentials.")
                 .Validate(settings => !settings.AllowCredentials || settings.AllowedOrigins.All(origin => origin != "*"),
                     "Wildcard CORS origins cannot be used when credentials are enabled.")
+                .ValidateOnStart();
+
+            services.AddOptions<DataProtectionSettings>()
+                .Bind(configuration.GetSection("DataProtection"))
+                .Validate(settings => !string.IsNullOrWhiteSpace(settings.ApplicationName),
+                    "Data Protection application name is required.")
+                .Validate(settings => string.IsNullOrWhiteSpace(settings.KeyRingPath) || Path.IsPathRooted(settings.KeyRingPath),
+                    "Data Protection key ring path must be absolute when configured.")
+                .Validate(settings => !isProduction || !string.IsNullOrWhiteSpace(settings.KeyRingPath),
+                    "Data Protection key ring path is required in production.")
                 .ValidateOnStart();
 
             services.AddOptions<EmailConfirmationSettings>()
@@ -126,6 +168,69 @@ namespace API.Services
                 .Validate(settings => !settings.Enabled || !string.IsNullOrWhiteSpace(settings.FromAddress),
                     "Email delivery from address is required when email delivery is enabled.")
                 .ValidateOnStart();
+
+            return services;
+        }
+
+        private static IServiceCollection AddDataProtectionInfrastructure(
+            this IServiceCollection services,
+            IConfiguration configuration)
+        {
+            var settings = configuration.GetSection("DataProtection").Get<DataProtectionSettings>()
+                ?? new DataProtectionSettings();
+
+            var dataProtection = services
+                .AddDataProtection()
+                .SetApplicationName(settings.ApplicationName);
+
+            if (!string.IsNullOrWhiteSpace(settings.KeyRingPath))
+            {
+                dataProtection.PersistKeysToFileSystem(new DirectoryInfo(settings.KeyRingPath));
+            }
+
+            return services;
+        }
+
+        private static IServiceCollection AddForwardedHeadersInfrastructure(
+            this IServiceCollection services,
+            IConfiguration configuration)
+        {
+            services.AddOptions<ForwardedHeadersSettings>()
+                .Bind(configuration.GetSection("ForwardedHeaders"))
+                .Validate(settings => settings.ForwardLimit > 0,
+                    "Forwarded headers forward limit must be greater than 0.")
+                .Validate(settings => settings.KnownProxies.All(IsValidIpAddress),
+                    "Forwarded headers known proxies must be valid IP address literals.")
+                .Validate(settings => settings.KnownNetworks.All(IsValidIpNetwork),
+                    "Forwarded headers known networks must use valid CIDR notation.")
+                .Validate(settings => !settings.Enabled
+                    || settings.KnownProxies.Length > 0
+                    || settings.KnownNetworks.Length > 0,
+                    "At least one trusted proxy or network is required when forwarded headers are enabled.")
+                .ValidateOnStart();
+
+            var settings = configuration.GetSection("ForwardedHeaders").Get<ForwardedHeadersSettings>()
+                ?? new ForwardedHeadersSettings();
+
+            services.Configure<ForwardedHeadersOptions>(options =>
+            {
+                options.ForwardedHeaders = settings.Enabled
+                    ? ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+                    : ForwardedHeaders.None;
+                options.ForwardLimit = settings.ForwardLimit;
+                options.KnownProxies.Clear();
+                options.KnownNetworks.Clear();
+
+                foreach (var knownProxy in settings.KnownProxies)
+                {
+                    options.KnownProxies.Add(IPAddress.Parse(knownProxy));
+                }
+
+                foreach (var knownNetwork in settings.KnownNetworks)
+                {
+                    options.KnownNetworks.Add(ParseIpNetwork(knownNetwork));
+                }
+            });
 
             return services;
         }
@@ -272,6 +377,94 @@ namespace API.Services
             var clientIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
             var endpoint = httpContext.Request.Path.Value ?? "/";
             return $"{clientIp}:{endpoint}";
+        }
+
+        private static bool IsKnownExampleJwtSecret(string secret)
+            => string.Equals(secret, "local-development-secret-change-before-production-123456789", StringComparison.Ordinal)
+                || string.Equals(secret, "local-development-only-secret-change-before-production-123456789", StringComparison.Ordinal)
+                || string.Equals(secret, "change-this-to-a-long-random-secret-at-least-32-characters", StringComparison.OrdinalIgnoreCase);
+
+        private static bool IsValidCookieName(string name)
+            => !string.IsNullOrWhiteSpace(name)
+                && name.All(character => !char.IsControl(character)
+                    && !char.IsWhiteSpace(character)
+                    && !"()<>@,;:\\\"/[]?={}".Contains(character));
+
+        private static bool IsValidCookiePath(string path)
+            => !string.IsNullOrWhiteSpace(path)
+                && path.StartsWith("/", StringComparison.Ordinal)
+                && path.All(character => !char.IsControl(character));
+
+        private static bool IsValidCookieDomain(string? domain)
+        {
+            if (string.IsNullOrWhiteSpace(domain))
+            {
+                return true;
+            }
+
+            var normalizedDomain = domain.TrimStart('.');
+            return normalizedDomain.Length > 0
+                && !normalizedDomain.Contains('/', StringComparison.Ordinal)
+                && !normalizedDomain.Contains(':', StringComparison.Ordinal)
+                && Uri.CheckHostName(normalizedDomain) != UriHostNameType.Unknown;
+        }
+
+        private static bool IsValidCorsOrigin(string origin)
+        {
+            if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+            {
+                return false;
+            }
+
+            return (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
+                && !string.IsNullOrWhiteSpace(uri.Host)
+                && string.IsNullOrEmpty(uri.UserInfo)
+                && string.IsNullOrEmpty(uri.Query)
+                && string.IsNullOrEmpty(uri.Fragment)
+                && uri.AbsolutePath == "/";
+        }
+
+        private static bool IsValidIpAddress(string value)
+            => IPAddress.TryParse(value, out _);
+
+        private static bool IsValidIpNetwork(string value)
+            => TryParseIpNetwork(value, out _);
+
+        private static Microsoft.AspNetCore.HttpOverrides.IPNetwork ParseIpNetwork(string value)
+        {
+            if (!TryParseIpNetwork(value, out var network))
+            {
+                throw new InvalidOperationException($"Invalid forwarded-header network '{value}'.");
+            }
+
+            return network;
+        }
+
+        private static bool TryParseIpNetwork(
+            string value,
+            out Microsoft.AspNetCore.HttpOverrides.IPNetwork network)
+        {
+            network = null!;
+            var separatorIndex = value.LastIndexOf("/", StringComparison.Ordinal);
+            if (separatorIndex <= 0 || separatorIndex == value.Length - 1)
+            {
+                return false;
+            }
+
+            if (!IPAddress.TryParse(value[..separatorIndex], out var prefix)
+                || !int.TryParse(value[(separatorIndex + 1)..], out var prefixLength))
+            {
+                return false;
+            }
+
+            var maxPrefixLength = prefix.GetAddressBytes().Length * 8;
+            if (prefixLength < 0 || prefixLength > maxPrefixLength)
+            {
+                return false;
+            }
+
+            network = new Microsoft.AspNetCore.HttpOverrides.IPNetwork(prefix, prefixLength);
+            return true;
         }
     }
 }

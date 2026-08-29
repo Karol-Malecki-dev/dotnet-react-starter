@@ -25,66 +25,66 @@ public sealed class ProjectInvitationsController : ControllerBase
 
     /// <summary>Returns all invitations for a project. Only the project owner can use this endpoint.</summary>
     [HttpGet("projects/{projectId:guid}/invitations")]
-    public async Task<IActionResult> GetProjectInvitations(Guid projectId)
+    public async Task<IActionResult> GetProjectInvitations(Guid projectId, CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var userId))
         {
             return Unauthorized(ApiResponse<IReadOnlyList<ProjectInvitationResponse>>.Error(401, "User not authenticated"));
         }
 
-        var result = await _invitationService.GetProjectInvitationsAsync(userId, projectId);
+        var result = await _invitationService.GetProjectInvitationsAsync(userId, projectId, cancellationToken);
         return ToActionResult(result, invitations => invitations.Select(MapInvitation).ToList());
     }
 
     /// <summary>Creates a seven-day invitation for an active, non-member account.</summary>
     [HttpPost("projects/{projectId:guid}/invitations")]
-    public async Task<IActionResult> CreateProjectInvitation(Guid projectId, CreateProjectInvitationRequest request)
+    public async Task<IActionResult> CreateProjectInvitation(Guid projectId, CreateProjectInvitationRequest request, CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var userId))
         {
             return Unauthorized(ApiResponse<CreatedProjectInvitationResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _invitationService.CreateProjectInvitationAsync(new CreateProjectInvitationCommand(userId, projectId, request.Email, request.Role));
+        var result = await _invitationService.CreateProjectInvitationAsync(new CreateProjectInvitationCommand(userId, projectId, request.Email, request.Role), cancellationToken);
         return ToActionResult(result, created => new CreatedProjectInvitationResponse(MapInvitation(created.Invitation), created.Token));
     }
 
     /// <summary>Returns outstanding invitations for the authenticated recipient.</summary>
     [HttpGet("project-invitations/mine")]
-    public async Task<IActionResult> GetMyProjectInvitations()
+    public async Task<IActionResult> GetMyProjectInvitations(CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var userId))
         {
             return Unauthorized(ApiResponse<IReadOnlyList<ProjectInvitationResponse>>.Error(401, "User not authenticated"));
         }
 
-        var result = await _invitationService.GetMyProjectInvitationsAsync(userId);
+        var result = await _invitationService.GetMyProjectInvitationsAsync(userId, cancellationToken);
         return ToActionResult(result, invitations => invitations.Select(MapInvitation).ToList());
     }
 
     /// <summary>Accepts an invitation when the logged-in user is its intended recipient.</summary>
     [HttpPost("project-invitations/accept")]
-    public async Task<IActionResult> AcceptProjectInvitation(RespondToProjectInvitationRequest request)
+    public async Task<IActionResult> AcceptProjectInvitation(RespondToProjectInvitationRequest request, CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var userId))
         {
             return Unauthorized(ApiResponse<ProjectInvitationResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _invitationService.AcceptProjectInvitationAsync(userId, request.Token);
+        var result = await _invitationService.AcceptProjectInvitationAsync(userId, request.Token, cancellationToken);
         return ToActionResult(result, MapInvitation);
     }
 
     /// <summary>Declines an invitation when the logged-in user is its intended recipient.</summary>
     [HttpPost("project-invitations/decline")]
-    public async Task<IActionResult> DeclineProjectInvitation(RespondToProjectInvitationRequest request)
+    public async Task<IActionResult> DeclineProjectInvitation(RespondToProjectInvitationRequest request, CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var userId))
         {
             return Unauthorized(ApiResponse<ProjectInvitationResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _invitationService.DeclineProjectInvitationAsync(userId, request.Token);
+        var result = await _invitationService.DeclineProjectInvitationAsync(userId, request.Token, cancellationToken);
         return ToActionResult(result, MapInvitation);
     }
 

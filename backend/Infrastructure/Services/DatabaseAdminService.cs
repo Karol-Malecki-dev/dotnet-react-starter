@@ -23,26 +23,26 @@ namespace Infrastructure.Services
         }
 
         //Get
-        public async Task<ApiResponse<AdminDashboardStatsDto>> GetDashboardStatsAsync()
+        public async Task<ApiResponse<AdminDashboardStatsDto>> GetDashboardStatsAsync(CancellationToken cancellationToken = default)
         {
             var result = new AdminDashboardStatsDto();
 
-            var totalUsers = await _dbContext.Users.AsNoTracking().CountAsync();
+            var totalUsers = await _dbContext.Users.AsNoTracking().CountAsync(cancellationToken);
 
             var activeUsers = await _dbContext.Users.AsNoTracking()
-                .CountAsync(u => u.IsActive && u.Role == UserRole.User);
+                .CountAsync(u => u.IsActive && u.Role == UserRole.User, cancellationToken);
 
             var inactiveUsers = await _dbContext.Users.AsNoTracking()
-                .CountAsync(u => !u.IsActive && u.Role == UserRole.User);
+                .CountAsync(u => !u.IsActive && u.Role == UserRole.User, cancellationToken);
 
             var newUsersLast7Days = await _dbContext.Users.AsNoTracking()
-                .CountAsync(u => u.CreatedAt >= DateTime.UtcNow.AddDays(-7));
+                .CountAsync(u => u.CreatedAt >= DateTime.UtcNow.AddDays(-7), cancellationToken);
 
             var totalAdminUsers = await _dbContext.Users.AsNoTracking()
-                .CountAsync(u => u.Role == UserRole.Admin);
+                .CountAsync(u => u.Role == UserRole.Admin, cancellationToken);
 
             var activeAdminUsers = await _dbContext.Users.AsNoTracking()
-                .CountAsync(u => u.IsActive && u.Role == UserRole.Admin);
+                .CountAsync(u => u.IsActive && u.Role == UserRole.Admin, cancellationToken);
 
             result.TotalUsers = totalUsers;
             result.ActiveUsers = activeUsers;
@@ -55,11 +55,11 @@ namespace Infrastructure.Services
         }
 
 
-        public async Task<ApiResponse<AdminUserDetailsDto>> GetUserDetailsByIdAsync(Guid userId)
+        public async Task<ApiResponse<AdminUserDetailsDto>> GetUserDetailsByIdAsync(Guid userId, CancellationToken cancellationToken = default)
         {
             var user = await _dbContext.Users
                 .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == userId);
+                .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
 
             if (user == null)
                 return ApiResponse<AdminUserDetailsDto>.Error(404, "User not found");
@@ -81,7 +81,7 @@ namespace Infrastructure.Services
             return ApiResponse<AdminUserDetailsDto>.Success(result);
         }
 
-        public async Task<ApiResponse<AdminUserDetailsDto>> GetUserDetailsByEmailAsync(string email)
+        public async Task<ApiResponse<AdminUserDetailsDto>> GetUserDetailsByEmailAsync(string email, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(email))
                 return ApiResponse<AdminUserDetailsDto>.Error(400, "Email is required");
@@ -90,7 +90,7 @@ namespace Infrastructure.Services
 
             var user = await _dbContext.Users
                 .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Email.ToLower() == normalized);
+                .FirstOrDefaultAsync(u => u.Email.ToLower() == normalized, cancellationToken);
 
             if (user == null)
                 return ApiResponse<AdminUserDetailsDto>.Error(404, "User not found");
@@ -112,7 +112,7 @@ namespace Infrastructure.Services
             return ApiResponse<AdminUserDetailsDto>.Success(result);
         }
 
-        public async Task<ApiResponse<List<AdminUserListItemDto>>> GetUsersAsync(AdminUserFilterRequestDto request)
+        public async Task<ApiResponse<List<AdminUserListItemDto>>> GetUsersAsync(AdminUserFilterRequestDto request, CancellationToken cancellationToken = default)
         {
             var query = _dbContext.Users
                 .AsNoTracking().
@@ -169,15 +169,15 @@ namespace Infrastructure.Services
                     IsEmailConfirmed = u.IsEmailConfirmed,
                     CreatedAt = u.CreatedAt
                 })
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
             // return empty list as success when no items match the filter
             return ApiResponse<List<AdminUserListItemDto>>.Success(users);
         }
 
         //Update
-        public async Task<ApiResponse<AdminUserDetailsDto>> UpdateUserAsync(Guid userId, AdminUpdateUserRequestDto dto)
+        public async Task<ApiResponse<AdminUserDetailsDto>> UpdateUserAsync(Guid userId, AdminUpdateUserRequestDto dto, CancellationToken cancellationToken = default)
         {
-            var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId);
+            var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
             if (user == null)
                 return ApiResponse<AdminUserDetailsDto>.Error(404, "User not found");
 
@@ -185,7 +185,7 @@ namespace Infrastructure.Services
             if (!string.IsNullOrWhiteSpace(dto.Email))
             {
                 var normalized = dto.Email.Trim().ToLowerInvariant();
-                var emailInUse = await _dbContext.Users.AnyAsync(u => u.Email.ToLower() == normalized && u.Id != userId);
+                var emailInUse = await _dbContext.Users.AnyAsync(u => u.Email.ToLower() == normalized && u.Id != userId, cancellationToken);
                 if (emailInUse)
                     return ApiResponse<AdminUserDetailsDto>.Error(400, "User with this email already exists");
 
@@ -201,7 +201,7 @@ namespace Infrastructure.Services
             user.IsTwoFactorEnabled = dto.IsTwoFactorEnabled;
             user.Address = string.IsNullOrWhiteSpace(dto.Address) ? null : dto.Address.Trim();
 
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync(cancellationToken);
 
             var result = new AdminUserDetailsDto
             {
@@ -219,14 +219,14 @@ namespace Infrastructure.Services
 
             return ApiResponse<AdminUserDetailsDto>.Success(result);
         }
-        public async Task<ApiResponse<AdminUserDetailsDto>> UpdateUserRoleAsync(Guid userId, UserRole newRole)
+        public async Task<ApiResponse<AdminUserDetailsDto>> UpdateUserRoleAsync(Guid userId, UserRole newRole, CancellationToken cancellationToken = default)
         {
-            var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId);
+            var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
             if (user == null)
                 return ApiResponse<AdminUserDetailsDto>.Error(404, "User not found");
 
             user.Role = newRole;
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync(cancellationToken);
 
             var result = new AdminUserDetailsDto
             {
@@ -245,14 +245,14 @@ namespace Infrastructure.Services
             return ApiResponse<AdminUserDetailsDto>.Success(result);
         }
 
-        public async Task<ApiResponse<AdminUserDetailsDto>> ActivateUserAsync(Guid userId)
+        public async Task<ApiResponse<AdminUserDetailsDto>> ActivateUserAsync(Guid userId, CancellationToken cancellationToken = default)
         {
-            var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId);
+            var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
             if (user == null)
                 return ApiResponse<AdminUserDetailsDto>.Error(404, "User not found");
 
             user.IsActive = true;
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync(cancellationToken);
 
             var result = new AdminUserDetailsDto
             {
@@ -271,14 +271,14 @@ namespace Infrastructure.Services
             return ApiResponse<AdminUserDetailsDto>.Success(result);
         }
 
-        public async Task<ApiResponse<AdminUserDetailsDto>> DeactivateUserAsync(Guid userId)
+        public async Task<ApiResponse<AdminUserDetailsDto>> DeactivateUserAsync(Guid userId, CancellationToken cancellationToken = default)
         {
-            var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId);
+            var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
             if (user == null)
                 return ApiResponse<AdminUserDetailsDto>.Error(404, "User not found");
 
             user.IsActive = false;
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync(cancellationToken);
 
             var result = new AdminUserDetailsDto
             {
@@ -298,9 +298,9 @@ namespace Infrastructure.Services
         }
 
         //Delete
-        public async Task<ApiResponse<AdminUserDetailsDto>> DeleteUserAsync(Guid userId)
+        public async Task<ApiResponse<AdminUserDetailsDto>> DeleteUserAsync(Guid userId, CancellationToken cancellationToken = default)
         {
-            var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId);
+            var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
             if (user == null)
                 return ApiResponse<AdminUserDetailsDto>.Error(404, "User not found");
 
@@ -319,7 +319,7 @@ namespace Infrastructure.Services
             };
 
             _dbContext.Users.Remove(user);
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync(cancellationToken);
             return ApiResponse<AdminUserDetailsDto>.Success(result);
         }
     }

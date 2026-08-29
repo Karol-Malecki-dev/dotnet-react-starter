@@ -52,6 +52,29 @@ public class AuthApiIntegrationTests
         Assert.Contains("HttpOnly", setCookieHeader, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Path=/api/auth", setCookieHeader, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("SameSite=Lax", setCookieHeader, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("; Secure", setCookieHeader, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Login_Returns_standard_api_response_for_validation_errors()
+    {
+        var response = await _client.PostAsJsonAsync("/api/auth/login", new
+        {
+            Email = string.Empty,
+            Password = string.Empty
+        });
+
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+
+        var apiResponse = await response.Content.ReadFromJsonAsync<ApiResponse<object>>();
+
+        Assert.NotNull(apiResponse);
+        Assert.Equal(400, apiResponse.StatusCode);
+        Assert.Equal("Validation failed", apiResponse.Message);
+        Assert.NotNull(apiResponse.Errors);
+        Assert.Contains(apiResponse.Errors, error => error.Field == "Email");
+        Assert.Contains(apiResponse.Errors, error => error.Field == "Password");
+        Assert.All(apiResponse.Errors, error => Assert.Equal("Validation", error.Code));
     }
 
     [Fact]
@@ -737,12 +760,25 @@ public class AuthApiIntegrationTests
     {
         await SeedUserAsync("logout@example.com", "password123", "Logout User", UserRole.User);
 
-        var tokens = await LoginAsync("logout@example.com", "password123");
+        var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new
+        {
+            Email = "logout@example.com",
+            Password = "password123"
+        });
+        loginResponse.EnsureSuccessStatusCode();
+
+        var loginApiResponse = await loginResponse.Content.ReadFromJsonAsync<ApiResponse<AuthTokenResponse>>();
+        Assert.NotNull(loginApiResponse?.Data);
+
+        var tokens = loginApiResponse.Data;
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
 
         var logoutResponse = await _client.PostAsync("/api/auth/logout", null);
 
         logoutResponse.EnsureSuccessStatusCode();
+        var clearedCookie = GetRefreshTokenCookie(logoutResponse);
+        Assert.Contains("drs.refreshToken=", clearedCookie);
+        Assert.Contains("expires=Thu, 01 Jan 1970 00:00:00 GMT", clearedCookie, StringComparison.OrdinalIgnoreCase);
         _client.DefaultRequestHeaders.Authorization = null;
 
         var refreshResponse = await _client.PostAsync("/api/auth/refresh-token", null);

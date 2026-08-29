@@ -25,11 +25,13 @@ try
     Log.Information("🚀 Application starting up...");
 
     builder.Host.UseSerilog();
-    builder.Services.AddProjectServices(builder.Configuration);
+    builder.Services.AddProjectServices(builder.Configuration, builder.Environment);
 
     var app = builder.Build();
 
     Log.Information("📊 Configuring application middleware...");
+
+    app.UseForwardedHeaders();
 
     // Apply migrations and seed data automatically
     using (var scope = app.Services.CreateScope())
@@ -41,7 +43,7 @@ try
             if (dbContext.Database.IsRelational())
             {
                 // Apply pending Entity Framework migrations only for relational providers.
-                await dbContext.Database.MigrateAsync();
+                await dbContext.Database.MigrateAsync(app.Lifetime.ApplicationStopping);
                 Log.Information("✓ Database initialized successfully!");
             }
             else

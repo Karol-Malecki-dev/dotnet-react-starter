@@ -77,4 +77,4 @@ V1 można uznać za ukończone, gdy:
 
 ## Następny krok
 
-Następnym etapem jest V2, zaczynające się od polityki sesji i refresh tokenów. Nie należy rozpoczynać od nowych technologii infrastrukturalnych.
+Następnym etapem jest V3, zaczynające się od granic domeny, transakcji i optimistic concurrency. Nie należy rozpoczynać od nowych technologii infrastrukturalnych bez konkretnego problemu.

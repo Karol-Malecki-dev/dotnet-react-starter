@@ -21,7 +21,7 @@ public sealed class MailKitNotificationEmailSender : INotificationEmailSender
         _logger = logger;
     }
 
-    public async Task SendAsync(string email, string displayName, string title, string message)
+    public async Task SendAsync(string email, string displayName, string title, string message, CancellationToken cancellationToken = default)
     {
         var mimeMessage = new MimeMessage();
         mimeMessage.From.Add(new MailboxAddress(_settings.FromName, _settings.FromAddress));
@@ -35,14 +35,14 @@ public sealed class MailKitNotificationEmailSender : INotificationEmailSender
 
         using var client = new SmtpClient();
         var socketOptions = _settings.UseStartTls ? SecureSocketOptions.StartTls : SecureSocketOptions.Auto;
-        await client.ConnectAsync(_settings.Host, _settings.Port, socketOptions);
+        await client.ConnectAsync(_settings.Host, _settings.Port, socketOptions, cancellationToken);
         if (!string.IsNullOrWhiteSpace(_settings.Username))
         {
-            await client.AuthenticateAsync(_settings.Username, _settings.Password ?? string.Empty);
+            await client.AuthenticateAsync(_settings.Username, _settings.Password ?? string.Empty, cancellationToken);
         }
 
-        await client.SendAsync(mimeMessage);
-        await client.DisconnectAsync(true);
+        await client.SendAsync(mimeMessage, cancellationToken);
+        await client.DisconnectAsync(true, cancellationToken);
         _logger.LogInformation("Sent notification email '{Title}' to {Email}", title, email);
     }
 
