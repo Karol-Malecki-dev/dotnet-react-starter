@@ -170,7 +170,7 @@ describe('Projects page', () => {
 
     await waitFor(() => expect(screen.getByText('Off-page task')).toBeInTheDocument());
     expect(projectApi.getTask).toHaveBeenCalledWith('project-1', 'task-2');
-    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' });
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' }));
     window.history.replaceState({}, '', '/');
   });
 
