@@ -5,7 +5,6 @@ namespace Application.Features.Projects;
 /// </summary>
 public interface IProjectMembershipApplicationService
 {
-    Task<ProjectOperationResult<List<ProjectMemberView>>> GetProjectMembersAsync(Guid ownerId, Guid projectId, CancellationToken cancellationToken = default);
     Task<ProjectOperationResult<List<ProjectMemberUserView>>> GetAvailableProjectMembersAsync(Guid ownerId, Guid projectId, CancellationToken cancellationToken = default);
     Task<ProjectOperationResult<ProjectMemberView>> AddProjectMemberAsync(Guid ownerId, Guid projectId, Guid userId, CancellationToken cancellationToken = default);
     Task<ProjectOperationResult<ProjectMemberView>> UpdateProjectMemberRoleAsync(Guid ownerId, Guid projectId, Guid userId, Domain.Enums.ProjectMemberRole role, CancellationToken cancellationToken = default);

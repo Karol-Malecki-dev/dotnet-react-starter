@@ -27,10 +27,6 @@ public sealed record ProjectOperationResult<T>(
         => new(status, default, message);
 }
 
-public sealed record CreateProjectCommand(Guid OwnerId, string Name, string? Description);
-
-public sealed record UpdateProjectCommand(Guid OwnerId, Guid ProjectId, string Name, string? Description, string? ExpectedConcurrencyStamp = null);
-
 public sealed record ProjectView(
     Guid Id,
     string Name,

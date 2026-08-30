@@ -562,6 +562,27 @@ public class ProjectTasksApiIntegrationTests
     }
 
     [Fact]
+    public async Task Active_member_can_see_project_members()
+    {
+        var ownerId = await SeedUserAsync("members.active-owner@example.com", "password123", "Active Members Owner");
+        var memberId = await SeedUserAsync("members.active-member@example.com", "password123", "Active Members Member");
+        var projectId = await SeedProjectAsync(ownerId, "Active members project");
+        await SeedProjectMemberAsync(projectId, memberId);
+
+        var tokens = await LoginAsync("members.active-member@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+
+        var response = await _client.GetAsync($"/api/projects/{projectId}/members");
+
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<ApiResponse<List<ProjectMemberResponse>>>();
+        Assert.NotNull(result?.Data);
+        Assert.Equal(2, result.Data.Count);
+        Assert.Contains(result.Data, member => member.UserId == ownerId);
+        Assert.Contains(result.Data, member => member.UserId == memberId);
+    }
+
+    [Fact]
     public async Task User_outside_project_cannot_see_project_members()
     {
         var ownerId = await SeedUserAsync("members.private-owner@example.com", "password123", "Private Members Owner");

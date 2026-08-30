@@ -9,6 +9,7 @@ using Domain.Interfaces;
 using Domain.ValueObjects;
 using Infrastructure.Data;
 using Infrastructure.Modules.ProjectTasks.UpdateProjectTask;
+using Infrastructure.Modules.Projects.UpdateProject;
 using Infrastructure.ProjectManagement.Tasks;
 using Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
@@ -112,8 +113,8 @@ public sealed class PostgreSqlIntegrationTests
         writerProject.Rename("Writer update");
         await writerContext.SaveChangesAsync();
 
-        var service = new DatabaseProjectManagementService(staleContext, new EfProjectMembershipStore(staleContext));
-        var result = await service.UpdateProjectAsync(new UpdateProjectCommand(
+        var handler = new UpdateProjectHandler(new EfUpdateProjectStore(staleContext));
+        var result = await handler.HandleAsync(new Application.Modules.Projects.UpdateProject.UpdateProjectCommand(
             ownerId,
             projectId,
             "Stale update",

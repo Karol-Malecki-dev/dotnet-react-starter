@@ -23,17 +23,6 @@ public sealed class DatabaseProjectMembershipApplicationService : IProjectMember
         _notificationService = notificationService;
     }
 
-    public async Task<ProjectOperationResult<List<ProjectMemberView>>> GetProjectMembersAsync(Guid ownerId, Guid projectId, CancellationToken cancellationToken = default)
-    {
-        if (!await _membershipStore.HasProjectAccessAsync(ownerId, projectId, cancellationToken))
-        {
-            return ProjectOperationResult<List<ProjectMemberView>>.Failure(ProjectOperationStatus.NotFound, "Project not found");
-        }
-
-        var members = await _membershipStore.GetMembersAsync(projectId, cancellationToken);
-        return ProjectOperationResult<List<ProjectMemberView>>.Success(members.ToList());
-    }
-
     public async Task<ProjectOperationResult<List<ProjectMemberUserView>>> GetAvailableProjectMembersAsync(Guid ownerId, Guid projectId, CancellationToken cancellationToken = default)
     {
         if (!await _membershipStore.OwnedProjectExistsAsync(ownerId, projectId, cancellationToken))

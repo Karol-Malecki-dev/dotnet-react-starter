@@ -1,8 +1,11 @@
 using API.Contracts.Projects;
 using FluentValidation;
 
-namespace API.Validators;
+namespace API.Modules.Projects.CreateProject;
 
+/// <summary>
+/// Validates the HTTP input for the create-project slice.
+/// </summary>
 public sealed class CreateProjectRequestValidator : AbstractValidator<CreateProjectRequest>
 {
     public CreateProjectRequestValidator()

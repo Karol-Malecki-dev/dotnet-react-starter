@@ -18,108 +18,6 @@ public sealed class DatabaseProjectManagementService : IProjectManagementService
         _membershipStore = membershipStore;
     }
 
-    public async Task<ProjectOperationResult<List<ProjectView>>> GetUserProjectsAsync(Guid ownerId, bool includeArchived = false, string scope = "all", CancellationToken cancellationToken = default)
-    {
-        var projects = await _dbContext.Projects
-            .AsNoTracking()
-            .Where(project => (scope == "owned" ? project.OwnerId == ownerId
-                : scope == "member" ? project.OwnerId != ownerId && project.Members.Any(member => member.UserId == ownerId && member.User.IsActive)
-                : project.OwnerId == ownerId || project.Members.Any(member => member.UserId == ownerId && member.User.IsActive))
-                && (includeArchived || !project.IsArchived))
-            .OrderByDescending(project => project.UpdatedAt)
-            .Select(project => new ProjectView(
-                project.Id,
-                project.Name,
-                project.Description,
-                project.OwnerId,
-                project.CreatedAt,
-                project.UpdatedAt,
-                project.ConcurrencyStamp,
-                project.IsArchived,
-                project.OwnerId == ownerId
-                    ? ProjectMemberRole.Owner
-                    : project.Members.Where(member => member.UserId == ownerId).Select(member => member.Role).FirstOrDefault()))
-            .ToListAsync(cancellationToken);
-
-        return ProjectOperationResult<List<ProjectView>>.Success(projects);
-    }
-
-    public async Task<ProjectOperationResult<ProjectView>> CreateProjectAsync(CreateProjectCommand command, CancellationToken cancellationToken = default)
-    {
-        var project = Project.Create(command.OwnerId, command.Name, command.Description);
-
-        _dbContext.Projects.Add(project);
-        AddActivity(project.Id, command.OwnerId, "project.created", $"created the project '{project.Name}'.");
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        return ProjectOperationResult<ProjectView>.Success(MapToView(project, command.OwnerId), "Project created", 201);
-    }
-
-    public async Task<ProjectOperationResult<ProjectView>> UpdateProjectAsync(UpdateProjectCommand command, CancellationToken cancellationToken = default)
-    {
-        var project = await _dbContext.Projects
-            .FirstOrDefaultAsync(project => project.Id == command.ProjectId && project.OwnerId == command.OwnerId, cancellationToken);
-
-        if (project is null)
-        {
-            return ProjectOperationResult<ProjectView>.Failure(ProjectOperationStatus.NotFound, "Project not found");
-        }
-
-        if (project.IsArchived)
-        {
-            return ProjectOperationResult<ProjectView>.Failure(ProjectOperationStatus.Conflict, "Archived project cannot be updated");
-        }
-
-        if (command.ExpectedConcurrencyStamp is not null
-            && !string.Equals(project.ConcurrencyStamp, command.ExpectedConcurrencyStamp, StringComparison.Ordinal))
-        {
-            return ProjectOperationResult<ProjectView>.Failure(ProjectOperationStatus.Conflict, "Project was modified concurrently; refresh and retry");
-        }
-
-        project.Rename(command.Name);
-        project.ChangeDescription(command.Description);
-        try
-        {
-            await _dbContext.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            _dbContext.ChangeTracker.Clear();
-            return ProjectOperationResult<ProjectView>.Failure(ProjectOperationStatus.Conflict, "Project was modified concurrently; refresh and retry");
-        }
-
-        return ProjectOperationResult<ProjectView>.Success(MapToView(project), "Project updated");
-    }
-
-    public async Task<ProjectOperationResult<bool>> ArchiveProjectAsync(Guid ownerId, Guid projectId, CancellationToken cancellationToken = default)
-    {
-        var project = await _dbContext.Projects
-            .FirstOrDefaultAsync(project => project.Id == projectId && project.OwnerId == ownerId, cancellationToken);
-
-        if (project is null)
-        {
-            return ProjectOperationResult<bool>.Failure(ProjectOperationStatus.NotFound, "Project not found");
-        }
-
-        if (project.IsArchived)
-        {
-            return ProjectOperationResult<bool>.Success(true, "Project already archived");
-        }
-
-        project.Archive();
-        try
-        {
-            await _dbContext.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            _dbContext.ChangeTracker.Clear();
-            return ProjectOperationResult<bool>.Failure(ProjectOperationStatus.Conflict, "Project was modified concurrently; refresh and retry");
-        }
-
-        return ProjectOperationResult<bool>.Success(true, "Project archived");
-    }
-
     public async Task<ProjectOperationResult<PagedProjectActivityView>> GetProjectActivitiesAsync(Guid userId, Guid projectId, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
         if (!await _membershipStore.HasProjectAccessAsync(userId, projectId, cancellationToken))
@@ -256,18 +154,5 @@ public sealed class DatabaseProjectManagementService : IProjectManagementService
         task.Id, task.ProjectId, task.Title, task.Description, task.Status, task.Priority,
         task.DueDate, task.AssignedUserId, task.CreatedByUserId, task.CreatedAt, task.UpdatedAt, task.ConcurrencyStamp,
         task.Labels.OrderBy(label => label.Name).Select(label => label.Name).ToList());
-
-    private static ProjectView MapToView(Project project, Guid? currentUserId = null) => new(
-        project.Id,
-        project.Name,
-        project.Description,
-        project.OwnerId,
-        project.CreatedAt,
-        project.UpdatedAt,
-        project.ConcurrencyStamp,
-        project.IsArchived,
-        project.OwnerId == currentUserId
-            ? ProjectMemberRole.Owner
-            : project.Members.FirstOrDefault(member => member.UserId == currentUserId)?.Role ?? ProjectMemberRole.Viewer);
 
 }

@@ -30,31 +30,6 @@ public sealed class EfProjectMembershipStore : IProjectMembershipStore
         => _dbContext.Projects.AnyAsync(project => project.Id == projectId
             && (project.OwnerId == userId || project.Members.Any(member => member.UserId == userId && member.User.IsActive)), cancellationToken);
 
-    public async Task<IReadOnlyList<ProjectMemberView>> GetMembersAsync(Guid projectId, CancellationToken cancellationToken = default)
-    {
-        var members = await _dbContext.ProjectMembers
-            .AsNoTracking()
-            .Where(member => member.ProjectId == projectId && member.User.IsActive)
-            .OrderBy(member => member.User.DisplayName)
-            .Select(member => new
-            {
-                member.UserId,
-                member.User.DisplayName,
-                Email = member.User.Email,
-                member.Role,
-                member.AddedAt })
-            .ToListAsync(cancellationToken);
-
-        return members
-            .Select(member => new ProjectMemberView(
-                member.UserId,
-                member.DisplayName.Value,
-                member.Email.Value,
-                member.Role,
-                member.AddedAt))
-            .ToList();
-    }
-
     public async Task<IReadOnlyList<ProjectMemberUserView>> GetAvailableUsersAsync(Guid projectId, CancellationToken cancellationToken = default)
     {
         var memberIds = _dbContext.ProjectMembers

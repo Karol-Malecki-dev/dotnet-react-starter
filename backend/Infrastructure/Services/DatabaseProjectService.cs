@@ -25,26 +25,11 @@ public sealed class DatabaseProjectService :
         _invitationService = new DatabaseProjectInvitationApplicationService(membershipStore, invitationStore, notificationService);
     }
 
-    public Task<ProjectOperationResult<List<ProjectView>>> GetUserProjectsAsync(Guid userId, bool includeArchived = false, string scope = "all", CancellationToken cancellationToken = default)
-        => _managementService.GetUserProjectsAsync(userId, includeArchived, scope, cancellationToken);
-
-    public Task<ProjectOperationResult<ProjectView>> CreateProjectAsync(CreateProjectCommand command, CancellationToken cancellationToken = default)
-        => _managementService.CreateProjectAsync(command, cancellationToken);
-
-    public Task<ProjectOperationResult<ProjectView>> UpdateProjectAsync(UpdateProjectCommand command, CancellationToken cancellationToken = default)
-        => _managementService.UpdateProjectAsync(command, cancellationToken);
-
-    public Task<ProjectOperationResult<bool>> ArchiveProjectAsync(Guid ownerId, Guid projectId, CancellationToken cancellationToken = default)
-        => _managementService.ArchiveProjectAsync(ownerId, projectId, cancellationToken);
-
     public Task<ProjectOperationResult<PagedProjectActivityView>> GetProjectActivitiesAsync(Guid userId, Guid projectId, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
         => _managementService.GetProjectActivitiesAsync(userId, projectId, pageNumber, pageSize, cancellationToken);
 
     public Task<ProjectOperationResult<ProjectDashboardView>> GetProjectDashboardAsync(Guid userId, Guid projectId, CancellationToken cancellationToken = default)
         => _managementService.GetProjectDashboardAsync(userId, projectId, cancellationToken);
-
-    public Task<ProjectOperationResult<List<ProjectMemberView>>> GetProjectMembersAsync(Guid ownerId, Guid projectId, CancellationToken cancellationToken = default)
-        => _membershipService.GetProjectMembersAsync(ownerId, projectId, cancellationToken);
 
     public Task<ProjectOperationResult<List<ProjectMemberUserView>>> GetAvailableProjectMembersAsync(Guid ownerId, Guid projectId, CancellationToken cancellationToken = default)
         => _membershipService.GetAvailableProjectMembersAsync(ownerId, projectId, cancellationToken);
