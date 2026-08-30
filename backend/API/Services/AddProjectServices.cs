@@ -8,6 +8,7 @@ using FluentValidation;
 using FluentValidation.AspNetCore;
 using Domain.Interfaces;
 using Infrastructure.Data;
+using Infrastructure.Modules.ProjectTasks;
 using Infrastructure.ProjectManagement.Tasks;
 using Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -281,8 +282,6 @@ namespace API.Services
                     : serviceProvider.GetRequiredService<LoggingNotificationEmailSender>();
             });
             services.AddHostedService<NotificationEmailOutboxWorker>();
-            services.AddScoped<IProjectTaskDeadlineReminderService, ProjectTaskDeadlineReminderService>();
-            services.AddHostedService<ProjectTaskDeadlineReminderWorker>();
             services.AddScoped<IAdminService, DatabaseAdminService>();
             services.AddScoped<DatabaseProjectService>();
             services.AddScoped<DatabaseProjectManagementService>();
@@ -294,14 +293,7 @@ namespace API.Services
             services.AddScoped<IProjectInvitationApplicationService>(serviceProvider => serviceProvider.GetRequiredService<DatabaseProjectInvitationApplicationService>());
             services.AddScoped<IProjectMembershipStore, EfProjectMembershipStore>();
             services.AddScoped<IProjectInvitationStore, EfProjectInvitationStore>();
-            services.AddScoped<IProjectTaskAccess, EfProjectTaskAccess>();
-            services.AddScoped<IProjectTaskQueryStore, EfProjectTaskQueryStore>();
-            services.AddScoped<IProjectTaskCommandStore, EfProjectTaskCommandStore>();
-            services.AddScoped<IProjectTaskQueryService, DatabaseProjectTaskQueryService>();
-            services.AddScoped<IProjectTaskCommandService, DatabaseProjectTaskCommandService>();
-            services.AddScoped<IProjectTaskCommentApplicationService, DatabaseProjectTaskCommentService>();
-            services.AddSingleton<IProjectTaskAttachmentStorage, LocalProjectTaskAttachmentStorage>();
-            services.AddScoped<IProjectTaskAttachmentApplicationService, DatabaseProjectTaskAttachmentService>();
+            services.AddProjectTasksModule();
 
             services.AddScoped<LoggingAccountEmailSender>();
             services.AddScoped<MailKitAccountEmailSender>();

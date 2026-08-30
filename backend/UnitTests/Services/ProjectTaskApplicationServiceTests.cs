@@ -51,57 +51,6 @@ public sealed class ProjectTaskApplicationServiceTests
     }
 
     [Fact]
-    public async Task Create_returns_forbidden_for_viewer_without_persisting()
-    {
-        var command = CreateCommand();
-        _access.Setup(access => access.GetActiveProjectRoleAsync(command.OwnerId, command.ProjectId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(ProjectMemberRole.Viewer);
-        var service = CreateCommandService();
-
-        var result = await service.CreateProjectTaskAsync(command);
-
-        Assert.Equal(ProjectOperationStatus.Forbidden, result.Status);
-        _commandStore.Verify(store => store.AddTask(It.IsAny<ProjectTask>()), Times.Never);
-        _commandStore.Verify(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task Create_returns_validation_error_when_assignee_is_not_active_project_member()
-    {
-        var command = CreateCommand() with { AssignedUserId = Guid.NewGuid() };
-        _access.Setup(access => access.GetActiveProjectRoleAsync(command.OwnerId, command.ProjectId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(ProjectMemberRole.Owner);
-        _commandStore.Setup(store => store.IsActiveProjectMemberAsync(command.ProjectId, command.AssignedUserId!.Value, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
-        var service = CreateCommandService();
-
-        var result = await service.CreateProjectTaskAsync(command);
-
-        Assert.Equal(ProjectOperationStatus.ValidationError, result.Status);
-        Assert.Equal("Assigned user is not an active member of this project", result.Message);
-        _commandStore.Verify(store => store.AddTask(It.IsAny<ProjectTask>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task Create_persists_task_and_returns_created_result_for_owner()
-    {
-        var command = CreateCommand();
-        _access.Setup(access => access.GetActiveProjectRoleAsync(command.OwnerId, command.ProjectId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(ProjectMemberRole.Owner);
-        var service = CreateCommandService();
-
-        var result = await service.CreateProjectTaskAsync(command);
-
-        Assert.True(result.IsSuccess);
-        Assert.Equal(201, result.CreatedStatusCode);
-        Assert.Equal("Project task created", result.Message);
-        Assert.NotNull(result.Value);
-        Assert.Equal(command.Title, result.Value!.Title);
-        _commandStore.Verify(store => store.AddTask(It.Is<ProjectTask>(task => task.ProjectId == command.ProjectId)), Times.Once);
-        _commandStore.Verify(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Fact]
     public async Task Update_returns_conflict_for_a_stale_task_concurrency_stamp_without_mutating()
     {
         var ownerId = Guid.NewGuid();
@@ -151,7 +100,4 @@ public sealed class ProjectTaskApplicationServiceTests
         => new(userId, projectId, 1, 25, null, null, null, null, null, null,
             ProjectTaskSortBy.CreatedAt, SortDirection.Ascending);
 
-    private static CreateProjectTaskCommand CreateCommand()
-        => new(Guid.NewGuid(), Guid.NewGuid(), "Task title", "Description", ProjectTaskPriority.Normal,
-            null, null, []);
 }

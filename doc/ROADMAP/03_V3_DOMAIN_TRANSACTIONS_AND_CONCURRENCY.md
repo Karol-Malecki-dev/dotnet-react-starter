@@ -74,6 +74,13 @@ nie pełny podział persystencji na osobne `UserProfile` i `UserSecurityState`.
 - ograniczyć kontrolery do transportu HTTP, autoryzacji wejścia i mapowania wyniku;
 - przenosić reguły biznesowe z kontrolerów i dużych serwisów do odpowiedniego miejsca.
 
+Pierwszy inkrement modularizacji został zwalidowany na `ProjectTasks`: przypadek
+`CreateProjectTask` ma osobny command, kontrakt handlera, implementację, request,
+validator, kontroler i testy. Rejestracje tasków są skupione w
+`ProjectTasksModule.AddProjectTasksModule`, a pozostałe komendy i query pozostają
+świadomie w ścieżce przejściowej. Publiczne endpointy i `ApplicationDbContext` nie
+zostały zmienione.
+
 ### 4. Mapping i kontrakty
 
 - rozdzielić DTO HTTP, modele Application i encje domenowe tam, gdzie mają różne odpowiedzialności;
@@ -166,6 +173,8 @@ Concurrency i transakcje należy testować na PostgreSQL, ponieważ zachowanie I
 - test concurrency działa na PostgreSQL;
 - dashboard wykonuje agregacje po stronie bazy;
 - mapping i porty są spójne w dotkniętym module;
+- nowy przypadek użycia ma własny slice, rejestrację modułu i testy, jeśli jego
+  granica została już potwierdzona;
 - istnieją testy reguł domenowych i partial failure.
 
 ## Poza zakresem V3

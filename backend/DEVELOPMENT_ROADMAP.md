@@ -20,7 +20,7 @@ As of **2026-08-30**. Percentages follow the calculation documented in the canon
 |---|---:|---|
 | V1 | 100% | Complete baseline. |
 | V2 | 96% | Complete for the current scope; minor follow-ups remain. |
-| V3 | 40% | Project and ProjectTask aggregate boundaries are documented and tested; project, invitation and task concurrency plus invitation and member transaction workflows have PostgreSQL coverage; dashboard date predicates and index usage are covered; `User.Email` and `User.DisplayName` use tested domain value objects, while `User` mutations are encapsulated behind a factory and explicit domain methods without changing the existing schema or API contracts; implementation is not complete. |
+| V3 | 40% | Project and ProjectTask aggregate boundaries are documented and tested; project, invitation and task concurrency plus invitation and member transaction workflows have PostgreSQL coverage; dashboard date predicates and index usage are covered; `User.Email` and `User.DisplayName` use tested domain value objects, while `User` mutations are encapsulated behind a factory and explicit domain methods without changing the existing schema or API contracts; the first `CreateProjectTask` vertical slice now has a focused handler, endpoint, validator and module registration; implementation is not complete. |
 | V4 | 28% | Foundations present; implementation not complete. |
 | V5 | 41% | Local Docker/CI foundations; no real target hosting yet. |
 | V6 | 13% | Initial foundations; measurement work not started. |
@@ -40,6 +40,7 @@ As of **2026-08-30**. Percentages follow the calculation documented in the canon
 | V6 | Measurement, database performance, idempotency and worker reliability | [06_V6_PERFORMANCE_AND_RELIABILITY.md](../doc/ROADMAP/06_V6_PERFORMANCE_AND_RELIABILITY.md) |
 | V7 | Optional evolution driven by real constraints | [07_V7_OPTIONAL_EVOLUTION.md](../doc/ROADMAP/07_V7_OPTIONAL_EVOLUTION.md) |
 | Learning workflow | How to work through each stage | [08_LEARNING_WORKFLOW.md](../doc/ROADMAP/08_LEARNING_WORKFLOW.md) |
+| Modular VSA checklist | Definition of Done for modules and slices | [MODULAR_VSA_MODULE_CHECKLIST.md](../doc/MODULAR_VSA_MODULE_CHECKLIST.md) |
 
 The overall map is [00_ROADMAP_OVERVIEW.md](../doc/ROADMAP/00_ROADMAP_OVERVIEW.md).
 

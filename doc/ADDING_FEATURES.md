@@ -49,7 +49,9 @@ Jeśli dodajesz nowy feature po stronie backendu:
 2. Dodaj DTO, interfejsy i walidację w `backend/Application/`.
 3. Dodaj implementację persistence lub integracji w `backend/Infrastructure/`.
 4. Dodaj lub rozszerz endpoint w `backend/API/Controllers/`.
-5. Zarejestruj nowe usługi w `backend/API/Services/AddProjectServices.cs`, jeśli to potrzebne.
+5. Jeśli feature należy do istniejącego modułu rozwijanego w stylu modularnego VSA,
+   zastosuj standard opisany poniżej i zarejestruj usługi przez rozszerzenie modułu.
+   Dla nieprzeniesionych obszarów przejściowych użyj obecnego composition root.
 6. Dodaj testy jednostkowe i integracyjne.
 
 ## Adding a New Runtime Feature Flag
@@ -97,11 +99,16 @@ bezpośredniego używania `ApplicationDbContext` w serwisie aplikacyjnym.
 
 Rekomendowany podział:
 
-1. Kontrakty przypadków użycia umieść w `Application/Features/<Feature>/`.
+1. Dla nowych slice'ów w `ProjectTasks` umieść kontrakty w
+   `Application/Modules/ProjectTasks/<UseCase>/`. Istniejące, jeszcze
+   nieprzeniesione przypadki mogą pozostać w `Application/Features/<Feature>/`.
 2. Reguły domenowe trzymaj w encji lub agregacie w `Domain/`.
 3. Zdefiniuj małe porty persistence opisujące konkretne potrzeby funkcji.
-4. Implementacje portów EF umieść w `Infrastructure/<Feature>/`.
-5. Zarejestruj porty i implementacje w composition root.
+4. Dla nowych slice'ów implementacje portów EF umieść w
+   `Infrastructure/Modules/ProjectTasks/<UseCase>/`; istniejące adaptery mogą
+   pozostać w dotychczasowej lokalizacji przejściowej.
+5. Zarejestruj porty i implementacje przez rozszerzenie modułu; composition root
+   powinien znać tylko punkt wejścia modułu.
 6. Testuj serwis aplikacyjny przez mocki portów, a zapis i zapytania EF przez testy integracyjne.
 
 Dla `ProjectManagement.Tasks` aktualne porty to:
@@ -115,6 +122,42 @@ Nie twórz generycznego `IRepository<T>` tylko po to, aby ukryć EF Core. Port p
 wynikać z przypadku użycia i przyjmować typy oraz operacje potrzebne konkretnej
 funkcji. Nie dodawaj MediatR, event busa ani brokera wiadomości bez wymagania
 wynikającego z rzeczywistego przypadku biznesowego.
+
+## Vertical Slice Standard
+
+Nowe przypadki użycia w module `ProjectTasks` zaczynaj od katalogu slice'a, a nie od
+dopisania kolejnej metody do dużego serwisu:
+
+```text
+Application/Modules/ProjectTasks/<UseCase>/
+API/Modules/ProjectTasks/<UseCase>/
+Infrastructure/Modules/ProjectTasks/<UseCase>/
+UnitTests/Features/ProjectManagement/Tasks/<UseCase>/
+```
+
+Każdy slice powinien mieć, zależnie od potrzeb:
+
+1. command lub query oraz mały port handlera w `Application`;
+2. handler koordynujący reguły przypadku użycia;
+3. request/response i validator przy adapterze HTTP;
+4. endpoint zachowujący istniejący kontrakt i statusy HTTP;
+5. implementację portów persistence w `Infrastructure`;
+6. testy handlera oraz test integracyjny dla trasy;
+7. rejestrację w module, a nie bezpośredni wpis w composition root;
+8. krótką dokumentację decyzji, zależności i zachowania przy błędzie.
+
+W okresie migracji istniejące `IProjectTaskCommandService` może obsługiwać jeszcze
+nieprzeniesione komendy. Nie dodawaj do niego nowych przypadków użycia, jeśli mogą
+powstać jako osobny slice. Po przeniesieniu wszystkich komend interfejs przejściowy
+powinien zostać usunięty lub rozbity na pozostałe, rzeczywiste use case'y.
+
+Nie traktuj folderu jako granicy sam w sobie. Moduł jest granicą dopiero wtedy, gdy:
+
+- API zależy od kontraktu handlera, a nie od `DbContext`;
+- infrastruktura implementuje porty z `Application`;
+- rejestracja zależności jest skupiona w module;
+- testy potwierdzają zachowanie slice'a;
+- zależności do innych modułów są jawne i ograniczone.
 
 ## Naming Conventions
 
