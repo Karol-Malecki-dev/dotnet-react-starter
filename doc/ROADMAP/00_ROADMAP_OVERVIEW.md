@@ -63,7 +63,7 @@ Procent opisuje realizację głównych obszarów danego etapu, a nie liczbę lin
 |---|---:|---|---|
 | V1 | 100% | Ukończony | Fundament aplikacji, testy i lokalny workflow są dostępne. |
 | V2 | 96% | Ukończony dla bieżącego zakresu | Hardening auth, API, async i konfiguracji jest zwalidowany; pozostały drobne follow-upy porządkowe. |
-| V3 | 40% | W toku | `Project` i `ProjectMember` mają wyraźniejszą granicę agregatu, `ProjectTask` został rozstrzygnięty jako osobny agregat, akceptacja zaproszeń ma transakcję i concurrency z testami PostgreSQL, dashboard używa agregacji SQL, zakresów dat i potwierdzonego indeksu PostgreSQL, a `User` korzysta z przetestowanych value objectów oraz enkapsulowanych metod domenowych przy zachowaniu istniejącej tabeli i kontraktów; pozostały kolejne agregaty oraz benchmarki obciążeniowe. |
+| V3 | 40% | W toku | `Project` i `ProjectMember` mają wyraźniejszą granicę agregatu, `ProjectTask` został rozstrzygnięty jako osobny agregat, akceptacja zaproszeń ma transakcję i concurrency z testami PostgreSQL, dashboard używa agregacji SQL, zakresów dat i potwierdzonego indeksu PostgreSQL, `User` korzysta z przetestowanych value objectów oraz enkapsulowanych metod domenowych, a pierwszy `CreateProjectTask` slice ma własny handler, endpoint, walidację i rejestrację modułu przy zachowaniu istniejącej tabeli i kontraktów; pozostały kolejne slice'y, agregaty oraz benchmarki obciążeniowe. |
 | V4 | 28% | Fundamenty | Istnieją workflowy, załączniki, activity i quick search; brak pełnego audytu, search workspace i browser E2E. |
 | V5 | 41% | W toku | Działają Docker, CI, obrazy i lokalny Compose; brak realnego staging/production, backupu i rollbacku. |
 | V6 | 13% | Planowany | Istnieją podstawy EF, PostgreSQL i workerów; brak baseline'ów, load testów i pomiarów. |
@@ -102,6 +102,10 @@ Następny etap. Odpowiada za dojrzalsze granice domeny, agregaty, transakcje, op
 Dokument: [03_V3_DOMAIN_TRANSACTIONS_AND_CONCURRENCY.md](03_V3_DOMAIN_TRANSACTIONS_AND_CONCURRENCY.md)
 
 Decyzja dotycząca granicy `ProjectTask`: [10_ADR_PROJECT_TASK_AGGREGATE_BOUNDARY.md](10_ADR_PROJECT_TASK_AGGREGATE_BOUNDARY.md)
+
+Decyzja dotycząca inkrementalnej modularizacji VSA: [11_ADR_INCREMENTAL_MODULAR_VSA.md](11_ADR_INCREMENTAL_MODULAR_VSA.md)
+
+Standard modułów i slice'ów: [../MODULAR_VSA_MODULE_CHECKLIST.md](../MODULAR_VSA_MODULE_CHECKLIST.md)
 
 ### V4: Kompletność produktu
 

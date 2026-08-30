@@ -189,12 +189,26 @@ zmiana statusu i usunięcie wymagają wersji odczytanej przez klienta; po udanym
 token jest rotowany, a nieaktualna wersja jest mapowana na `409 Conflict` bez
 nadpisania nowszego zapisu.
 
-### ProjectManagement.Tasks As A Modular-Monolith Feature
+### ProjectTasks As An Incremental Modular-VSA Module
 
-`ProjectManagement.Tasks` jest pierwszą feature boundary rozwijaną w kierunku
-modularnego monolitu. Moduł pozostaje częścią jednego procesu i jednej bazy danych,
-ale jego przypadki użycia komunikują się z persistence przez wąskie porty zdefiniowane
-w `Application`.
+`ProjectTasks` jest pierwszym modułem biznesowym rozwijanym w kierunku hybrydowego
+modularnego monolitu z vertical slices. Moduł pozostaje częścią jednego procesu,
+jednego `ApplicationDbContext` i jednej bazy PostgreSQL. Jego przypadki użycia są
+jednak wydzielane według odpowiedzialności, a nie dokładane do jednego dużego serwisu.
+
+Pierwszy slice `CreateProjectTask` ma własne miejsca na kontrakt HTTP, walidację,
+komendę, handler i endpoint:
+
+```text
+Application/Modules/ProjectTasks/CreateProjectTask/
+API/Modules/ProjectTasks/CreateProjectTask/
+Infrastructure/Modules/ProjectTasks/CreateProjectTask/
+```
+
+Pozostałe operacje tasków pozostają tymczasowo w istniejących serwisach i portach.
+Jest to świadomy etap przejściowy: publiczne trasy, kontrakty JSON, migracje oraz
+relacyjny model danych pozostają bez zmian, a kolejne slice'y mogą być przenoszone
+pojedynczo i weryfikowane niezależnie.
 
 Przepływ dla odczytu listy zadań wygląda następująco:
 
@@ -210,7 +224,23 @@ EfProjectTaskAccess + EfProjectTaskQueryStore
 ApplicationDbContext / PostgreSQL
 ```
 
-Komendy używają analogicznego podziału:
+Przeniesiony slice tworzenia zadania używa bardziej precyzyjnej granicy:
+
+```text
+CreateProjectTaskController
+	|
+ICreateProjectTaskHandler
+	|
+CreateProjectTaskHandler
+	|
+IProjectTaskAccess + IProjectTaskCommandStore
+	|
+EfProjectTaskAccess + EfProjectTaskCommandStore
+	|
+ApplicationDbContext / PostgreSQL
+```
+
+Pozostałe komendy używają jeszcze przejściowego podziału:
 
 ```text
 ProjectTasksController
@@ -234,6 +264,12 @@ nie znają `ApplicationDbContext`.
 Rozdzielenie query i command nie oznacza wprowadzenia MediatR, RabbitMQ ani event
 busa. Jest to lokalny podział odpowiedzialności w ramach modularnego monolitu,
 który zachowuje istniejące endpointy, migracje i model relacyjny.
+
+Rejestracja zależności tasków jest skupiona w `ProjectTasksModule.AddProjectTasksModule`.
+Composition root wywołuje jeden extension modułu, zamiast znać każdą implementację
+tasków osobno. Nie oznacza to jeszcze osobnego projektu .NET ani osobnej bazy; te
+decyzje pozostają odłożone do czasu, gdy granice zostaną potwierdzone większą liczbą
+slice'ów i realnymi potrzebami utrzymania.
 
 Przypisanie zadania jest dodatkowo walidowane względem aktywnego członkostwa
 w projekcie. Zarządzanie członkami jest dostępne wyłącznie właścicielowi projektu,

@@ -15,14 +15,6 @@ public sealed record ProjectTaskQueryRequest(
     ProjectTaskSortBy SortBy = ProjectTaskSortBy.DueDate,
     SortDirection SortDirection = SortDirection.Ascending);
 
-public sealed record CreateProjectTaskRequest(
-    string Title,
-    string? Description,
-    ProjectTaskPriority Priority = ProjectTaskPriority.Normal,
-    DateTime? DueDate = null,
-    Guid? AssignedUserId = null,
-    IReadOnlyList<string>? Labels = null);
-
 public sealed record UpdateProjectTaskRequest(
     string Title,
     string? Description,

@@ -50,16 +50,6 @@ public enum SortDirection
     Descending
 }
 
-public sealed record CreateProjectTaskCommand(
-    Guid OwnerId,
-    Guid ProjectId,
-    string Title,
-    string? Description,
-    ProjectTaskPriority Priority,
-    DateTime? DueDate,
-    Guid? AssignedUserId,
-    IReadOnlyList<string> Labels);
-
 public sealed record UpdateProjectTaskCommand(
     Guid OwnerId,
     Guid ProjectId,

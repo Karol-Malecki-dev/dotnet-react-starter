@@ -29,38 +29,6 @@ public sealed class DatabaseProjectTaskCommandService : IProjectTaskCommandServi
         _notificationService = notificationService;
     }
 
-    public async Task<ProjectOperationResult<ProjectTaskView>> CreateProjectTaskAsync(CreateProjectTaskCommand command, CancellationToken cancellationToken = default)
-    {
-        var role = await _projectTaskAccess.GetActiveProjectRoleAsync(command.OwnerId, command.ProjectId, cancellationToken);
-        if (role is null)
-        {
-            return ProjectOperationResult<ProjectTaskView>.Failure(ProjectOperationStatus.NotFound, "Project not found");
-        }
-
-        var assignedUserError = await ValidateAssignedUserAsync(command.ProjectId, command.AssignedUserId, cancellationToken);
-        if (assignedUserError is not null)
-        {
-            return ProjectOperationResult<ProjectTaskView>.Failure(ProjectOperationStatus.ValidationError, assignedUserError);
-        }
-        if (role == ProjectMemberRole.Viewer)
-        {
-            return ProjectOperationResult<ProjectTaskView>.Failure(ProjectOperationStatus.Forbidden, "Viewer members cannot create tasks");
-        }
-
-        var task = ProjectTask.Create(command.ProjectId, command.Title, command.Description, command.Priority,
-            command.DueDate, command.AssignedUserId, command.OwnerId, command.Labels);
-        _commandStore.AddTask(task);
-        AddActivity(task.ProjectId, command.OwnerId, "task.created", $"created the task '{task.Title}'.", task.Id);
-        if (task.AssignedUserId.HasValue && task.AssignedUserId != command.OwnerId)
-        {
-            AddActivity(task.ProjectId, command.OwnerId, "task.assigned", $"assigned the task '{task.Title}'.", task.Id);
-        }
-        await _commandStore.SaveChangesAsync(cancellationToken);
-
-        await NotifyAssigneeAsync(task, null, command.OwnerId, cancellationToken);
-        return ProjectOperationResult<ProjectTaskView>.Success(MapToView(task), "Project task created", 201);
-    }
-
     public async Task<ProjectOperationResult<ProjectTaskView>> UpdateProjectTaskAsync(UpdateProjectTaskCommand command, CancellationToken cancellationToken = default)
     {
         var taskResult = await GetEditableTaskAsync(command.OwnerId, command.ProjectId, command.TaskId, "You cannot edit this task", cancellationToken);
