@@ -28,9 +28,6 @@ public sealed class DatabaseProjectService :
     public Task<ProjectOperationResult<List<ProjectView>>> GetUserProjectsAsync(Guid userId, bool includeArchived = false, string scope = "all", CancellationToken cancellationToken = default)
         => _managementService.GetUserProjectsAsync(userId, includeArchived, scope, cancellationToken);
 
-    public Task<ProjectOperationResult<ProjectView>> GetProjectAsync(Guid userId, Guid projectId, bool includeArchived = false, CancellationToken cancellationToken = default)
-        => _managementService.GetProjectAsync(userId, projectId, includeArchived, cancellationToken);
-
     public Task<ProjectOperationResult<ProjectView>> CreateProjectAsync(CreateProjectCommand command, CancellationToken cancellationToken = default)
         => _managementService.CreateProjectAsync(command, cancellationToken);
 

@@ -194,44 +194,47 @@ nadpisania nowszego zapisu.
 `ProjectTasks` jest pierwszym modułem biznesowym rozwijanym w kierunku hybrydowego
 modularnego monolitu z vertical slices. Moduł pozostaje częścią jednego procesu,
 jednego `ApplicationDbContext` i jednej bazy PostgreSQL. Jego przypadki użycia są
-jednak wydzielane według odpowiedzialności, a nie dokładane do jednego dużego serwisu.
+wydzielane według odpowiedzialności, a nie dokładane do jednego dużego serwisu.
 
-Pierwszy slice `CreateProjectTask` ma własne miejsca na kontrakt HTTP, walidację,
-komendę, handler i endpoint:
+CRUD zadań oraz capability komentarzy, załączników i przypomnień mają własne
+kontrakty, handlery, adaptery HTTP i rejestracje modułowe:
 
 ```text
-Application/Modules/ProjectTasks/CreateProjectTask/
-API/Modules/ProjectTasks/CreateProjectTask/
-Infrastructure/Modules/ProjectTasks/CreateProjectTask/
+Application/Modules/ProjectTasks/<UseCase>/
+API/Modules/ProjectTasks/<UseCase>/
+Infrastructure/Modules/ProjectTasks/<UseCase>/
+UnitTests/Modules/ProjectTasks/<UseCase>/
 ```
 
-Pozostałe operacje tasków pozostają tymczasowo w istniejących serwisach i portach.
-Jest to świadomy etap przejściowy: publiczne trasy, kontrakty JSON, migracje oraz
-relacyjny model danych pozostają bez zmian, a kolejne slice'y mogą być przenoszone
-pojedynczo i weryfikowane niezależnie.
+Przejściowo współdzielone pozostają `IProjectTaskAccess`, `IProjectTaskCommandStore`
+oraz `ProjectTaskView`, ponieważ są używane przez kilka slice'ów i istniejące
+zapytanie dashboardu. Ich przeniesienie do modułowych kontraktów nastąpi dopiero
+po przygotowaniu konsumentów, w szczególności dashboardu.
 
 Przepływ dla odczytu listy zadań wygląda następująco:
 
 ```text
-ProjectTasksController
+ListProjectTasksController
 	|
-IProjectTaskQueryService
+IListProjectTasksHandler
 	|
-IProjectTaskAccess + IProjectTaskQueryStore
+ListProjectTasksHandler
+	|
+IProjectTaskAccess + IListProjectTasksQueryStore
 	|
 EfProjectTaskAccess + EfProjectTaskQueryStore
 	|
 ApplicationDbContext / PostgreSQL
 ```
 
-Przeniesiony slice tworzenia zadania używa bardziej precyzyjnej granicy:
+Przepływ command slice'a aktualizacji zadania używa tej samej granicy:
 
 ```text
-CreateProjectTaskController
+UpdateProjectTaskController
 	|
-ICreateProjectTaskHandler
+IUpdateProjectTaskHandler
 	|
-CreateProjectTaskHandler
+UpdateProjectTaskHandler
 	|
 IProjectTaskAccess + IProjectTaskCommandStore
 	|
@@ -240,21 +243,22 @@ EfProjectTaskAccess + EfProjectTaskCommandStore
 ApplicationDbContext / PostgreSQL
 ```
 
-Pozostałe komendy używają jeszcze przejściowego podziału:
+Komentarze, załączniki i przypomnienia są capability tego samego modułu, ale ich
+handlery i porty pozostają osobnymi slice'ami:
 
 ```text
-ProjectTasksController
+CreateProjectTaskAttachmentController
 	|
-IProjectTaskCommandService
+ICreateProjectTaskAttachmentHandler
 	|
-IProjectTaskAccess + IProjectTaskCommandStore
+CreateProjectTaskAttachmentHandler
 	|
-EfProjectTaskAccess + EfProjectTaskCommandStore
+ICreateProjectTaskAttachmentStore
 	|
 ApplicationDbContext / PostgreSQL
 ```
 
-`IProjectTaskAccess`, `IProjectTaskQueryStore`, `IProjectTaskCommandStore` oraz
+`IProjectTaskAccess`, `IListProjectTasksQueryStore`, `IProjectTaskCommandStore` oraz
 `IProjectMembershipStore` są portami przypadków użycia, a nie generycznym repository.
 Dzięki temu kontrakty
 opisują rzeczywiste potrzeby funkcji: kontrolę dostępu, listowanie z filtrami oraz
@@ -270,6 +274,45 @@ Composition root wywołuje jeden extension modułu, zamiast znać każdą implem
 tasków osobno. Nie oznacza to jeszcze osobnego projektu .NET ani osobnej bazy; te
 decyzje pozostają odłożone do czasu, gdy granice zostaną potwierdzone większą liczbą
 slice'ów i realnymi potrzebami utrzymania.
+
+### Projects: First Incremental Module Slice
+
+Migracja obszaru `Projects` rozpoczęła się od pojedynczego odczytu
+`GetProjectDetails`. Pozostałe przypadki użycia nadal korzystają z przejściowego
+`IProjectManagementService`, dlatego nie należy jeszcze traktować całego folderu
+`Projects` jako w pełni odizolowanego modułu.
+
+Slice ma własne kontrakty, handler, port persistence, adapter HTTP, rejestrację
+modułu i testy:
+
+```text
+Application/Modules/Projects/GetProjectDetails/
+Infrastructure/Modules/Projects/GetProjectDetails/
+API/Modules/Projects/GetProjectDetails/
+UnitTests/Modules/Projects/GetProjectDetails/
+```
+
+Przepływ zachowuje istniejący endpoint `GET /api/projects/{projectId}` oraz
+maskowanie braku dostępu jako `404`:
+
+```text
+GetProjectDetailsController
+    |
+IGetProjectDetailsHandler
+    |
+GetProjectDetailsHandler
+    |
+IGetProjectDetailsStore
+    |
+EfGetProjectDetailsStore
+    |
+ApplicationDbContext / PostgreSQL
+```
+
+`ProjectsModule.AddProjectsModule` jest punktem rejestracji nowego slice'a.
+Zapytanie wykonuje kontrolę widoczności w persistence query, zwraca ten sam
+`ProjectView` i zachowuje `includeArchived`, role oraz dotychczasowy kontrakt
+JSON. Nie wprowadzono migracji bazy ani zmiany frontendowej.
 
 Przypisanie zadania jest dodatkowo walidowane względem aktywnego członkostwa
 w projekcie. Zarządzanie członkami jest dostępne wyłącznie właścicielowi projektu,

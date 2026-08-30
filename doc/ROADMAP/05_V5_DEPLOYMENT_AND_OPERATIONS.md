@@ -104,6 +104,19 @@ Pipeline powinien wykonywać przynajmniej:
 - procedura rotacji sekretów;
 - procedura odtworzenia bazy.
 
+### 8. Operacyjne zachowanie modułów
+
+Modularny monolit nadal jest wdrażany jako jedna aplikacja. Dla modułów zawierających
+opcjonalne endpointy albo workery należy:
+
+- walidować konfigurację włączonych capability podczas startu;
+- mapować endpointy i uruchamiać workery przez jawny entry point modułu;
+- raportować stan krytycznych workerów w health checks;
+- rozróżnić wyłączenie UI lub endpointu od usunięcia danych i schematu modułu;
+- utrzymać jedną kontrolowaną historię migracji wspólnej bazy;
+- nie wykonywać warunkowych migracji zależnych od runtime feature flag;
+- dokumentować zależności uniemożliwiające bezpieczne wyłączenie modułu.
+
 ## Test plan
 
 - deploy na czyste środowisko;
@@ -114,7 +127,9 @@ Pipeline powinien wykonywać przynajmniej:
 - rollback obrazu;
 - odtworzenie backupu do oddzielnej bazy;
 - smoke test przez publiczny adres HTTPS;
-- weryfikacja cookie za proxy.
+- weryfikacja cookie za proxy;
+- start aplikacji dla wspieranych konfiguracji modułów i walidacja błędnej konfiguracji;
+- wyłączony opcjonalny worker nie wpływa na readiness pozostałej aplikacji.
 
 ## Definition of Done
 
@@ -124,6 +139,8 @@ Pipeline powinien wykonywać przynajmniej:
 - migracje są kontrolowane;
 - backup został odtworzony przynajmniej raz;
 - aplikacja ma logi, health checks i podstawowe alerty;
+- konfiguracja modułów jest walidowana podczas startu, a opcjonalne workery mają jawny wpływ na health checks;
+- runtime flags nie zmieniają historii migracji ani nie usuwają schematu danych;
 - istnieje rollback oraz runbook;
 - po deployu wykonywany jest smoke test.
 

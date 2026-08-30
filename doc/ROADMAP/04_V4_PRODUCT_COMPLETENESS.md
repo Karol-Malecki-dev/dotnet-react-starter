@@ -107,6 +107,23 @@ Dodać browser-level E2E dla najważniejszych workflowów:
 - brak dostępu do zasobu innego użytkownika;
 - konflikt concurrency.
 
+## Zasada architektoniczna dla nowych funkcji
+
+V4 wykorzystuje standard sprawdzony w pilocie V3, ale nie jest etapem masowej migracji
+starego kodu. Nowy większy przypadek użycia powinien być implementowany jako vertical
+slice, gdy należy do modułu o potwierdzonej granicy.
+
+Dobrymi kandydatami są między innymi `SearchWorkspace`,
+`RecordAccountSecurityEvent` oraz nowe operacje produkcyjnej obsługi załączników.
+Każdy taki slice powinien obejmować potrzebne kontrakty, walidację, autoryzację,
+obsługę błędów i testy. Elementy niedotyczące danego przypadku użycia, na przykład
+migracja albo worker, nie są dodawane sztucznie wyłącznie dla zachowania identycznej
+struktury katalogów.
+
+Frontend może być porządkowany feature-first przy okazji wdrażania tych przepływów.
+Nie należy wymuszać identycznej struktury backendu i frontendu ani rozpoczynać
+mikrofrontendów.
+
 ## Test plan
 
 - API integration tests dla nowych endpointów i uprawnień;
@@ -124,12 +141,15 @@ Dodać browser-level E2E dla najważniejszych workflowów:
 - załączniki mają określoną politykę storage, limitów, retencji i walidacji;
 - główne przepływy przechodzą przez browser E2E;
 - frontend pozostaje cienką warstwą prezentacji i nie zawiera reguł bezpieczeństwa;
+- nowe większe przypadki użycia w potwierdzonych modułach spełniają modułową checklistę slice'a;
+- frontendowe typy, klient API oraz stany loading/error/empty są aktualizowane razem z publicznym kontraktem slice'a;
 - dokumentacja opisuje ograniczenia prywatności i retencji danych.
 
 ## Poza zakresem V4
 
 - rozbudowany design system;
 - mikrofrontend;
+- masowa migracja istniejących funkcji wyłącznie dla zmiany struktury katalogów;
 - wyszukiwarka oparta o zewnętrzny silnik bez zmierzonej potrzeby;
 - dane medyczne lub inne wrażliwe dane domenowe tylko po to, aby projekt przypominał ClinicBook.
 

@@ -42,8 +42,13 @@ Application/Modules/ProjectTasks/CreateProjectTask
 Infrastructure/Modules/ProjectTasks/CreateProjectTask
 ```
 
-The remaining task commands and queries are transitional. They will be extracted
-one use case at a time after each slice has tests and a stable dependency boundary.
+The initial pilot has since been expanded one use case at a time. The current
+`ProjectTasks` backend includes slice-specific handlers for task CRUD, comments,
+attachments and deadline reminders, while the public routes, JSON contracts and
+database schema remain unchanged. Shared task access, command persistence and
+dashboard view contracts are still transitional by design because they are used by
+multiple slices. The same pattern has now been applied to the first `Projects`
+slice, `GetProjectDetails`, without moving the remaining project use cases.
 
 ## Options rejected for now
 
@@ -103,7 +108,8 @@ The first slice is considered aligned with this ADR when:
 
 ## Follow-up
 
-- Extract `GetProjectTaskDetails` or the next smallest read slice.
+- Continue the `Projects` migration with the next smallest read or command slice,
+  preserving the one-use-case-at-a-time boundary.
 - Move task-specific ports into the module namespace once no transitional consumer
   depends on the old location.
 - Add a module registration test if the composition root grows beyond one focused

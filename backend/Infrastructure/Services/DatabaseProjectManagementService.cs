@@ -44,20 +44,6 @@ public sealed class DatabaseProjectManagementService : IProjectManagementService
         return ProjectOperationResult<List<ProjectView>>.Success(projects);
     }
 
-    public async Task<ProjectOperationResult<ProjectView>> GetProjectAsync(Guid ownerId, Guid projectId, bool includeArchived = false, CancellationToken cancellationToken = default)
-    {
-        var project = await _dbContext.Projects
-            .AsNoTracking()
-            .Include(candidate => candidate.Members)
-            .FirstOrDefaultAsync(project => project.Id == projectId
-                && (project.OwnerId == ownerId || project.Members.Any(member => member.UserId == ownerId && member.User.IsActive))
-                && (includeArchived || !project.IsArchived), cancellationToken);
-
-        return project is null
-            ? ProjectOperationResult<ProjectView>.Failure(ProjectOperationStatus.NotFound, "Project not found")
-            : ProjectOperationResult<ProjectView>.Success(MapToView(project, ownerId));
-    }
-
     public async Task<ProjectOperationResult<ProjectView>> CreateProjectAsync(CreateProjectCommand command, CancellationToken cancellationToken = default)
     {
         var project = Project.Create(command.OwnerId, command.Name, command.Description);

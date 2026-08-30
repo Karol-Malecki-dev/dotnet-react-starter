@@ -1,18 +1,17 @@
 using API.Contracts.Projects;
+using API.Modules.Projects;
 using Application.Features.Projects;
 using Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Responses;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 
 namespace API.Controllers;
 
 [ApiController]
 [Route("api/projects")]
 [Authorize]
-public class ProjectsController : ControllerBase
+public class ProjectsController : ProjectControllerBase
 {
     private readonly IProjectManagementService _projectService;
     private readonly IProjectMembershipApplicationService _membershipService;
@@ -35,21 +34,6 @@ public class ProjectsController : ControllerBase
 
         var result = await _projectService.GetUserProjectsAsync(ownerId, includeArchived, scope, cancellationToken);
         return ToActionResult(result, projects => projects.Select(MapProject).ToList());
-    }
-
-    [HttpGet("{projectId:guid}")]
-    public async Task<IActionResult> GetProject(
-        Guid projectId,
-        [FromQuery] bool includeArchived = false,
-        CancellationToken cancellationToken = default)
-    {
-        if (!TryGetCurrentUserId(out var ownerId))
-        {
-            return Unauthorized(ApiResponse<ProjectResponse>.Error(401, "User not authenticated"));
-        }
-
-        var result = await _projectService.GetProjectAsync(ownerId, projectId, includeArchived, cancellationToken);
-        return ToActionResult(result, MapProject);
     }
 
     [HttpPost]
@@ -177,56 +161,4 @@ public class ProjectsController : ControllerBase
         return ToActionResult(result, MapMember);
     }
 
-    private IActionResult ToActionResult<TValue, TResponse>(
-        ProjectOperationResult<TValue> result,
-        Func<TValue, TResponse> map)
-    {
-        if (!result.IsSuccess)
-        {
-            return StatusCode(MapStatusCode(result.Status), ApiResponse<TResponse>.Error(
-                MapStatusCode(result.Status), result.Message));
-        }
-
-        return StatusCode(result.CreatedStatusCode,
-            ApiResponse<TResponse>.Success(map(result.Value!), result.Message, result.CreatedStatusCode));
-    }
-
-    private static ProjectResponse MapProject(ProjectView project) => new(
-        project.Id,
-        project.Name,
-        project.Description,
-        project.OwnerId,
-        project.CreatedAt,
-        project.UpdatedAt,
-        project.ConcurrencyStamp,
-        project.IsArchived,
-        project.CurrentUserRole);
-
-    private static ProjectMemberResponse MapMember(ProjectMemberView member) => new(
-        member.UserId,
-        member.DisplayName,
-        member.Email,
-        member.Role,
-        member.AddedAt);
-
-    private static ProjectMemberUserResponse MapMemberUser(ProjectMemberUserView user) => new(
-        user.Id,
-        user.DisplayName,
-        user.Email);
-
-    private static int MapStatusCode(ProjectOperationStatus status) => status switch
-    {
-        ProjectOperationStatus.NotFound => 404,
-        ProjectOperationStatus.ValidationError => 400,
-        ProjectOperationStatus.Conflict => 409,
-        ProjectOperationStatus.Forbidden => 403,
-        _ => 500
-    };
-
-    private bool TryGetCurrentUserId(out Guid userId)
-    {
-        var userIdValue = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
-            ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        return Guid.TryParse(userIdValue, out userId);
-    }
 }

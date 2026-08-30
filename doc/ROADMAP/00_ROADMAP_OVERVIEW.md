@@ -22,11 +22,12 @@ Wersje `V1`, `V2` itd. nie są terminami kalendarzowymi ani obowiązkowymi relea
 |---|---|
 | V1 | Aktualny szybki projekt juniorowy, który pokazuje szerokie fundamenty. |
 | V2 | Stabilizacja, bezpieczeństwo i spójność istniejących mechanizmów. |
-| V3 | Domena, granice modułów, transakcje i współbieżność. |
+| V3 | Domena, granice modułów, pilotaż Vertical Slice Architecture, transakcje i współbieżność. |
 | V4 | Kompletność produktu i pełniejsze przepływy użytkownika. |
 | V5 | Deployment, operacje i utrzymanie środowiska. |
 | V6 | Pomiar wydajności, niezawodność i zachowanie pod obciążeniem. |
 | V7 | Opcjonalna ewolucja zależna od rzeczywistych potrzeb produktu. |
+| V8 | Platformizacja sprawdzonych modułów i przygotowanie startera do wielokrotnego użycia. |
 
 Etap można uznać za ukończony dopiero wtedy, gdy istnieją kod, testy, dokumentacja i możliwość wyjaśnienia najważniejszych kompromisów.
 
@@ -55,21 +56,22 @@ Najważniejsze braki nie polegają obecnie na braku kolejnych endpointów. Dotyc
 
 ## Status realizacji roadmapy
 
-Stan na: **2026-08-30**.
+Stan na: **2026-08-31**.
 
-Procent opisuje realizację głównych obszarów danego etapu, a nie liczbę linii kodu. `100%` oznacza spełniony obszar wraz z testem, dokumentacją albo zaakceptowaną decyzją. `50%` oznacza istniejący fundament bez pełnego Definition of Done, a `0%` oznacza brak rozpoczętej realizacji. Postęp całej roadmapy jest średnią arytmetyczną postępów siedmiu etapów i nie jest miarą gotowości produkcyjnej.
+Procent opisuje realizację głównych obszarów danego etapu, a nie liczbę linii kodu. `100%` oznacza spełniony obszar wraz z testem, dokumentacją albo zaakceptowaną decyzją. `50%` oznacza istniejący fundament bez pełnego Definition of Done, a `0%` oznacza brak rozpoczętej realizacji. Postęp bazowej roadmapy jest średnią arytmetyczną etapów V1-V7 i nie jest miarą gotowości produkcyjnej. V8 jest późniejszym etapem platformizacji i nie jest wliczany do postępu bazowej aplikacji.
 
 | Etap | Postęp | Status | Najważniejszy dowód lub brak |
 |---|---:|---|---|
 | V1 | 100% | Ukończony | Fundament aplikacji, testy i lokalny workflow są dostępne. |
 | V2 | 96% | Ukończony dla bieżącego zakresu | Hardening auth, API, async i konfiguracji jest zwalidowany; pozostały drobne follow-upy porządkowe. |
-| V3 | 40% | W toku | `Project` i `ProjectMember` mają wyraźniejszą granicę agregatu, `ProjectTask` został rozstrzygnięty jako osobny agregat, akceptacja zaproszeń ma transakcję i concurrency z testami PostgreSQL, dashboard używa agregacji SQL, zakresów dat i potwierdzonego indeksu PostgreSQL, `User` korzysta z przetestowanych value objectów oraz enkapsulowanych metod domenowych, a pierwszy `CreateProjectTask` slice ma własny handler, endpoint, walidację i rejestrację modułu przy zachowaniu istniejącej tabeli i kontraktów; pozostały kolejne slice'y, agregaty oraz benchmarki obciążeniowe. |
+| V3 | 50% | W toku | `Project` i `ProjectMember` mają wyraźniejszą granicę agregatu, `ProjectTask` został rozstrzygnięty jako osobny agregat, akceptacja zaproszeń ma transakcję i concurrency z testami PostgreSQL, dashboard używa agregacji SQL, zakresów dat i potwierdzonego indeksu PostgreSQL, `User` korzysta z przetestowanych value objectów oraz enkapsulowanych metod domenowych, a backendowy pilot `ProjectTasks` obejmuje CRUD, komentarze, załączniki i worker przypomnień jako osobne vertical slices przy zachowaniu istniejących tabel i kontraktów; rozpoczęto też pierwszy slice modułu `Projects` (`GetProjectDetails`), a pozostały migracja kolejnych przypadków, frontendowe granice, guardrails i benchmarki. |
 | V4 | 28% | Fundamenty | Istnieją workflowy, załączniki, activity i quick search; brak pełnego audytu, search workspace i browser E2E. |
 | V5 | 41% | W toku | Działają Docker, CI, obrazy i lokalny Compose; brak realnego staging/production, backupu i rollbacku. |
 | V6 | 13% | Planowany | Istnieją podstawy EF, PostgreSQL i workerów; brak baseline'ów, load testów i pomiarów. |
 | V7 | 0% | Opcjonalny | Brak kierunku wymagającego obecnie implementacji. |
+| V8 | 0% | Odroczony | Najpierw kilka modułów i slice'ów musi potwierdzić stabilny standard oraz realny koszt ponownego użycia. |
 
-**Postęp całej roadmapy: 45%**.
+**Postęp bazowej roadmapy V1-V7: 47%**.
 
 ## Priorytety
 
@@ -80,6 +82,19 @@ Procent opisuje realizację głównych obszarów danego etapu, a nie liczbę lin
 5. Technologie dodatkowe tylko wtedy, gdy rozwiązują konkretny problem.
 
 Nie dodajemy Redis, kolejki, mikroserwisów, Kafki ani Kubernetes wyłącznie dla CV. Najpierw trzeba rozumieć ograniczenie, zmierzyć problem i uzasadnić koszt rozwiązania.
+
+## Kierunek organizacji funkcji
+
+Od V3 preferowanym kierunkiem jest hybrydowy modularny monolit:
+
+- moduł odpowiada za spójny obszar biznesowy;
+- vertical slice odpowiada za pojedynczy przypadek użycia, na przykład utworzenie albo odczyt zadania;
+- warstwy Domain, Application, Infrastructure i API opisują odpowiedzialności techniczne wewnątrz rozwiązania, ale nie zastępują granic biznesowych;
+- nowe większe przypadki użycia korzystają z zaakceptowanego standardu slice'a, gdy granica ich modułu jest już potwierdzona;
+- istniejący kod jest migrowany przy okazji realnej zmiany funkcjonalnej albo zaplanowanego pilota, a nie przez jednorazowe przepisywanie repozytorium;
+- jedna aplikacja, jeden `ApplicationDbContext` i jedna baza PostgreSQL pozostają domyślnym modelem do czasu pojawienia się mierzalnej potrzeby zmiany.
+
+Vertical Slice Architecture jest sposobem organizacji implementacji. Nie zastępuje modelowania domeny, transakcji, bezpieczeństwa, operacji ani pomiarów wydajności opisanych w kolejnych etapach.
 
 ## Kolejność etapów
 
@@ -95,9 +110,9 @@ Etap ukończony dla bieżącego zakresu. Obejmuje politykę sesji, refresh token
 
 Dokument: [02_V2_STABILIZATION_AND_SECURITY.md](02_V2_STABILIZATION_AND_SECURITY.md)
 
-### V3: Domena, transakcje i concurrency
+### V3: Domena, granice modułów, vertical slice pilot, transakcje i concurrency
 
-Następny etap. Odpowiada za dojrzalsze granice domeny, agregaty, transakcje, optimistic concurrency, konflikty `409` i bezpieczne operacje wielozapisowe.
+Etap w toku. Odpowiada za dojrzalsze granice domeny, agregaty, pilotaż modułu biznesowego zawierającego vertical slices, transakcje, optimistic concurrency, konflikty `409` i bezpieczne operacje wielozapisowe.
 
 Dokument: [03_V3_DOMAIN_TRANSACTIONS_AND_CONCURRENCY.md](03_V3_DOMAIN_TRANSACTIONS_AND_CONCURRENCY.md)
 
@@ -130,6 +145,12 @@ Dokument: [06_V6_PERFORMANCE_AND_RELIABILITY.md](06_V6_PERFORMANCE_AND_RELIABILI
 Opisuje technologie i kierunki, które mogą mieć sens dopiero po pojawieniu się konkretnej potrzeby produktu lub infrastruktury.
 
 Dokument: [07_V7_OPTIONAL_EVOLUTION.md](07_V7_OPTIONAL_EVOLUTION.md)
+
+### V8: Reusable Modular Starter / Platformization
+
+Rozpoczyna się dopiero po potwierdzeniu standardu na kilku rzeczywistych modułach. Obejmuje automatyczne guardrails, scaffolding, wybór modułów podczas tworzenia projektu oraz strategię ich wersjonowania i aktualizacji. Nie jest wymagany do ukończenia bazowej aplikacji V1-V7.
+
+Dokument: [08_V8_REUSABLE_MODULAR_STARTER.md](08_V8_REUSABLE_MODULAR_STARTER.md)
 
 ## Ogólna Definition of Done
 

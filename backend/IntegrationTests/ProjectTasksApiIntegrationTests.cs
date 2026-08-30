@@ -5,6 +5,7 @@ using Domain.Entities;
 using Domain.Enums;
 using Domain.ValueObjects;
 using Infrastructure.Data;
+using Application.Modules.ProjectTasks.DeadlineReminders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
@@ -33,6 +34,161 @@ public class ProjectTasksApiIntegrationTests
         var response = await _client.GetAsync($"/api/projects/{Guid.NewGuid()}/tasks");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetTask_Returns_unauthorized_when_token_is_missing()
+    {
+        var response = await _client.GetAsync($"/api/projects/{Guid.NewGuid()}/tasks/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Project_member_can_get_project_task_details()
+    {
+        var ownerId = await SeedUserAsync("task.details-owner@example.com", "password123", "Task Details Owner");
+        var memberId = await SeedUserAsync("task.details-member@example.com", "password123", "Task Details Member");
+        var projectId = await SeedProjectAsync(ownerId, "Task details project");
+        await SeedProjectMemberAsync(projectId, memberId);
+
+        Guid taskId;
+        string concurrencyStamp;
+        var dueDate = DateTime.UtcNow.AddDays(2);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var task = ProjectTask.Create(
+                projectId,
+                "Task details",
+                "Task details description",
+                ProjectTaskPriority.High,
+                dueDate,
+                memberId,
+                ownerId,
+                [" zeta ", "alpha", "zeta"]);
+            dbContext.ProjectTasks.Add(task);
+            await dbContext.SaveChangesAsync();
+            taskId = task.Id;
+            concurrencyStamp = task.ConcurrencyStamp;
+        }
+
+        var tokens = await LoginAsync("task.details-member@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+
+        var response = await _client.GetAsync($"/api/projects/{projectId}/tasks/{taskId}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = await response.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskResponse>>();
+        Assert.NotNull(result?.Data);
+        Assert.Equal(taskId, result.Data.Id);
+        Assert.Equal(projectId, result.Data.ProjectId);
+        Assert.Equal("Task details", result.Data.Title);
+        Assert.Equal("Task details description", result.Data.Description);
+        Assert.Equal(ProjectTaskStatus.Todo, result.Data.Status);
+        Assert.Equal(ProjectTaskPriority.High, result.Data.Priority);
+        Assert.Equal(dueDate, result.Data.DueDate);
+        Assert.Equal(memberId, result.Data.AssignedUserId);
+        Assert.Equal(ownerId, result.Data.CreatedByUserId);
+        Assert.Equal(concurrencyStamp, result.Data.ConcurrencyStamp);
+        Assert.Equal(["alpha", "zeta"], result.Data.Labels);
+    }
+
+    [Fact]
+    public async Task User_cannot_get_project_task_details_for_an_inaccessible_project()
+    {
+        var ownerId = await SeedUserAsync("task.details-private-owner@example.com", "password123", "Private Details Owner");
+        var outsiderId = await SeedUserAsync("task.details-private-outsider@example.com", "password123", "Private Details Outsider");
+        var projectId = await SeedProjectAsync(ownerId, "Private task details project");
+
+        Guid taskId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var task = ProjectTask.Create(
+                projectId,
+                "Private task details",
+                null,
+                ProjectTaskPriority.Normal,
+                null,
+                null,
+                ownerId);
+            dbContext.ProjectTasks.Add(task);
+            await dbContext.SaveChangesAsync();
+            taskId = task.Id;
+        }
+
+        var tokens = await LoginAsync("task.details-private-outsider@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+
+        var response = await _client.GetAsync($"/api/projects/{projectId}/tasks/{taskId}");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetTask_returns_not_found_when_task_belongs_to_a_different_project()
+    {
+        var ownerId = await SeedUserAsync("task.details-project-owner@example.com", "password123", "Project Details Owner");
+        var taskProjectId = await SeedProjectAsync(ownerId, "Task owner project");
+        var requestedProjectId = await SeedProjectAsync(ownerId, "Requested project");
+
+        Guid taskId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var task = ProjectTask.Create(
+                taskProjectId,
+                "Task in another project",
+                null,
+                ProjectTaskPriority.Normal,
+                null,
+                null,
+                ownerId);
+            dbContext.ProjectTasks.Add(task);
+            await dbContext.SaveChangesAsync();
+            taskId = task.Id;
+        }
+
+        var tokens = await LoginAsync("task.details-project-owner@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+
+        var response = await _client.GetAsync($"/api/projects/{requestedProjectId}/tasks/{taskId}");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetTask_returns_not_found_for_an_archived_project()
+    {
+        var ownerId = await SeedUserAsync("task.details-archived-owner@example.com", "password123", "Archived Details Owner");
+        var projectId = await SeedProjectAsync(ownerId, "Archived task details project");
+
+        Guid taskId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var task = ProjectTask.Create(
+                projectId,
+                "Archived task",
+                null,
+                ProjectTaskPriority.Normal,
+                null,
+                null,
+                ownerId);
+            var project = await dbContext.Projects.SingleAsync(item => item.Id == projectId);
+            project.Archive();
+            dbContext.ProjectTasks.Add(task);
+            await dbContext.SaveChangesAsync();
+            taskId = task.Id;
+        }
+
+        var tokens = await LoginAsync("task.details-archived-owner@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+
+        var response = await _client.GetAsync($"/api/projects/{projectId}/tasks/{taskId}");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]
@@ -136,6 +292,156 @@ public class ProjectTasksApiIntegrationTests
         currentResponse.EnsureSuccessStatusCode();
         var current = await currentResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskResponse>>();
         Assert.Equal("First task update", current?.Data?.Title);
+    }
+
+    [Fact]
+    public async Task Task_status_update_rejects_a_stale_concurrency_stamp()
+    {
+        var ownerId = await SeedUserAsync("task.status-concurrency-owner@example.com", "password123", "Task Status Concurrency Owner");
+        var projectId = await SeedProjectAsync(ownerId, "Task status concurrency project");
+        var tokens = await LoginAsync("task.status-concurrency-owner@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+
+        var createResponse = await _client.PostAsJsonAsync($"/api/projects/{projectId}/tasks", new { Title = "Status concurrency task" });
+        createResponse.EnsureSuccessStatusCode();
+        var created = await createResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskResponse>>();
+        Assert.NotNull(created?.Data);
+
+        var firstStatusResponse = await _client.PatchAsJsonAsync(
+            $"/api/projects/{projectId}/tasks/{created.Data.Id}/status",
+            new { Status = ProjectTaskStatus.InProgress, ConcurrencyStamp = created.Data.ConcurrencyStamp });
+        firstStatusResponse.EnsureSuccessStatusCode();
+        var firstStatus = await firstStatusResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskResponse>>();
+        Assert.NotNull(firstStatus?.Data);
+
+        var staleStatusResponse = await _client.PatchAsJsonAsync(
+            $"/api/projects/{projectId}/tasks/{created.Data.Id}/status",
+            new { Status = ProjectTaskStatus.Done, ConcurrencyStamp = created.Data.ConcurrencyStamp });
+
+        Assert.Equal(HttpStatusCode.Conflict, staleStatusResponse.StatusCode);
+
+        var currentResponse = await _client.GetAsync($"/api/projects/{projectId}/tasks/{created.Data.Id}");
+        currentResponse.EnsureSuccessStatusCode();
+        var current = await currentResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskResponse>>();
+        Assert.Equal(ProjectTaskStatus.InProgress, current?.Data?.Status);
+    }
+
+    [Fact]
+    public async Task Task_status_update_requires_a_concurrency_stamp()
+    {
+        var ownerId = await SeedUserAsync("task.status-validation-owner@example.com", "password123", "Task Status Validation Owner");
+        var projectId = await SeedProjectAsync(ownerId, "Task status validation project");
+        var tokens = await LoginAsync("task.status-validation-owner@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+
+        var createResponse = await _client.PostAsJsonAsync($"/api/projects/{projectId}/tasks", new { Title = "Status validation task" });
+        createResponse.EnsureSuccessStatusCode();
+        var created = await createResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskResponse>>();
+        Assert.NotNull(created?.Data);
+
+        var response = await _client.PatchAsJsonAsync(
+            $"/api/projects/{projectId}/tasks/{created.Data.Id}/status",
+            new { Status = ProjectTaskStatus.Done });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var currentResponse = await _client.GetAsync($"/api/projects/{projectId}/tasks/{created.Data.Id}");
+        currentResponse.EnsureSuccessStatusCode();
+        var current = await currentResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskResponse>>();
+        Assert.Equal(ProjectTaskStatus.Todo, current?.Data?.Status);
+    }
+
+    [Fact]
+    public async Task Viewer_cannot_change_project_task_status()
+    {
+        var ownerId = await SeedUserAsync("task.status-viewer-owner@example.com", "password123", "Task Status Viewer Owner");
+        var viewerId = await SeedUserAsync("task.status-viewer@example.com", "password123", "Task Status Viewer");
+        var projectId = await SeedProjectAsync(ownerId, "Task status viewer project");
+        await SeedProjectMemberAsync(projectId, viewerId, ProjectMemberRole.Viewer);
+
+        var ownerTokens = await LoginAsync("task.status-viewer-owner@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerTokens.AccessToken);
+        var createResponse = await _client.PostAsJsonAsync($"/api/projects/{projectId}/tasks", new { Title = "Viewer status task" });
+        createResponse.EnsureSuccessStatusCode();
+        var created = await createResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskResponse>>();
+        Assert.NotNull(created?.Data);
+
+        var viewerTokens = await LoginAsync("task.status-viewer@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", viewerTokens.AccessToken);
+        var response = await _client.PatchAsJsonAsync(
+            $"/api/projects/{projectId}/tasks/{created.Data.Id}/status",
+            new { Status = ProjectTaskStatus.Done, ConcurrencyStamp = created.Data.ConcurrencyStamp });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Task_delete_rejects_a_stale_concurrency_stamp()
+    {
+        var ownerId = await SeedUserAsync("task.delete-concurrency-owner@example.com", "password123", "Task Delete Concurrency Owner");
+        var projectId = await SeedProjectAsync(ownerId, "Task delete concurrency project");
+        var tokens = await LoginAsync("task.delete-concurrency-owner@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+
+        var createResponse = await _client.PostAsJsonAsync($"/api/projects/{projectId}/tasks", new { Title = "Delete concurrency task" });
+        createResponse.EnsureSuccessStatusCode();
+        var created = await createResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskResponse>>();
+        Assert.NotNull(created?.Data);
+
+        var updateResponse = await _client.PutAsJsonAsync(
+            $"/api/projects/{projectId}/tasks/{created.Data.Id}",
+            new { Title = "Updated before delete", ConcurrencyStamp = created.Data.ConcurrencyStamp });
+        updateResponse.EnsureSuccessStatusCode();
+
+        var staleDeleteResponse = await _client.DeleteAsync(
+            $"/api/projects/{projectId}/tasks/{created.Data.Id}?concurrencyStamp={Uri.EscapeDataString(created.Data.ConcurrencyStamp)}");
+
+        Assert.Equal(HttpStatusCode.Conflict, staleDeleteResponse.StatusCode);
+        var currentResponse = await _client.GetAsync($"/api/projects/{projectId}/tasks/{created.Data.Id}");
+        Assert.Equal(HttpStatusCode.OK, currentResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Task_delete_requires_a_concurrency_stamp()
+    {
+        var ownerId = await SeedUserAsync("task.delete-validation-owner@example.com", "password123", "Task Delete Validation Owner");
+        var projectId = await SeedProjectAsync(ownerId, "Task delete validation project");
+        var tokens = await LoginAsync("task.delete-validation-owner@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+
+        var createResponse = await _client.PostAsJsonAsync($"/api/projects/{projectId}/tasks", new { Title = "Delete validation task" });
+        createResponse.EnsureSuccessStatusCode();
+        var created = await createResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskResponse>>();
+        Assert.NotNull(created?.Data);
+
+        var response = await _client.DeleteAsync($"/api/projects/{projectId}/tasks/{created.Data.Id}");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var currentResponse = await _client.GetAsync($"/api/projects/{projectId}/tasks/{created.Data.Id}");
+        Assert.Equal(HttpStatusCode.OK, currentResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Viewer_cannot_delete_project_task()
+    {
+        var ownerId = await SeedUserAsync("task.delete-viewer-owner@example.com", "password123", "Task Delete Viewer Owner");
+        var viewerId = await SeedUserAsync("task.delete-viewer@example.com", "password123", "Task Delete Viewer");
+        var projectId = await SeedProjectAsync(ownerId, "Task delete viewer project");
+        await SeedProjectMemberAsync(projectId, viewerId, ProjectMemberRole.Viewer);
+
+        var ownerTokens = await LoginAsync("task.delete-viewer-owner@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerTokens.AccessToken);
+        var createResponse = await _client.PostAsJsonAsync($"/api/projects/{projectId}/tasks", new { Title = "Viewer delete task" });
+        createResponse.EnsureSuccessStatusCode();
+        var created = await createResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskResponse>>();
+        Assert.NotNull(created?.Data);
+
+        var viewerTokens = await LoginAsync("task.delete-viewer@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", viewerTokens.AccessToken);
+        var response = await _client.DeleteAsync(
+            $"/api/projects/{projectId}/tasks/{created.Data.Id}?concurrencyStamp={Uri.EscapeDataString(created.Data.ConcurrencyStamp)}");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Fact]
@@ -546,7 +852,7 @@ public class ProjectTasksApiIntegrationTests
         dbContext.ProjectTasks.AddRange(upcomingTask, overdueTask, completedTask);
         await dbContext.SaveChangesAsync();
 
-        var processor = scope.ServiceProvider.GetRequiredService<IProjectTaskDeadlineReminderService>();
+        var processor = scope.ServiceProvider.GetRequiredService<IProjectTaskDeadlineReminderProcessor>();
         await processor.ProcessDueTasksAsync();
         await processor.ProcessDueTasksAsync();
 

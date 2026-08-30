@@ -1,6 +1,8 @@
 using API.Contracts.Projects;
 using Application.Features.ProjectManagement.Tasks;
 using Application.Features.Projects;
+using Application.Modules.ProjectTasks.Attachments;
+using Application.Modules.ProjectTasks.Comments;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Responses;
 using System.IdentityModel.Tokens.Jwt;
@@ -42,6 +44,24 @@ public abstract class ProjectTaskControllerBase : ControllerBase
         task.UpdatedAt,
         task.ConcurrencyStamp,
         task.Labels);
+
+    protected static ProjectTaskCommentResponse MapComment(ProjectTaskCommentView comment) => new(
+        comment.Id,
+        comment.ProjectTaskId,
+        comment.AuthorUserId,
+        comment.AuthorDisplayName,
+        comment.Content,
+        comment.CreatedAt);
+
+    protected static ProjectTaskAttachmentResponse MapAttachment(ProjectTaskAttachmentView attachment) => new(
+        attachment.Id,
+        attachment.ProjectTaskId,
+        attachment.UploadedByUserId,
+        attachment.UploaderDisplayName,
+        attachment.OriginalFileName,
+        attachment.ContentType,
+        attachment.SizeBytes,
+        attachment.CreatedAt);
 
     protected static int MapStatusCode(ProjectOperationStatus status) => status switch
     {

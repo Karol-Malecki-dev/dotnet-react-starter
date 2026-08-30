@@ -9,6 +9,7 @@ using FluentValidation.AspNetCore;
 using Domain.Interfaces;
 using Infrastructure.Data;
 using Infrastructure.Modules.ProjectTasks;
+using Infrastructure.Modules.Projects;
 using Infrastructure.ProjectManagement.Tasks;
 using Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -294,6 +295,7 @@ namespace API.Services
             services.AddScoped<IProjectMembershipStore, EfProjectMembershipStore>();
             services.AddScoped<IProjectInvitationStore, EfProjectInvitationStore>();
             services.AddProjectTasksModule();
+            services.AddProjectsModule();
 
             services.AddScoped<LoggingAccountEmailSender>();
             services.AddScoped<MailKitAccountEmailSender>();

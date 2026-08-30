@@ -2,11 +2,11 @@
 
 ## Cel
 
-V3 ma przeprowadzić projekt od poprawnie działającego modularnego monolitu do systemu z wyraźnymi granicami odpowiedzialności. Najważniejsze pytanie tego etapu brzmi:
+V3 ma przeprowadzić projekt od poprawnie działającego warstwowego monolitu modularnego do systemu z wyraźnymi granicami odpowiedzialności. Obejmuje również mały pilotaż hybrydy: moduł biznesowy zawierający vertical slices. Najważniejsze pytanie tego etapu brzmi:
 
 > Która reguła należy do domeny, która do przypadku użycia, a która do infrastruktury?
 
-Nie chodzi o mechaniczne dodanie wszystkich wzorców DDD. Chodzi o uzasadnienie granic i ochronę najważniejszych niezmienników.
+Nie chodzi o mechaniczne dodanie wszystkich wzorców DDD ani przepisanie wszystkich kontrolerów do nowych folderów. Chodzi o uzasadnienie granic, ochronę najważniejszych niezmienników i sprawdzenie na jednym module, czy organizacja według przypadków użycia ogranicza pomijanie kontraktów, walidacji, rejestracji i testów.
 
 ## Stan wyjściowy
 
@@ -14,19 +14,20 @@ Nie chodzi o mechaniczne dodanie wszystkich wzorców DDD. Chodzi o uzasadnienie 
 
 ## Status realizacji
 
-Stan na: **2026-08-30**.
+Stan na: **2026-08-31**.
 
 | Obszar | Postęp | Status i dowód |
 |---|---:|---|
 | 1. Granica agregatów projektu i zadań | 75% | `Project` chroni członkostwo przez metody domenowe, automatycznie tworzy właściciela i ma prywatne settery; `ProjectTask` został przyjęty jako osobny agregat, a niezależność tokenu projektu potwierdza test integracyjny. |
 | 2. Model użytkownika i value objects | 55% | `User.Email` i `User.DisplayName` używają kanonicznych value objectów domenowych, a `User` ma fabrykę, prywatne settery i jawne metody zmian profilu oraz stanu bezpieczeństwa; istniejąca płaska tabela `Users` i kontrakty HTTP zostały zachowane. Zastosowanie value objectu dla `Address` oraz pełne rozdzielenie profilu od stanu bezpieczeństwa nadal wymagają oceny. |
-| 3. Application services i porty | 50% | Warstwy i feature-specific ports istnieją; część odpowiedzialności nadal wymaga doprecyzowania. |
-| 4. Mapping i kontrakty | 50% | DTO i kontrakty HTTP są obecne oraz dokumentowane; pełne rozdzielenie modeli nie jest zakończone. |
+| 3. Application services i porty | 65% | Handlery i focused ports dla backendowego pilota `ProjectTasks` są wydzielone; część współdzielonych portów i kontraktów pozostaje przejściowa. |
+| 4. Mapping i kontrakty | 60% | DTO i kontrakty HTTP są obecne oraz dokumentowane, a endpointy pilota mają slice-specific adaptery; pełne rozdzielenie modeli nie jest zakończone. |
 | 5. Transakcje i partial failure | 70% | Akceptacja zaproszenia, bezpośrednie dodanie członka oraz usunięcie członka mają relacyjne granice transakcji; usunięcie obejmuje także unassign zadań i aktywność, a rollbacki przy błędzie notification są pokryte dla dwóch workflowów z powiadomieniami. |
 | 6. Optimistic concurrency | 70% | `Project`, `ProjectInvitation` i `ProjectTask` mają tokeny wersji, konflikty są mapowane na `409`, a konflikty zapisów projektu i zadania oraz wyścig akceptacji są testowane na PostgreSQL. |
 | 7. Zapytania dashboardu | 60% | Statystyki dashboardu są agregowane po stronie SQL, listy overdue/upcoming używają zakresów dat przyjaznych indeksom i limitów, a test PostgreSQL potwierdza użycie indeksu `IX_ProjectTasks_ProjectId_Status_DueDate`; benchmark obciążeniowy nadal należy do V6. |
+| 8. Pilotaż modularnego VSA | 75% | `ProjectTasks` ma slice'y CRUD, comments, attachments i deadline reminders, własny modułowy entry point, focused ports oraz testy jednostkowe i integracyjne; brakuje migracji frontendowej, lekkich guardrails, przeniesienia ostatnich współdzielonych kontraktów i końcowej oceny kosztu pilota. |
 
-**Postęp V3: 40%**.
+**Postęp V3: 50%**.
 
 Procent obejmuje istniejące fundamenty, nie samą liczbę klas lub endpointów. V3 nie jest jeszcze etapem ukończonym.
 
@@ -74,12 +75,20 @@ nie pełny podział persystencji na osobne `UserProfile` i `UserSecurityState`.
 - ograniczyć kontrolery do transportu HTTP, autoryzacji wejścia i mapowania wyniku;
 - przenosić reguły biznesowe z kontrolerów i dużych serwisów do odpowiedniego miejsca.
 
-Pierwszy inkrement modularizacji został zwalidowany na `ProjectTasks`: przypadek
-`CreateProjectTask` ma osobny command, kontrakt handlera, implementację, request,
-validator, kontroler i testy. Rejestracje tasków są skupione w
-`ProjectTasksModule.AddProjectTasksModule`, a pozostałe komendy i query pozostają
-świadomie w ścieżce przejściowej. Publiczne endpointy i `ApplicationDbContext` nie
-zostały zmienione.
+Backendowy inkrement modularizacji został zwalidowany na `ProjectTasks`: CRUD zadań,
+komentarze, załączniki i deadline reminders mają osobne command/query, kontrakty
+handlerów, implementacje, adaptery HTTP albo workery oraz testy. Rejestracje tasków
+są skupione w `ProjectTasksModule.AddProjectTasksModule`, a publiczne endpointy,
+kontrakty JSON i `ApplicationDbContext` nie zostały zmienione. Współdzielone porty
+`IProjectTaskAccess`, `IProjectTaskCommandStore` oraz `ProjectTaskView` pozostają
+świadomie przejściowe, ponieważ korzysta z nich kilka slice'ów i istniejący dashboard.
+
+Po zamknięciu głównej części pilota rozpoczęto następny, nadal przyrostowy krok:
+`Projects/GetProjectDetails`. Ten slice zachowuje istniejący endpoint i model
+odpowiedzi, ale korzysta już z własnego handlera, portu odczytu, adaptera EF,
+kontrolera oraz `ProjectsModule`. Pozostałe use case'y `Projects` pozostają
+przejściowo w szerokim serwisie i nie są przenoszone mechanicznie razem z tym
+odczytem.
 
 ### 4. Mapping i kontrakty
 
@@ -138,6 +147,30 @@ Nie trzeba dodawać concurrency tokenu do każdej tabeli. Wybór powinien wynika
 - porównać plan zapytania przed i po zmianie, gdy istnieje wiarygodny baseline;
 - zachować czytelność query store.
 
+### 8. Pilotaż modułu biznesowego zawierającego vertical slices
+
+Pilotem pozostaje `ProjectTasks`, ponieważ ma osobny agregat, jawne reguły dostępu,
+feature-specific ports oraz testy integracyjne. Celem V3 nie jest jeszcze przeniesienie
+całego obszaru Projects ani frontendu do nowej struktury. `GetProjectDetails` jest
+pierwszym kontrolowanym slice'em po pilocie i służy do sprawdzenia, czy standard
+działa także dla odczytu agregatu `Project`.
+
+W ramach pilota należy:
+
+- zachować `CreateProjectTask` jako reprezentatywny command slice;
+- wydzielić co najmniej jeden mały query slice, preferencyjnie `GetProjectTaskDetails`;
+- utrzymać osobne kontrakty HTTP, modele application i encje domenowe tam, gdzie pełnią różne role;
+- rejestrować endpointy, handlery, porty, adaptery i opcjonalne workery przez jeden entry point modułu;
+- utrzymać jedną aplikację, jeden `ApplicationDbContext`, jedną historię migracji i wspólną bazę PostgreSQL;
+- nie zmieniać istniejących tras, JSON ani status codes tylko z powodu reorganizacji;
+- przetestować sukces, autoryzację, walidację, błędy persistence i publiczny kontrakt API;
+- porównać koszt oraz czytelność pilota ze starszym stylem przed migracją kolejnego modułu;
+- aktualizować istniejący kod przy okazji realnej zmiany albo jawnie zaplanowanego slice'a, nie przez masowe przenoszenie plików.
+
+Moduł oznacza granicę biznesową, a slice pojedynczy przypadek użycia. `Domain`,
+`Application`, `Infrastructure` i `API` pozostają odpowiedzialnościami technicznymi;
+sam folder `Modules` bez ograniczonych zależności nie jest jeszcze modularnością.
+
 ## Test plan
 
 ### Unit tests
@@ -173,8 +206,10 @@ Concurrency i transakcje należy testować na PostgreSQL, ponieważ zachowanie I
 - test concurrency działa na PostgreSQL;
 - dashboard wykonuje agregacje po stronie bazy;
 - mapping i porty są spójne w dotkniętym module;
-- nowy przypadek użycia ma własny slice, rejestrację modułu i testy, jeśli jego
-  granica została już potwierdzona;
+- pilot `ProjectTasks` zawiera co najmniej jeden command slice i jeden query slice;
+- nowy większy przypadek użycia ma własny slice, rejestrację modułu i testy, jeśli jego granica została już potwierdzona;
+- publiczne trasy i kontrakty pilota pozostają zgodne albo ich zmiana jest osobno uzasadniona;
+- wynik pilota opisuje koszt, korzyści i kryteria wyboru następnego modułu;
 - istnieją testy reguł domenowych i partial failure.
 
 ## Poza zakresem V3
@@ -184,7 +219,10 @@ Concurrency i transakcje należy testować na PostgreSQL, ponieważ zachowanie I
 - MediatR użyty tylko dla ukrycia prostego wywołania;
 - mikroserwisy;
 - osobna baza dla każdego modułu;
-- abstrakcja repository bez konkretnej potrzeby.
+- abstrakcja repository bez konkretnej potrzeby;
+- pełna migracja wszystkich funkcji do vertical slices;
+- osobny projekt `.csproj`, pakiet NuGet lub generator dla każdego modułu;
+- pełna reorganizacja frontendu przed ustabilizowaniem kontraktów pilota.
 
 ## Pytania kontrolne
 
