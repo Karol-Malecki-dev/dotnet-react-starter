@@ -30,7 +30,12 @@
     "build": "tsc --noEmit && vite build",
     "test": "vitest",
     "test:once": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "preview": "vite preview"
   },
-  "type": "module"
+  "type": "module",
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
+  }
 }
