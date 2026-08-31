@@ -5,6 +5,8 @@ using Application.Modules.ProjectTasks.CreateProjectTaskAttachment;
 using Domain.Entities;
 using Domain.Enums;
 using Infrastructure.Modules.ProjectTasks.CreateProjectTaskAttachment;
+using Microsoft.Extensions.Options;
+using Shared.Settings;
 using Moq;
 using System.IO.Compression;
 
@@ -242,7 +244,11 @@ public sealed class CreateProjectTaskAttachmentHandlerTests
     }
 
     private CreateProjectTaskAttachmentHandler CreateHandler()
-        => new(_access.Object, _attachmentStore.Object, _storage.Object);
+        => new(
+            _access.Object,
+            _attachmentStore.Object,
+            _storage.Object,
+            Options.Create(new AttachmentSettings()));
 
     private void ConfigureAccess(
         CreateProjectTaskAttachmentCommand command,

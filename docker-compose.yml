@@ -52,6 +52,7 @@ services:
       - Jwt__RefreshTokenCookieDomain=${JWT_REFRESH_TOKEN_COOKIE_DOMAIN:-}
       - DataProtection__KeyRingPath=${DATA_PROTECTION_KEY_RING_PATH:-/home/app/.aspnet/DataProtection-Keys}
       - DataProtection__ApplicationName=${DATA_PROTECTION_APPLICATION_NAME:-DotnetReactStarter}
+      - Attachments__RootPath=${ATTACHMENTS_ROOT_PATH:-/app/data/task-attachments}
       - ForwardedHeaders__Enabled=${FORWARDED_HEADERS_ENABLED:-true}
       - ForwardedHeaders__KnownNetworks__0=${FORWARDED_HEADERS_KNOWN_NETWORK_0:-172.28.0.0/16}
       - ForwardedHeaders__ForwardLimit=${FORWARDED_HEADERS_FORWARD_LIMIT:-1}
@@ -84,6 +85,7 @@ services:
       - dotnet-react-network
     volumes:
       - data-protection-keys:/home/app/.aspnet/DataProtection-Keys
+      - attachment-files:/app/data/task-attachments
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:5000/health" ]
       interval: 30s
@@ -123,3 +125,4 @@ networks:
 volumes:
   postgres-data:
   data-protection-keys:
+  attachment-files:

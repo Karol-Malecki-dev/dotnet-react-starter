@@ -1,5 +1,7 @@
 using Application.Modules.ProjectTasks.Attachments;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
+using Shared.Settings;
 
 namespace Infrastructure.Services;
 
@@ -18,9 +20,13 @@ public sealed class LocalProjectTaskAttachmentStorage : IProjectTaskAttachmentSt
 
     private readonly string _rootPath;
 
-    public LocalProjectTaskAttachmentStorage(IHostEnvironment environment)
+    public LocalProjectTaskAttachmentStorage(
+        IHostEnvironment environment,
+        IOptions<AttachmentSettings>? settings = null)
     {
-        _rootPath = Path.Combine(environment.ContentRootPath, "uploads", "task-attachments");
+        _rootPath = string.IsNullOrWhiteSpace(settings?.Value.RootPath)
+            ? Path.Combine(environment.ContentRootPath, "uploads", "task-attachments")
+            : settings.Value.RootPath;
         Directory.CreateDirectory(_rootPath);
     }
 
