@@ -6,6 +6,8 @@ namespace Domain.Interfaces
 {
     public sealed record LoginAuditContext(Guid UserId, bool IsLocked);
 
+    public sealed record TwoFactorVerificationResult(User User, bool UsedRecoveryCode);
+
     /// <summary>
     /// Provides authentication, account verification, password management,
     /// and email-based two-factor authentication operations.
@@ -167,7 +169,7 @@ namespace Domain.Interfaces
         Task<AuthenticatorLoginChallengeInfo?> CreateAuthenticatorLoginChallengeAsync(Guid userId, CancellationToken cancellationToken = default);
 
         /// <summary>Completes an authenticator-app sign-in using a current TOTP or recovery code.</summary>
-        Task<User?> VerifyAuthenticatorLoginChallengeAsync(Guid challengeId, string code, CancellationToken cancellationToken = default);
+        Task<TwoFactorVerificationResult?> VerifyAuthenticatorLoginChallengeAsync(Guid challengeId, string code, CancellationToken cancellationToken = default);
 
         /// <summary>Disables an authenticator application after re-authenticating with password and a current TOTP or recovery code.</summary>
         Task<bool> DisableAuthenticatorAsync(Guid userId, string currentPassword, string code, CancellationToken cancellationToken = default);

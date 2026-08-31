@@ -337,7 +337,8 @@ namespace API.Controllers
 
             try
             {
-                var user = await _authService.VerifyAuthenticatorLoginChallengeAsync(request.ChallengeId, request.Code, cancellationToken)
+                var authenticatorResult = await _authService.VerifyAuthenticatorLoginChallengeAsync(request.ChallengeId, request.Code, cancellationToken);
+                var user = authenticatorResult?.User
                     ?? await _authService.VerifyEmailTwoFactorChallengeAsync(request.ChallengeId, request.Code, cancellationToken);
                 if (user is null)
                 {
@@ -347,6 +348,10 @@ namespace API.Controllers
                 var tokens = await _jwtTokenService.GenerateTokensAsync(user, cancellationToken);
                 SetRefreshTokenCookie(tokens.RefreshToken);
                 await WriteSecurityAuditAsync("auth.login.succeeded", "success", user.Id);
+                if (authenticatorResult?.UsedRecoveryCode == true)
+                {
+                    await WriteSecurityAuditAsync("auth.2fa.recovery-code.used", "success", user.Id);
+                }
 
                 return Ok(ApiResponse<AuthTokenResponse>.Success(
                     CreateTokenResponse(tokens),
@@ -446,6 +451,7 @@ namespace API.Controllers
             }
 
             await CreateSecurityAlertAsync(userId, "Authenticator enabled", "Your authenticator app was enabled and recovery codes were created.", cancellationToken);
+            await WriteSecurityAuditAsync("auth.2fa.totp.enabled", "success", userId);
             return Ok(ApiResponse<AuthenticatorConfirmationDto>.Success(new AuthenticatorConfirmationDto
             {
                 RecoveryCodes = confirmation.RecoveryCodes
@@ -469,6 +475,7 @@ namespace API.Controllers
             }
 
             await CreateSecurityAlertAsync(userId, "Authenticator disabled", "Your authenticator app was disabled after password re-authentication.", cancellationToken);
+            await WriteSecurityAuditAsync("auth.2fa.totp.disabled", "success", userId);
             return Ok(ApiResponse<object?>.Success(null, "Authenticator disabled", 200));
         }
 
@@ -752,6 +759,7 @@ namespace API.Controllers
                 }
 
                 ClearRefreshTokenCookie();
+                await WriteSecurityAuditAsync("auth.password.changed", "success", currentUserId);
                 return Ok(ApiResponse<object?>.Success(null, "Password changed successfully", 200));
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -1014,6 +1022,8 @@ namespace API.Controllers
                 }
 
                 ClearRefreshTokenCookie();
+                var resetContext = await _authService.GetLoginAuditContextAsync(request.Email, cancellationToken);
+                await WriteSecurityAuditAsync("auth.password.reset", "success", resetContext?.UserId);
                 return Ok(ApiResponse<object?>.Success(null, "Password reset successful", 200));
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
