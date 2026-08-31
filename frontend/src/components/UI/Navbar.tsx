@@ -3,6 +3,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useFeatureAvailability } from '../../hooks/useFeatureAvailability';
 import { QuickSearchBar, type QuickSearchItem } from './QuickSearchBar';
 import { NotificationBell } from './NotificationBell';
+import { projectApi } from '../../services/api/ProjectApi';
 
 export function Navbar() {
   const { isAuthenticated, user, logout } = useAuth();
@@ -51,6 +52,7 @@ export function Navbar() {
           items={searchItems}
           placeholder="Search pages, users, and actions"
           label="Project search"
+          searchWorkspace={(query, signal) => projectApi.searchWorkspace(query, signal)}
         />
       ) : null}
 

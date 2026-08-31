@@ -110,6 +110,8 @@ export {
   ProjectInvitationStatus,
 } from './project';
 
+export type { WorkspaceSearchResponse, WorkspaceSearchPage, WorkspaceSearchResult } from './workspace';
+
 export type {
   ProjectDto,
   ProjectTaskDto,

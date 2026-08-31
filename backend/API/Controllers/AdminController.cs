@@ -4,6 +4,7 @@ using Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Responses;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace API.Controllers
 {
@@ -14,10 +15,15 @@ namespace API.Controllers
     {
         private readonly IAdminService _adminService;
         private readonly ILogger<AdminController> _logger;
-        public AdminController(IAdminService adminService, ILogger<AdminController> logger)
+        private readonly IAccountSecurityAuditWriter? _auditWriter;
+        public AdminController(
+            IAdminService adminService,
+            ILogger<AdminController> logger,
+            IAccountSecurityAuditWriter? auditWriter = null)
         {
             _adminService = adminService;
             _logger = logger;
+            _auditWriter = auditWriter;
         }
 
         [HttpGet("dashboard-stats")]
@@ -78,6 +84,11 @@ namespace API.Controllers
         {
             var result = await _adminService.UpdateUserRoleAsync(userId, newRole, cancellationToken);
 
+            if (result.StatusCode is >= 200 and < 300)
+            {
+                await WriteSecurityAuditAsync("account.role.changed", userId, newRole.ToString(), cancellationToken);
+            }
+
             if (result.StatusCode == 404)
             {
                 _logger.LogWarning("Admin tried to change role for missing user {UserId}", userId);
@@ -91,6 +102,11 @@ namespace API.Controllers
         {
             var result = await _adminService.ActivateUserAsync(userId, cancellationToken);
 
+            if (result.StatusCode is >= 200 and < 300)
+            {
+                await WriteSecurityAuditAsync("account.status.changed", userId, "active", cancellationToken);
+            }
+
             if (result.StatusCode == 404)
             {
                 _logger.LogWarning("Admin tried to activate missing user {UserId}", userId);
@@ -103,6 +119,11 @@ namespace API.Controllers
         public async Task<ActionResult<ApiResponse<AdminUserDetailsDto>>> DeactivateUserAsync([FromRoute] Guid userId, CancellationToken cancellationToken)
         {
             var result = await _adminService.DeactivateUserAsync(userId, cancellationToken);
+
+            if (result.StatusCode is >= 200 and < 300)
+            {
+                await WriteSecurityAuditAsync("account.status.changed", userId, "inactive", cancellationToken);
+            }
             
             if (result.StatusCode == 404)
             {
@@ -110,6 +131,27 @@ namespace API.Controllers
             }
 
             return StatusCode(result.StatusCode, result);
+        }
+
+        private Task WriteSecurityAuditAsync(string eventCode, Guid subjectUserId, string reason, CancellationToken cancellationToken)
+        {
+            if (_auditWriter is null)
+            {
+                return Task.CompletedTask;
+            }
+
+            var actorValue = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
+                ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var actorUserId = Guid.TryParse(actorValue, out var parsedActorId) ? parsedActorId : (Guid?)null;
+
+            return _auditWriter.WriteAsync(new AccountSecurityAuditEntry(
+                eventCode,
+                "success",
+                ActorUserId: actorUserId,
+                SubjectUserId: subjectUserId,
+                CorrelationId: HttpContext.TraceIdentifier,
+                Metadata: new Dictionary<string, string> { ["reason"] = reason }),
+                cancellationToken);
         }
 
         [HttpDelete("users/{userId:guid}")]

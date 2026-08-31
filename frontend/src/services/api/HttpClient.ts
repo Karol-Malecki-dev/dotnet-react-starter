@@ -7,12 +7,14 @@ type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 export class HttpError extends Error {
   public readonly status: number;
   public readonly payload: unknown;
+  public readonly retryAfterSeconds: number | null;
 
-  constructor(status: number, message: string, payload: unknown) {
+  constructor(status: number, message: string, payload: unknown, retryAfterSeconds: number | null = null) {
     super(message);
     this.name = 'HttpError';
     this.status = status;
     this.payload = payload;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 
@@ -127,7 +129,12 @@ export class HttpClient {
       });
     }
 
-    throw new HttpError(response.status, message, apiError);
+    const retryAfterHeader = response.headers.get('Retry-After');
+    const retryAfterSeconds = retryAfterHeader && /^\d+$/.test(retryAfterHeader)
+      ? Number.parseInt(retryAfterHeader, 10)
+      : null;
+
+    throw new HttpError(response.status, message, apiError, retryAfterSeconds);
   }
 
   private async requestBlob(

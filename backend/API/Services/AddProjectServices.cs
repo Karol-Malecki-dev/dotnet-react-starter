@@ -11,6 +11,8 @@ using Infrastructure.Data;
 using Infrastructure.Modules.Notifications;
 using Infrastructure.Modules.ProjectTasks;
 using Infrastructure.Modules.Projects;
+using Application.Modules.Workspace.SearchWorkspace;
+using Infrastructure.Modules.Workspace.SearchWorkspace;
 using Infrastructure.ProjectManagement.Tasks;
 using Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -303,6 +305,8 @@ namespace API.Services
             });
             services.AddHostedService<NotificationEmailOutboxWorker>();
             services.AddScoped<IAdminService, DatabaseAdminService>();
+            services.AddScoped<ISearchWorkspaceHandler, SearchWorkspaceHandler>();
+            services.AddScoped<ISearchWorkspaceStore, EfSearchWorkspaceStore>();
             services.AddNotificationsModule();
             services.AddProjectTasksModule();
             services.AddProjectsModule();
