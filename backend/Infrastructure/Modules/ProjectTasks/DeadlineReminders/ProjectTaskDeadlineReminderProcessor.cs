@@ -15,14 +15,14 @@ public sealed class ProjectTaskDeadlineReminderProcessor : IProjectTaskDeadlineR
     private static readonly TimeSpan UpcomingWindow = TimeSpan.FromHours(24);
 
     private readonly ApplicationDbContext _dbContext;
-    private readonly INotificationService _notificationService;
+    private readonly INotificationWriter _notificationWriter;
 
     public ProjectTaskDeadlineReminderProcessor(
         ApplicationDbContext dbContext,
-        INotificationService notificationService)
+        INotificationWriter notificationWriter)
     {
         _dbContext = dbContext;
-        _notificationService = notificationService;
+        _notificationWriter = notificationWriter;
     }
 
     public async Task ProcessDueTasksAsync(CancellationToken cancellationToken = default)
@@ -83,7 +83,7 @@ public sealed class ProjectTaskDeadlineReminderProcessor : IProjectTaskDeadlineR
             });
 
             var isOverdue = reminderType == ProjectTaskDeadlineReminderType.Overdue;
-            await _notificationService.CreateAsync(
+            await _notificationWriter.CreateAsync(
                 recipientUserId,
                 isOverdue ? NotificationType.TaskOverdue : NotificationType.TaskDeadlineApproaching,
                 isOverdue ? "Task overdue" : "Task deadline approaching",

@@ -30,7 +30,7 @@ namespace API.Controllers
         private readonly IJwtTokenService _jwtTokenService;
         private readonly IAuthService _authService;
         private readonly IAccountEmailSender _accountEmailSender;
-        private readonly INotificationService? _notificationService;
+        private readonly INotificationWriter? _notificationWriter;
         private readonly IUserService _userService;
         private readonly EmailConfirmationSettings _emailConfirmationSettings;
         private readonly EmailTwoFactorSettings _emailTwoFactorSettings;
@@ -46,7 +46,7 @@ namespace API.Controllers
             IOptions<JwtSettings> jwtOptions,
             IOptions<EmailConfirmationSettings> emailConfirmationOptions,
             IOptions<EmailTwoFactorSettings> emailTwoFactorOptions,
-            INotificationService? notificationService = null)
+            INotificationWriter? notificationWriter = null)
         {
             _jwtTokenService = jwtTokenService;
             _authService = authService;
@@ -56,7 +56,7 @@ namespace API.Controllers
             _jwtSettings = jwtOptions.Value;
             _emailConfirmationSettings = emailConfirmationOptions.Value;
             _emailTwoFactorSettings = emailTwoFactorOptions.Value;
-            _notificationService = notificationService;
+            _notificationWriter = notificationWriter;
         }
 
         /// <summary>
@@ -771,14 +771,14 @@ namespace API.Controllers
 
         private async Task CreateSecurityAlertAsync(Guid userId, string title, string message, CancellationToken cancellationToken)
         {
-            if (_notificationService is null)
+            if (_notificationWriter is null)
             {
                 return;
             }
 
             try
             {
-                await _notificationService.CreateAsync(userId, Domain.Enums.NotificationType.SecurityAlert, title, message, "authenticator", cancellationToken: cancellationToken);
+                await _notificationWriter.CreateAsync(userId, Domain.Enums.NotificationType.SecurityAlert, title, message, "authenticator", cancellationToken: cancellationToken);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {

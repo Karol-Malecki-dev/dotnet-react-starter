@@ -126,6 +126,13 @@ The current backend modules are considered aligned with this ADR when:
 - PostgreSQL provider tests apply every migration and cover transaction,
   concurrency and constraint behavior.
 
+The `Notifications` module now follows the same incremental pattern. Its list,
+unread-count, email-preference, mark-as-read and mark-all-as-read use cases use
+focused handler and persistence contracts registered through
+`AddNotificationsModule`. Cross-module notification creation remains an explicit
+`INotificationWriter` port for Auth and deadline reminders, while project and task
+workflows keep their transaction-owned notification writers.
+
 ## Follow-up
 
 - Apply the proven pattern to `Notifications` and later `Identity`, preserving the

@@ -25,7 +25,7 @@ Stan na: **2026-08-31**.
 | 5. Transakcje i partial failure | 90% | Task/member/invitation/activity/notification/outbox są stagingowane w jednym scoped context i zapisywane jednym commitem; cleanup plików korzysta z trwałego outboxu, a rollbacki są pokryte testami PostgreSQL. |
 | 6. Optimistic concurrency | 75% | `Project`, `ProjectInvitation` i `ProjectTask` mają tokeny wersji, konflikty są mapowane na `409`, a konflikty zapisów projektu i zadania, wyścig akceptacji oraz równoległe tworzenie zaproszeń są testowane na PostgreSQL. |
 | 7. Zapytania dashboardu | 80% | `ProjectTasks` posiada jawny dashboard read port; `Projects` nie czyta jego `DbSet`, a agregacje SQL, zakresy dat, limity i indeks są zachowane. Benchmark obciążeniowy nadal należy do V6. |
-| 8. Pilotaż modularnego VSA | 100% | Backendowe moduły `ProjectTasks` i `Projects` mają komplet slice'ów, modułowe entry pointy i guardrails DI/route/dependency. Pełne testy PostgreSQL, backend unit/integration, Release build oraz regresja frontendu przechodzą; feature-first frontend pozostaje osobnym późniejszym inkrementem. |
+| 8. Pilotaż modularnego VSA | 100% | Backendowe moduły `ProjectTasks`, `Projects` i `Notifications` mają slice'y, modułowe entry pointy i guardrails DI/route/dependency. Pełne backend unit/integration tests oraz Release build przechodzą; feature-first frontend pozostaje osobnym późniejszym inkrementem. |
 
 **Postęp V3: 65%**.
 
