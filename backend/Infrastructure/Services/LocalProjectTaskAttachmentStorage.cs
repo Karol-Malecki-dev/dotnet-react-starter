@@ -1,4 +1,4 @@
-using Application.Interfaces;
+using Application.Modules.ProjectTasks.Attachments;
 using Microsoft.Extensions.Hosting;
 
 namespace Infrastructure.Services;

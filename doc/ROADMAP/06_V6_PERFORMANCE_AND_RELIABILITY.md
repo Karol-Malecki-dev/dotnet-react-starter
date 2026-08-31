@@ -106,6 +106,21 @@ Pomocniczo można poprawić:
 - unikanie wielokrotnego ładowania tego samego dashboardu;
 - czytelne stany retry i offline.
 
+### 7. Koszt granic modułowych i vertical slices
+
+Po wdrożeniu kilku slice'ów należy zmierzyć, czy nowe granice nie powodują:
+
+- dodatkowych round-tripów do PostgreSQL;
+- problemów N+1 ukrytych za portami;
+- wielokrotnego wykonywania tych samych kontroli dostępu;
+- nadmiernego mapowania i alokacji modeli pośrednich;
+- rozszerzania jednej operacji na niepotrzebnie wiele zapisów lub transakcji;
+- synchronicznego łańcucha eventów trudnego do obserwowania i testowania.
+
+Vertical Slice Architecture ma przede wszystkim poprawić lokalność zmian i kompletność
+funkcji. Nie jest automatyczną optymalizacją wydajności. Port lub event, który zwiększa
+koszt bez ochrony realnej granicy, powinien zostać uproszczony.
+
 ## Test plan
 
 - benchmark endpointu przed i po projekcji SQL;
@@ -117,6 +132,7 @@ Pomocniczo można poprawić:
 - test niedostępnego cache;
 - test timeoutu i circuit breakera;
 - test request cancellation;
+- porównanie liczby zapytań i czasu reprezentatywnego slice'a ze stanem bazowym;
 - pomiar regresji po zmianie.
 
 ## Definition of Done
@@ -128,6 +144,7 @@ Pomocniczo można poprawić:
 - co najmniej jedna operacja jest idempotentna i ma test powtórzenia;
 - worker ma strategię retry i obsługi trwałego błędu;
 - cache, jeśli dodany, ma określony TTL, invalidation i fallback;
+- reprezentatywne slice'y nie wprowadzają nieuzasadnionych round-tripów, N+1 ani wielokrotnych kontroli dostępu;
 - wyniki pomiarów są zapisane w dokumentacji.
 
 ## Poza zakresem V6

@@ -154,35 +154,36 @@ członka przechodzą przez metody domenowe projektu, a bezpośrednie tworzenie c
 jest ograniczone do fabryki encji i warstwy persistence. Dzięki temu właściciel
 projektu nie może zostać dodany drugi raz, usunięty ani zdegradowany do innej roli.
 
-Akceptacja zaproszenia jest wieloetapowym przypadkiem użycia. Dla providerów
-relacyjnych `IProjectInvitationStore.BeginTransactionAsync` otwiera transakcję,
-która obejmuje:
+Akceptacja zaproszenia jest wieloetapowym przypadkiem użycia. Handler stage'uje w
+jednym scoped `ApplicationDbContext`:
 
 - dodanie członka przez `Project.AddMember`;
 - zmianę statusu zaproszenia i wpis aktywności;
 - zapis powiadomienia oraz `NotificationEmailOutboxMessage`.
 
-Commit następuje dopiero po pomyślnym zapisie powiadomienia. Błąd powiadomienia
-wycofuje więc całą akceptację, zamiast zostawić członkostwo bez informacji dla
-użytkownika. Provider InMemory nie obsługuje transakcji relacyjnych, dlatego testy
-jednostkowe używają tam zachowania bez transakcji, a atomowość jest weryfikowana
-testami PostgreSQL.
+Jeden końcowy `SaveChangesAsync` wykonuje relacyjną transakcję dla wszystkich
+śledzonych zmian. Writer powiadomienia i email outbox nie wykonuje własnego commitu.
+Błąd zapisu wycofuje więc całą akceptację, zamiast zostawić członkostwo bez
+powiadomienia. Atomowość i równoległa odpowiedź są weryfikowane na PostgreSQL.
 
-Bezpośrednie dodanie członka przez właściciela używa tego samego portu
-`IProjectTransaction`. Relacyjny commit następuje dopiero po zapisie członkostwa,
-aktywności i notification/outbox, dlatego błąd notification nie zostawia częściowego
-członkostwa ani aktywności. Ten rollback jest również sprawdzany w teście PostgreSQL.
-
-Usunięcie członka również używa tego portu. Granica obejmuje pobranie i unassign jego
-zadań, usunięcie membershipu oraz wpis aktywności, a commit następuje dopiero po
-`SaveChangesAsync()`. Test PostgreSQL sprawdza, że po udanym workflowie członek nie
-istnieje, jego zadania są nieprzypisane, a aktywność została zapisana.
+Bezpośrednie dodanie członka działa analogicznie. Usunięcie członka używa jawnego
+write portu należącego do `ProjectTasks`, aby stage'ować unassign zadań bez
+przekazywania encji między modułami i bez drugiego commitu. Membership, task
+assignments i activity zostają zapisane atomowo.
 
 `Project.ConcurrencyStamp` chroni równoległe zmiany agregatu, a
 `ProjectInvitation.ConcurrencyStamp` chroni przejścia stanu zaproszenia. Dodatkowo
-unikalny indeks `(ProjectId, UserId)` pozostaje obroną na poziomie bazy. Naruszenie
-tego indeksu podczas równoległej akceptacji jest mapowane na wynik konfliktu,
-który kontroler zwraca jako `409 Conflict`.
+unikalny indeks `(ProjectId, UserId)` pozostaje obroną membership na poziomie bazy.
+Naruszenie tego indeksu podczas równoległej akceptacji jest mapowane na wynik
+konfliktu, który kontroler zwraca jako `409 Conflict`.
+
+Tworzenie zaproszeń ma osobną ochronę przed wyścigiem check-then-insert. Częściowy
+unikalny indeks `(ProjectId, InvitedUserId, Status)` obejmuje wyłącznie rekordy ze
+statusem `Pending`, dlatego historia `Accepted`, `Declined` i `Expired` pozostaje
+nieograniczona. Przed utworzeniem kolejnego zaproszenia handler oznacza wygasłe
+rekordy `Pending` jako `Expired`. Naruszenie indeksu przez dwa równoległe żądania
+jest mapowane na `409 Conflict`, a test PostgreSQL potwierdza, że w bazie pozostaje
+tylko jedno aktywne zaproszenie.
 
 `ProjectTask.ConcurrencyStamp` chroni niezależne zmiany zadania. Aktualizacja danych,
 zmiana statusu i usunięcie wymagają wersji odczytanej przez klienta; po udanym zapisie
@@ -194,44 +195,46 @@ nadpisania nowszego zapisu.
 `ProjectTasks` jest pierwszym modułem biznesowym rozwijanym w kierunku hybrydowego
 modularnego monolitu z vertical slices. Moduł pozostaje częścią jednego procesu,
 jednego `ApplicationDbContext` i jednej bazy PostgreSQL. Jego przypadki użycia są
-jednak wydzielane według odpowiedzialności, a nie dokładane do jednego dużego serwisu.
+wydzielane według odpowiedzialności, a nie dokładane do jednego dużego serwisu.
 
-Pierwszy slice `CreateProjectTask` ma własne miejsca na kontrakt HTTP, walidację,
-komendę, handler i endpoint:
+CRUD zadań oraz capability komentarzy, załączników i przypomnień mają własne
+kontrakty, handlery, adaptery HTTP i rejestracje modułowe:
 
 ```text
-Application/Modules/ProjectTasks/CreateProjectTask/
-API/Modules/ProjectTasks/CreateProjectTask/
-Infrastructure/Modules/ProjectTasks/CreateProjectTask/
+Application/Modules/ProjectTasks/<UseCase>/
+API/Modules/ProjectTasks/<UseCase>/
+Infrastructure/Modules/ProjectTasks/<UseCase>/
+UnitTests/Modules/ProjectTasks/<UseCase>/
 ```
 
-Pozostałe operacje tasków pozostają tymczasowo w istniejących serwisach i portach.
-Jest to świadomy etap przejściowy: publiczne trasy, kontrakty JSON, migracje oraz
-relacyjny model danych pozostają bez zmian, a kolejne slice'y mogą być przenoszone
-pojedynczo i weryfikowane niezależnie.
+Przejściowo współdzielone pozostają `IProjectTaskAccess`, `IProjectTaskCommandStore`
+oraz `ProjectTaskView`, ponieważ są używane przez kilka slice'ów. Dashboard korzysta
+już z jawnego `IProjectTaskDashboardReader` należącego do `ProjectTasks`.
 
 Przepływ dla odczytu listy zadań wygląda następująco:
 
 ```text
-ProjectTasksController
+ListProjectTasksController
 	|
-IProjectTaskQueryService
+IListProjectTasksHandler
 	|
-IProjectTaskAccess + IProjectTaskQueryStore
+ListProjectTasksHandler
+	|
+IProjectTaskAccess + IListProjectTasksQueryStore
 	|
 EfProjectTaskAccess + EfProjectTaskQueryStore
 	|
 ApplicationDbContext / PostgreSQL
 ```
 
-Przeniesiony slice tworzenia zadania używa bardziej precyzyjnej granicy:
+Przepływ command slice'a aktualizacji zadania używa tej samej granicy:
 
 ```text
-CreateProjectTaskController
+UpdateProjectTaskController
 	|
-ICreateProjectTaskHandler
+IUpdateProjectTaskHandler
 	|
-CreateProjectTaskHandler
+UpdateProjectTaskHandler
 	|
 IProjectTaskAccess + IProjectTaskCommandStore
 	|
@@ -240,22 +243,24 @@ EfProjectTaskAccess + EfProjectTaskCommandStore
 ApplicationDbContext / PostgreSQL
 ```
 
-Pozostałe komendy używają jeszcze przejściowego podziału:
+Komentarze, załączniki i przypomnienia są capability tego samego modułu, ale ich
+handlery i porty pozostają osobnymi slice'ami:
 
 ```text
-ProjectTasksController
+CreateProjectTaskAttachmentController
 	|
-IProjectTaskCommandService
+ICreateProjectTaskAttachmentHandler
 	|
-IProjectTaskAccess + IProjectTaskCommandStore
+CreateProjectTaskAttachmentHandler
 	|
-EfProjectTaskAccess + EfProjectTaskCommandStore
+ICreateProjectTaskAttachmentStore
 	|
 ApplicationDbContext / PostgreSQL
 ```
 
-`IProjectTaskAccess`, `IProjectTaskQueryStore`, `IProjectTaskCommandStore` oraz
-`IProjectMembershipStore` są portami przypadków użycia, a nie generycznym repository.
+`IProjectTaskAccess`, `IListProjectTasksQueryStore`, `IProjectTaskCommandStore`,
+`IProjectTaskMemberAssignmentWriter` oraz `IProjectTaskDashboardReader` są portami
+przypadków użycia, a nie generycznym repository.
 Dzięki temu kontrakty
 opisują rzeczywiste potrzeby funkcji: kontrolę dostępu, listowanie z filtrami oraz
 zapis zmian zadania. Implementacje EF pozostają w `Infrastructure`, a kontrolery
@@ -270,6 +275,32 @@ Composition root wywołuje jeden extension modułu, zamiast znać każdą implem
 tasków osobno. Nie oznacza to jeszcze osobnego projektu .NET ani osobnej bazy; te
 decyzje pozostają odłożone do czasu, gdy granice zostaną potwierdzone większą liczbą
 slice'ów i realnymi potrzebami utrzymania.
+
+### Projects As A Business Module With Vertical Slices
+
+Backendowy obszar `Projects` ma osobne slice'y dla lifecycle, membership,
+invitations, activity i dashboardu. Każdy endpoint zależy od focused handlera,
+a implementacje EF są podłączane wyłącznie przez
+`ProjectsModule.AddProjectsModule`. Nie istnieje już szeroki
+`IProjectManagementService`, `IProjectMembershipStore` ani project invitation
+service.
+
+Dashboard ilustruje kontrolowaną współpracę modułów:
+
+```text
+GetProjectDashboardController
+    |
+IGetProjectDashboardHandler
+    |
+GetProjectDashboardHandler
+    |-- IGetProjectDashboardStore (access + Projects activity)
+    `-- IProjectTaskDashboardReader (ProjectTasks metrics + due tasks)
+```
+
+Usunięcie członka używa `IProjectTaskMemberAssignmentWriter` z modułu
+`ProjectTasks`. Oba porty przekazują identyfikatory i read modele zamiast encji.
+Wspólna baza i scoped context pozwalają zachować atomowy zapis, ale zależność jest
+jawna i testowalna.
 
 Przypisanie zadania jest dodatkowo walidowane względem aktywnego członkostwa
 w projekcie. Zarządzanie członkami jest dostępne wyłącznie właścicielowi projektu,
@@ -310,7 +341,11 @@ Health endpoints mają rozdzielone odpowiedzialności:
 - `/health` agreguje podstawową gotowość API i bazy, bez stanu workerów;
 - `/health/workers` raportuje świeżość ostatnich cykli workerów.
 
-Workery `NotificationEmailOutboxWorker` i `ProjectTaskDeadlineReminderWorker` są hostowanymi usługami infrastruktury. Ich stan jest przechowywany w pamięci procesu, więc endpoint worker health opisuje bieżącą instancję aplikacji i nie zastępuje trwałego monitoringu ani kolejki rozproszonej.
+Workery `NotificationEmailOutboxWorker`, `ProjectTaskDeadlineReminderWorker` i
+`ProjectTaskAttachmentCleanupWorker` są hostowanymi usługami infrastruktury. Ich
+stan zdrowia jest raportowany dla bieżącej instancji procesu. Email outbox oraz
+attachment cleanup mają trwałe rekordy w bazie, ale endpoint worker health nadal
+nie zastępuje zewnętrznego monitoringu.
 
 ## Runtime Configuration as a Project Pattern
 

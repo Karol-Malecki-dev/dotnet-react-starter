@@ -10,6 +10,8 @@ using Shared.Responses;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace IntegrationTests;
 
@@ -44,6 +46,15 @@ public sealed class ProjectInvitationsApiIntegrationTests
         Assert.NotEmpty(created.Data.Token);
         Assert.Equal(ProjectInvitationStatus.Pending, created.Data.Invitation.Status);
 
+        var duplicateCreateResponse = await _client.PostAsJsonAsync(
+            $"/api/projects/{projectId}/invitations",
+            new
+            {
+                Email = "invite.recipient@example.com",
+                Role = ProjectMemberRole.Member
+            });
+        Assert.Equal(HttpStatusCode.Conflict, duplicateCreateResponse.StatusCode);
+
         var ownerListResponse = await _client.GetAsync($"/api/projects/{projectId}/invitations");
         ownerListResponse.EnsureSuccessStatusCode();
         var ownerInvitations = await ownerListResponse.Content.ReadFromJsonAsync<ApiResponse<List<ProjectInvitationResponse>>>();
@@ -73,6 +84,134 @@ public sealed class ProjectInvitationsApiIntegrationTests
         membersResponse.EnsureSuccessStatusCode();
         var members = await membersResponse.Content.ReadFromJsonAsync<ApiResponse<List<ProjectMemberResponse>>>();
         Assert.Contains(members?.Data ?? [], member => member.UserId == recipientId && member.Role == ProjectMemberRole.Viewer);
+
+        using var verificationScope = _factory.Services.CreateScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var storedInvitation = Assert.Single(verificationContext.ProjectInvitations.Where(
+            invitation => invitation.ProjectId == projectId));
+        Assert.Equal(HashToken(created.Data.Token), storedInvitation.TokenHash);
+        Assert.NotEqual(created.Data.Token, storedInvitation.TokenHash);
+        Assert.Equal(2, verificationContext.Notifications.Count(
+            notification => notification.ResourceType == "ProjectInvitation"
+                && notification.ResourceId == storedInvitation.Id));
+        Assert.Equal(2, verificationContext.NotificationEmailOutboxMessages.Count(
+            message => verificationContext.Notifications
+                .Where(notification => notification.ResourceId == storedInvitation.Id)
+                .Select(notification => notification.Id)
+                .Contains(message.NotificationId)));
+        Assert.Contains(verificationContext.ProjectActivities, activity =>
+            activity.ProjectId == projectId && activity.Type == "invitation.created");
+        Assert.Contains(verificationContext.ProjectActivities, activity =>
+            activity.ProjectId == projectId && activity.Type == "invitation.accepted");
+    }
+
+    [Fact]
+    public async Task Non_owner_cannot_list_or_create_project_invitations()
+    {
+        var ownerId = await SeedUserAsync("invite.access.owner@example.com", "password123", "Access Owner");
+        await SeedUserAsync("invite.access.outsider@example.com", "password123", "Access Outsider");
+        await SeedUserAsync("invite.access.recipient@example.com", "password123", "Access Recipient");
+        var projectId = await SeedProjectAsync(ownerId, "Invitation access project");
+        var outsiderTokens = await LoginAsync("invite.access.outsider@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", outsiderTokens.AccessToken);
+
+        var listResponse = await _client.GetAsync($"/api/projects/{projectId}/invitations");
+        var createResponse = await _client.PostAsJsonAsync(
+            $"/api/projects/{projectId}/invitations",
+            new
+            {
+                Email = "invite.access.recipient@example.com",
+                Role = ProjectMemberRole.Member
+            });
+
+        Assert.Equal(HttpStatusCode.NotFound, listResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, createResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Invalid_invitation_requests_return_bad_request_without_persistence()
+    {
+        var ownerId = await SeedUserAsync("invite.validation.owner@example.com", "password123", "Validation Owner");
+        var projectId = await SeedProjectAsync(ownerId, "Invitation validation project");
+        var ownerTokens = await LoginAsync("invite.validation.owner@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerTokens.AccessToken);
+
+        var invalidEmailResponse = await _client.PostAsJsonAsync(
+            $"/api/projects/{projectId}/invitations",
+            new
+            {
+                Email = "not-an-email",
+                Role = ProjectMemberRole.Member
+            });
+        var invalidRoleResponse = await _client.PostAsJsonAsync(
+            $"/api/projects/{projectId}/invitations",
+            new
+            {
+                Email = "recipient@example.com",
+                Role = ProjectMemberRole.Owner
+            });
+        var emptyTokenResponse = await _client.PostAsJsonAsync(
+            "/api/project-invitations/accept",
+            new { Token = string.Empty });
+
+        Assert.Equal(HttpStatusCode.BadRequest, invalidEmailResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, invalidRoleResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, emptyTokenResponse.StatusCode);
+
+        using var verificationScope = _factory.Services.CreateScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.DoesNotContain(
+            verificationContext.ProjectInvitations,
+            invitation => invitation.ProjectId == projectId);
+    }
+
+    [Fact]
+    public async Task Recipient_can_decline_without_becoming_a_project_member()
+    {
+        var ownerId = await SeedUserAsync("invite.decline.owner@example.com", "password123", "Decline Owner");
+        var recipientId = await SeedUserAsync("invite.decline.recipient@example.com", "password123", "Decline Recipient");
+        var projectId = await SeedProjectAsync(ownerId, "Invitation decline project");
+
+        var ownerTokens = await LoginAsync("invite.decline.owner@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerTokens.AccessToken);
+        var createResponse = await _client.PostAsJsonAsync(
+            $"/api/projects/{projectId}/invitations",
+            new
+            {
+                Email = "invite.decline.recipient@example.com",
+                Role = ProjectMemberRole.Member
+            });
+        createResponse.EnsureSuccessStatusCode();
+        var created = await createResponse.Content.ReadFromJsonAsync<ApiResponse<CreatedProjectInvitationResponse>>();
+        Assert.NotNull(created?.Data);
+
+        var recipientTokens = await LoginAsync("invite.decline.recipient@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", recipientTokens.AccessToken);
+        var declineResponse = await _client.PostAsJsonAsync(
+            "/api/project-invitations/decline",
+            new { created.Data.Token });
+
+        declineResponse.EnsureSuccessStatusCode();
+        var declined = await declineResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectInvitationResponse>>();
+        Assert.Equal(ProjectInvitationStatus.Declined, declined?.Data?.Status);
+
+        using var verificationScope = _factory.Services.CreateScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.DoesNotContain(
+            verificationContext.ProjectMembers,
+            member => member.ProjectId == projectId && member.UserId == recipientId);
+        Assert.Contains(verificationContext.ProjectActivities, activity =>
+            activity.ProjectId == projectId && activity.Type == "invitation.declined");
+    }
+
+    [Fact]
+    public async Task Invitation_endpoints_require_authentication()
+    {
+        _client.DefaultRequestHeaders.Authorization = null;
+
+        var response = await _client.GetAsync("/api/project-invitations/mine");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     private async Task<AuthTokenResponse> LoginAsync(string email, string password)
@@ -109,4 +248,7 @@ public sealed class ProjectInvitationsApiIntegrationTests
         await dbContext.SaveChangesAsync();
         return project.Id;
     }
+
+    private static string HashToken(string token)
+        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
 }

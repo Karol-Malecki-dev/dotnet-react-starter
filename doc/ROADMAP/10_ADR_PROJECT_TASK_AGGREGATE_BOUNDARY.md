@@ -67,7 +67,7 @@ The aggregate responsibilities are:
 | --- | --- |
 | `Project` | Owner identity, archival state, project membership, member roles and invariants protecting the owner. |
 | `ProjectTask` | Task identity and lifecycle, valid task state, normalized task data and labels. |
-| Application service | Active-project access, role authorization, validation that an assignee is an active project member, and coordination of workflows crossing both aggregates. |
+| Application handler | Active-project access, role authorization, validation that an assignee is an active project member, and coordination of workflows crossing both aggregates. |
 | Database mapping | Referential integrity through the `ProjectId` foreign key and delete behavior; a foreign key does not make the task a child entity of the `Project` aggregate. |
 
 `ProjectTask.ProjectId` is therefore an identity reference, not a domain navigation
@@ -80,13 +80,13 @@ deduplicated and replaced as part of task changes. This ADR does not reclassify 
 comments, attachments or deadline reminders; their existing feature-specific ports
 and independent lifecycle decisions remain unchanged.
 
-The member-removal workflow is an application-level coordination case: it loads the
-assigned tasks, unassigns them through `ProjectTask`, removes the member through
-`Project`, and persists the changes together. The implementation uses the shared
-`IProjectTransaction` boundary so a relational commit occurs only after task
-unassignment, membership removal and activity persistence succeed. If the workflow
-later gains notifications or other external side effects, their outbox policy must
-be defined explicitly.
+The member-removal workflow is an application-level coordination case. The Projects
+handler calls `IProjectTaskMemberAssignmentWriter`, a write port owned by
+`ProjectTasks`, to stage task unassignment. It then removes the member through
+`Project` and stages activity. Both adapters share the scoped `ApplicationDbContext`
+and neither the cross-module writer nor the focused stores commit independently.
+One final `SaveChangesAsync` therefore persists task unassignment, membership removal
+and activity in one relational transaction.
 
 ## Implementation alignment
 
@@ -102,6 +102,8 @@ The current implementation follows this decision:
   `taskId`.
 - Task commands use `IProjectTaskAccess` and `IProjectTaskCommandStore` rather than a
   project aggregate repository.
+- Projects uses `IProjectTaskMemberAssignmentWriter` for the cross-aggregate member
+  removal write and `IProjectTaskDashboardReader` for task dashboard reads.
 - `ProjectTaskConfiguration` maps the required relational foreign key without adding
   a `Project` navigation to the domain entity.
 - `Project.ConcurrencyStamp` is not changed by task creation or task edits.
@@ -127,5 +129,5 @@ the application-level rules that connect a task to its project.
 
 - Revisit the classification of comments, attachments and reminders if their lifecycle
   or consistency rules become more independent.
-- Define an explicit transaction or outbox policy if member removal gains notifications
-  or other external side effects.
+- Define an outbox or compensation policy if member removal gains external side
+  effects that cannot participate in the database transaction.

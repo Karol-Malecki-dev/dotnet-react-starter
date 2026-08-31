@@ -1,6 +1,6 @@
 using Application.Features.ProjectManagement.Tasks;
 using Application.Features.Projects;
-using Application.Interfaces;
+using Application.Modules.ProjectTasks.AssignmentNotifications;
 using Application.Modules.ProjectTasks.CreateProjectTask;
 using Domain.Entities;
 using Domain.Enums;
@@ -14,16 +14,16 @@ public sealed class CreateProjectTaskHandler : ICreateProjectTaskHandler
 {
     private readonly IProjectTaskAccess _projectTaskAccess;
     private readonly IProjectTaskCommandStore _commandStore;
-    private readonly INotificationService _notificationService;
+    private readonly IProjectTaskAssignmentNotificationWriter _assignmentNotificationWriter;
 
     public CreateProjectTaskHandler(
         IProjectTaskAccess projectTaskAccess,
         IProjectTaskCommandStore commandStore,
-        INotificationService notificationService)
+        IProjectTaskAssignmentNotificationWriter assignmentNotificationWriter)
     {
         _projectTaskAccess = projectTaskAccess;
         _commandStore = commandStore;
-        _notificationService = notificationService;
+        _assignmentNotificationWriter = assignmentNotificationWriter;
     }
 
     public async Task<ProjectOperationResult<ProjectTaskView>> HandleAsync(
@@ -89,8 +89,8 @@ public sealed class CreateProjectTaskHandler : ICreateProjectTaskHandler
                 task.Id);
         }
 
+        await PrepareAssigneeNotificationAsync(task, command.OwnerId, cancellationToken);
         await _commandStore.SaveChangesAsync(cancellationToken);
-        await NotifyAssigneeAsync(task, command.OwnerId, cancellationToken);
 
         return ProjectOperationResult<ProjectTaskView>.Success(
             MapToView(task),
@@ -116,7 +116,7 @@ public sealed class CreateProjectTaskHandler : ICreateProjectTaskHandler
             : "Assigned user is not an active member of this project";
     }
 
-    private async Task NotifyAssigneeAsync(
+    private async Task PrepareAssigneeNotificationAsync(
         ProjectTask task,
         Guid actorUserId,
         CancellationToken cancellationToken)
@@ -126,15 +126,12 @@ public sealed class CreateProjectTaskHandler : ICreateProjectTaskHandler
             return;
         }
 
-        await _notificationService.CreateAsync(
+        await _assignmentNotificationWriter.AddTaskAssignedNotificationAsync(
             task.AssignedUserId.Value,
-            NotificationType.TaskAssigned,
-            "You were assigned a task",
-            $"You were assigned the task '{task.Title}'.",
-            "ProjectTask",
-            task.Id,
             task.ProjectId,
-            cancellationToken: cancellationToken);
+            task.Id,
+            task.Title,
+            cancellationToken);
     }
 
     private void AddActivity(

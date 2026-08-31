@@ -9,6 +9,7 @@ using FluentValidation.AspNetCore;
 using Domain.Interfaces;
 using Infrastructure.Data;
 using Infrastructure.Modules.ProjectTasks;
+using Infrastructure.Modules.Projects;
 using Infrastructure.ProjectManagement.Tasks;
 using Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -283,17 +284,8 @@ namespace API.Services
             });
             services.AddHostedService<NotificationEmailOutboxWorker>();
             services.AddScoped<IAdminService, DatabaseAdminService>();
-            services.AddScoped<DatabaseProjectService>();
-            services.AddScoped<DatabaseProjectManagementService>();
-            services.AddScoped<DatabaseProjectMembershipApplicationService>();
-            services.AddScoped<DatabaseProjectInvitationApplicationService>();
-            services.AddScoped<IProjectApplicationService>(serviceProvider => serviceProvider.GetRequiredService<DatabaseProjectService>());
-            services.AddScoped<IProjectManagementService>(serviceProvider => serviceProvider.GetRequiredService<DatabaseProjectManagementService>());
-            services.AddScoped<IProjectMembershipApplicationService>(serviceProvider => serviceProvider.GetRequiredService<DatabaseProjectMembershipApplicationService>());
-            services.AddScoped<IProjectInvitationApplicationService>(serviceProvider => serviceProvider.GetRequiredService<DatabaseProjectInvitationApplicationService>());
-            services.AddScoped<IProjectMembershipStore, EfProjectMembershipStore>();
-            services.AddScoped<IProjectInvitationStore, EfProjectInvitationStore>();
             services.AddProjectTasksModule();
+            services.AddProjectsModule();
 
             services.AddScoped<LoggingAccountEmailSender>();
             services.AddScoped<MailKitAccountEmailSender>();

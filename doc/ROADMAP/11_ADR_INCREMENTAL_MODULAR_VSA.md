@@ -42,8 +42,28 @@ Application/Modules/ProjectTasks/CreateProjectTask
 Infrastructure/Modules/ProjectTasks/CreateProjectTask
 ```
 
-The remaining task commands and queries are transitional. They will be extracted
-one use case at a time after each slice has tests and a stable dependency boundary.
+The initial pilot has since been expanded one use case at a time. The current
+`ProjectTasks` backend includes slice-specific handlers for task CRUD, comments,
+attachments, deadline reminders and a public dashboard read port. `Projects` now
+uses the same structure for lifecycle, membership, invitations, activity and
+dashboard use cases. The former broad project controllers, application services and
+stores have been removed without changing public routes or JSON contracts.
+
+Cross-module collaboration is explicit:
+
+- member removal calls a write port owned by `ProjectTasks` to stage unassignment;
+- the dashboard calls a read port owned by `ProjectTasks` for task metrics and due
+  date lists;
+- both ports exchange identifiers and read models rather than domain entities;
+- all staged relational changes share one scoped `ApplicationDbContext` and one
+  final `SaveChangesAsync`.
+
+Database constraints remain part of a slice when they protect its business
+invariant. `CreateProjectInvitation` uses a PostgreSQL partial unique index over
+`(ProjectId, InvitedUserId, Status)` filtered to `Status = 'Pending'`. Expired
+pending rows are transitioned to `Expired` before replacement, while concurrent
+inserts are mapped to the existing `409 Conflict` response. Accepted, declined and
+expired invitation history is therefore not restricted.
 
 ## Options rejected for now
 
@@ -83,7 +103,7 @@ cross-process requirement exists.
 
 ### Costs and limitations
 
-- During migration, old and new service styles coexist.
+- Other business areas still use the older service style during migration.
 - Some shared task ports remain under the older `Application.Features` namespace.
 - A central `DbContext` means EF configurations and migrations are not physically
   isolated yet.
@@ -92,21 +112,28 @@ cross-process requirement exists.
 
 ## Validation
 
-The first slice is considered aligned with this ADR when:
+The current backend modules are considered aligned with this ADR when:
 
 - the handler unit tests cover authorization, validation, persistence and
   notification behavior;
 - the existing project-task integration tests pass without route changes;
 - the backend Release build passes;
-- the module registration resolves the handler and existing task services;
-- no EF migration is required for the structural change.
+- module registration resolves every Projects and ProjectTasks handler;
+- no two actions expose the same HTTP method and attribute route;
+- module controllers and handlers do not depend directly on `ApplicationDbContext`;
+- folder-only structural moves do not require an EF migration; migrations are
+  required when a slice adds or strengthens a database invariant;
+- PostgreSQL provider tests apply every migration and cover transaction,
+  concurrency and constraint behavior.
 
 ## Follow-up
 
-- Extract `GetProjectTaskDetails` or the next smallest read slice.
+- Apply the proven pattern to `Notifications` and later `Identity`, preserving the
+  one-use-case-at-a-time boundary.
 - Move task-specific ports into the module namespace once no transitional consumer
   depends on the old location.
-- Add a module registration test if the composition root grows beyond one focused
-  module.
+- Keep the module registration, route uniqueness and dependency guardrails in CI.
+- Migrate the frontend to feature-first organization only after the backend
+  contracts remain stable.
 - Revisit separate projects, packages or a `dotnet new` template only after several
   modules are complete and repeated setup cost is measured.

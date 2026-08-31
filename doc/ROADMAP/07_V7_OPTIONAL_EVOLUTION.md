@@ -2,7 +2,7 @@
 
 ## Cel
 
-V7 opisuje kierunki, które mogą być wartościowe, ale nie powinny być obowiązkową częścią startera. Ich kolejność ma wynikać z realnej potrzeby produktu, użytkowników, infrastruktury lub ograniczeń zespołu.
+V7 opisuje kierunki rozwoju produktu i infrastruktury, które mogą być wartościowe, ale nie powinny być obowiązkową częścią startera. Ich kolejność ma wynikać z realnej potrzeby produktu, użytkowników, infrastruktury lub ograniczeń zespołu. Platformizacja sprawdzonych modułów, generatory i dystrybucja między projektami należą do osobnego V8.
 
 ## Status realizacji
 
@@ -39,10 +39,15 @@ To celowy status: V7 rozpoczyna się dopiero po pojawieniu się konkretnego prob
 
 ### Architektura
 
-- dalsze wyodrębnienie modułów;
+- dalsze wzmacnianie granic modułów, jeśli obecne zależności utrudniają rozwój;
 - osobne read model tylko dla mierzonego problemu;
 - komunikacja asynchroniczna między modułami;
 - osobna usługa dopiero po wykazaniu potrzeby niezależnego skalowania, wdrażania lub izolacji awarii.
+
+V7 nie oznacza automatycznego tworzenia osobnych projektów `.csproj`, baz danych albo
+pakietów dla każdego modułu. Reużywalność, scaffolding, wersjonowanie i instalowanie
+modułów w nowych projektach są oceniane w V8 dopiero po potwierdzeniu kilku modułów
+w produkcyjnym kształcie.
 
 ### Operacje
 
@@ -62,7 +67,8 @@ Przed dodaniem kierunku należy zapisać:
 - jak będzie testowany;
 - jak wygląda rollback;
 - czy problem nie może być rozwiązany prostszą zmianą;
-- czy jest to potrzeba produktu, czy tylko ciekawość technologiczna.
+- czy jest to potrzeba produktu, czy tylko ciekawość technologiczna;
+- czy kierunek należy do ewolucji działającej aplikacji V7, czy do platformizacji startera V8.
 
 ## Czego nie robić automatycznie
 

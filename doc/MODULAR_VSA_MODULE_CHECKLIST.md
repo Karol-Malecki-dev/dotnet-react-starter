@@ -8,6 +8,7 @@ The checklist is intentionally small enough to use during normal feature work.
 - [ ] The business responsibility and aggregate ownership are stated.
 - [ ] Public dependencies on other modules are listed.
 - [ ] Cross-module rules use an explicit port, identifier or application workflow.
+- [ ] A module does not query another module's `DbSet` directly.
 - [ ] API code does not access `ApplicationDbContext` directly.
 - [ ] The module has one composition extension for its registrations.
 - [ ] Optional workers and endpoints have an explicit enablement policy.
@@ -24,6 +25,8 @@ The checklist is intentionally small enough to use during normal feature work.
 - [ ] Authorization is enforced on the server and is covered by a test.
 - [ ] Domain invariants are enforced by the entity or aggregate.
 - [ ] Persistence changes use focused ports and define the transaction boundary.
+- [ ] Database changes, activity, notifications and outbox records that must be
+      atomic are staged before one final `SaveChangesAsync`.
 - [ ] Errors and concurrency conflicts map to documented status codes.
 - [ ] DI registration is made through the module extension.
 - [ ] Unit tests cover the handler's success and meaningful failure paths.
@@ -40,6 +43,7 @@ The checklist is intentionally small enough to use during normal feature work.
       optimistic concurrency.
 - [ ] Frontend build/tests pass when frontend code or API contracts change.
 - [ ] `git diff --check` passes.
+- [ ] Module DI, route uniqueness and direct-`DbContext` architecture guardrails pass.
 - [ ] No new broad service method was added when a slice-specific handler was
       appropriate.
 - [ ] The old path is removed only after all consumers and tests use the new slice.

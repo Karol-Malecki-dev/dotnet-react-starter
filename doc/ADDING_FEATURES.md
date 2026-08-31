@@ -94,29 +94,38 @@ Warto pilnować, żeby relacje i indeksy były jawne i czytelne, szczególnie dl
 
 ## Modular Monolith Feature Boundary
 
-Dla funkcji należących do zarządzania projektami stosuj granicę feature zamiast
-bezpośredniego używania `ApplicationDbContext` w serwisie aplikacyjnym.
+Dla nowych funkcji należących do modułu biznesowego stosuj granicę slice'a zamiast
+dopisywania kolejnej metody do szerokiego serwisu aplikacyjnego. Handler powinien
+korzystać z portu opisującego konkretną potrzebę, a nie z `ApplicationDbContext`.
 
 Rekomendowany podział:
 
-1. Dla nowych slice'ów w `ProjectTasks` umieść kontrakty w
-   `Application/Modules/ProjectTasks/<UseCase>/`. Istniejące, jeszcze
-   nieprzeniesione przypadki mogą pozostać w `Application/Features/<Feature>/`.
+1. Dla nowych slice'ów umieść kontrakty w
+   `Application/Modules/<BusinessModule>/<UseCase>/`. Przykładowo
+   `GetProjectDetails` należy do `Application/Modules/Projects/GetProjectDetails/`.
+   Istniejące, jeszcze nieprzeniesione przypadki mogą pozostać w
+   `Application/Features/<Feature>/`.
 2. Reguły domenowe trzymaj w encji lub agregacie w `Domain/`.
 3. Zdefiniuj małe porty persistence opisujące konkretne potrzeby funkcji.
 4. Dla nowych slice'ów implementacje portów EF umieść w
-   `Infrastructure/Modules/ProjectTasks/<UseCase>/`; istniejące adaptery mogą
+   `Infrastructure/Modules/<BusinessModule>/<UseCase>/`; istniejące adaptery mogą
    pozostać w dotychczasowej lokalizacji przejściowej.
 5. Zarejestruj porty i implementacje przez rozszerzenie modułu; composition root
    powinien znać tylko punkt wejścia modułu.
-6. Testuj serwis aplikacyjny przez mocki portów, a zapis i zapytania EF przez testy integracyjne.
+6. Testuj handler przez mocki portów, a zapis i zapytania EF przez testy integracyjne.
 
-Dla `ProjectManagement.Tasks` aktualne porty to:
+Dla `ProjectTasks` aktualne porty współdzielone przez uzasadnione capability to:
 
 - `IProjectTaskAccess` - aktywna rola użytkownika i pobranie zadania z etykietami,
-- `IProjectTaskQueryStore` - filtrowanie, sortowanie i paginacja listy zadań,
-- `IProjectTaskCommandStore` - zapis zadania, etykiet, aktywności i zmian.
-- `IProjectMembershipStore` - odczyt i zmiana członkostwa oraz czyszczenie przypisań zadań.
+- `IListProjectTasksQueryStore` - filtrowanie, sortowanie i paginacja listy zadań,
+- `IProjectTaskCommandStore` - zapis zadania, etykiet, aktywności i zmian,
+- `IProjectTaskMemberAssignmentWriter` - staging unassign przy usuwaniu członka,
+- `IProjectTaskDashboardReader` - read model statystyk dla dashboardu `Projects`.
+
+Każdy use case `Projects` ma focused store lub jawny port modułowy. Dashboard
+rozdziela `IGetProjectDashboardStore` dla danych należących do `Projects` od
+`IProjectTaskDashboardReader` dla danych należących do `ProjectTasks`. Kontroler
+i handler nie znają `ApplicationDbContext`.
 
 Nie twórz generycznego `IRepository<T>` tylko po to, aby ukryć EF Core. Port powinien
 wynikać z przypadku użycia i przyjmować typy oraz operacje potrzebne konkretnej
@@ -125,14 +134,14 @@ wynikającego z rzeczywistego przypadku biznesowego.
 
 ## Vertical Slice Standard
 
-Nowe przypadki użycia w module `ProjectTasks` zaczynaj od katalogu slice'a, a nie od
+Nowe przypadki użycia w module biznesowym zaczynaj od katalogu slice'a, a nie od
 dopisania kolejnej metody do dużego serwisu:
 
 ```text
-Application/Modules/ProjectTasks/<UseCase>/
-API/Modules/ProjectTasks/<UseCase>/
-Infrastructure/Modules/ProjectTasks/<UseCase>/
-UnitTests/Features/ProjectManagement/Tasks/<UseCase>/
+Application/Modules/<BusinessModule>/<UseCase>/
+API/Modules/<BusinessModule>/<UseCase>/
+Infrastructure/Modules/<BusinessModule>/<UseCase>/
+UnitTests/Modules/<BusinessModule>/<UseCase>/
 ```
 
 Każdy slice powinien mieć, zależnie od potrzeb:
@@ -146,10 +155,12 @@ Każdy slice powinien mieć, zależnie od potrzeb:
 7. rejestrację w module, a nie bezpośredni wpis w composition root;
 8. krótką dokumentację decyzji, zależności i zachowania przy błędzie.
 
-W okresie migracji istniejące `IProjectTaskCommandService` może obsługiwać jeszcze
-nieprzeniesione komendy. Nie dodawaj do niego nowych przypadków użycia, jeśli mogą
-powstać jako osobny slice. Po przeniesieniu wszystkich komend interfejs przejściowy
-powinien zostać usunięty lub rozbity na pozostałe, rzeczywiste use case'y.
+Po zakończeniu migracji CRUD `ProjectTasks` nie dodawaj nowych przypadków użycia do
+dużego serwisu. Każda nowa komenda lub kwerenda powinna mieć własny slice oraz
+rejestrację w entry poincie właściwego modułu, na przykład `ProjectTasksModule` albo
+`ProjectsModule`. Przejściowe porty współdzielone przez kilka
+slice'ów pozostają dopuszczalne tylko wtedy, gdy opisują rzeczywistą wspólną
+potrzebę, a nie wygodę dostępu do całego `DbContext`.
 
 Nie traktuj folderu jako granicy sam w sobie. Moduł jest granicą dopiero wtedy, gdy:
 
