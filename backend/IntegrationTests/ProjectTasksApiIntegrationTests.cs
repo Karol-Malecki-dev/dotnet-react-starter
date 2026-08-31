@@ -876,6 +876,10 @@ public class ProjectTasksApiIntegrationTests
             projectId, task.Data.Id, Encoding.UTF8.GetBytes("plain text"), "payload.txt", "application/pdf");
         Assert.Equal(HttpStatusCode.BadRequest, invalidContentType.StatusCode);
 
+        var spoofedPdf = await UploadAttachmentAsync(
+            projectId, task.Data.Id, "MZ executable payload"u8.ToArray(), "report.pdf", "application/pdf");
+        Assert.Equal(HttpStatusCode.BadRequest, spoofedPdf.StatusCode);
+
         var tooLarge = await UploadAttachmentAsync(
             projectId, task.Data.Id, new byte[10 * 1024 * 1024 + 1], "large.txt", "text/plain");
         Assert.Equal(HttpStatusCode.BadRequest, tooLarge.StatusCode);

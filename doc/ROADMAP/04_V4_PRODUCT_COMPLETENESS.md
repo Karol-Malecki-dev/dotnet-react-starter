@@ -8,14 +8,14 @@ Frontend pozostaje funkcjonalny i podporządkowany backendowi. Nie celem jest bu
 
 ## Status realizacji
 
-Stan na: **2026-08-29**.
+Stan na: **2026-08-31**.
 
 | Obszar | Postęp | Status i dowód |
 |---|---:|---|
 | 1. Account security audit | 0% | Activity istnieje, ale odrębny audyt bezpieczeństwa nie został jeszcze wdrożony. |
 | 2. Auth lockout UX | 25% | Backendowy lockout działa; pełne neutralne komunikaty i UX po stronie frontendu są jeszcze do dopracowania. |
 | 3. Global workspace search | 25% | Istnieje quick search oraz wyszukiwanie zadań w projekcie; brakuje jednego autoryzowanego search endpointu workspace. |
-| 4. Załączniki jako funkcja produkcyjna | 50% | Upload, download i podstawowa walidacja działają; brakuje production storage, content sniffingu, retencji i pełnych testów bezpieczeństwa. |
+| 4. Załączniki jako funkcja produkcyjna | 55% | Upload, download, kontrola dostępu, content sniffing i bezpieczne klucze storage działają; brakuje atomowych quota, production storage, retencji i pełnych testów operacyjnych. |
 | 5. Kompletność activity i notifications | 40% | Activity, notifications i outbox istnieją; brakuje pełnego audytu zdarzeń, deduplikacji i kompletnej mapy zdarzeń. |
 | 6. Browser E2E | 25% | Istnieją smoke tests działającego stacka; pełne browser E2E głównych workflowów nie zostały jeszcze dodane. |
 
@@ -73,12 +73,14 @@ Zakres powinien rozpocząć się od jednego endpointu z paginacją i określonym
 
 ### 4. Załączniki jako funkcja produkcyjna
 
+Szczegółowa kolejność wdrożenia i decyzje graniczne znajdują się w
+`12_ATTACHMENT_HARDENING_PLAN.md`.
+
 Backend i frontendowa obsługa już istnieją. Do produkcyjnego poziomu brakuje między innymi:
 
 - trwałego i odpowiedniego storage;
 - limitów per użytkownik, projekt i zadanie;
-- bezpiecznej nazwy oraz content type;
-- content sniffing zamiast zaufania do rozszerzenia;
+- dalszego utwardzenia bezpiecznej nazwy i content type wraz z testami formatów brzegowych;
 - kontroli malware lub quarantine, jeśli środowisko tego wymaga;
 - cleanupu pliku po nieudanym zapisie metadanych;
 - cleanupu metadanych po nieudanym usunięciu pliku;
