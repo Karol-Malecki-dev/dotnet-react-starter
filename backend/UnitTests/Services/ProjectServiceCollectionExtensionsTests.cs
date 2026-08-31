@@ -119,6 +119,63 @@ public class ProjectServiceCollectionExtensionsTests
         Assert.False(settings.ApplyMigrationsOnStartup);
     }
 
+    [Fact]
+    public void Production_configuration_rejects_insecure_public_origin()
+    {
+        using var provider = BuildProvider(
+            new Dictionary<string, string?>
+            {
+                ["Cors:AllowedOrigins:0"] = "http://example.com"
+            },
+            Environments.Production);
+
+        Assert.Throws<OptionsValidationException>(
+            () => provider.GetRequiredService<IOptions<CorsSettings>>().Value);
+    }
+
+    [Fact]
+    public void Production_configuration_requires_forwarded_headers()
+    {
+        using var provider = BuildProvider(
+            new Dictionary<string, string?>
+            {
+                ["ForwardedHeaders:Enabled"] = "false"
+            },
+            Environments.Production);
+
+        Assert.Throws<OptionsValidationException>(
+            () => provider.GetRequiredService<IOptions<ForwardedHeadersSettings>>().Value);
+    }
+
+    [Fact]
+    public void Production_configuration_requires_email_delivery()
+    {
+        using var provider = BuildProvider(
+            new Dictionary<string, string?>
+            {
+                ["EmailDelivery:Enabled"] = "false"
+            },
+            Environments.Production);
+
+        Assert.Throws<OptionsValidationException>(
+            () => provider.GetRequiredService<IOptions<EmailDeliverySettings>>().Value);
+    }
+
+    [Fact]
+    public void Production_configuration_requires_s3_attachment_storage()
+    {
+        using var provider = BuildProvider(
+            new Dictionary<string, string?>
+            {
+                ["Attachments:StorageProvider"] = "Local",
+                ["Attachments:RootPath"] = Path.GetTempPath()
+            },
+            Environments.Production);
+
+        Assert.Throws<OptionsValidationException>(
+            () => provider.GetRequiredService<IOptions<AttachmentSettings>>().Value);
+    }
+
     private static ServiceProvider BuildProvider(
         IReadOnlyDictionary<string, string?> overrides,
         string environmentName)
