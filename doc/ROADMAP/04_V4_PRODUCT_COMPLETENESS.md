@@ -6,6 +6,9 @@ V4 domyka funkcje, które są ważne dla użytecznego produktu, ale nie powinny 
 
 Frontend pozostaje funkcjonalny i podporządkowany backendowi. Nie celem jest budowa osobnego portfolio frontendowego.
 
+Szczegółowa kolejność branchy, zależności, kontrakty startowe i bramki walidacyjne są
+opisane w [13_V4_IMPLEMENTATION_PLAN.md](13_V4_IMPLEMENTATION_PLAN.md).
+
 ## Status realizacji
 
 Stan na: **2026-08-31**.
