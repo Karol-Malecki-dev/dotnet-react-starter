@@ -52,6 +52,7 @@ public static class ProjectTasksModule
         services.AddScoped<IProjectTaskDeadlineReminderProcessor, ProjectTaskDeadlineReminderProcessor>();
         services.AddHostedService<ProjectTaskDeadlineReminderWorker>();
         services.AddScoped<IProjectTaskAttachmentCleanupProcessor, ProjectTaskAttachmentCleanupProcessor>();
+        services.AddScoped<ProjectTaskAttachmentReconciliationService>();
         services.AddHostedService<ProjectTaskAttachmentCleanupWorker>();
 
         services.AddScoped<IProjectTaskAccess, EfProjectTaskAccess>();

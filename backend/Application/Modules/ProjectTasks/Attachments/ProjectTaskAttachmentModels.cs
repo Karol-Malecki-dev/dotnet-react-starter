@@ -39,3 +39,12 @@ public interface IProjectTaskAttachmentStorage
         string storedFileName,
         CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// Optional storage capability used by scheduled orphan reconciliation.
+/// Providers that cannot enumerate objects can omit this capability.
+/// </summary>
+public interface IProjectTaskAttachmentStorageInventory
+{
+    IAsyncEnumerable<string> EnumerateStoredFileNamesAsync(CancellationToken cancellationToken = default);
+}
