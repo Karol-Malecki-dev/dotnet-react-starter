@@ -1,6 +1,5 @@
-using API.Controllers;
-using Application.DTOs.Notification;
-using Application.Interfaces;
+using API.Modules.Notifications.GetUnreadCount;
+using Application.Modules.Notifications.GetUnreadCount;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Shared.Responses;
@@ -19,12 +18,14 @@ public class NotificationsControllerTests
         var userId = Guid.NewGuid();
         using var cancellationSource = new CancellationTokenSource();
         var cancellationToken = cancellationSource.Token;
-        var notificationServiceMock = new Mock<INotificationService>();
-        notificationServiceMock
-            .Setup(service => service.GetUnreadCountAsync(userId, It.Is<CancellationToken>(token => token == cancellationToken)))
+        var handlerMock = new Mock<IGetUnreadCountHandler>();
+        handlerMock
+            .Setup(handler => handler.HandleAsync(
+                It.Is<GetUnreadCountQuery>(query => query.UserId == userId),
+                It.Is<CancellationToken>(token => token == cancellationToken)))
             .ReturnsAsync(ApiResponse<int>.Success(3));
 
-        var controller = new NotificationsController(notificationServiceMock.Object)
+        var controller = new GetUnreadCountController(handlerMock.Object)
         {
             ControllerContext = new ControllerContext
             {
@@ -33,13 +34,13 @@ public class NotificationsControllerTests
             }
         };
 
-        var actionResult = await controller.GetUnreadCount(cancellationToken);
+        var actionResult = await controller.Get(cancellationToken);
 
-        var objectResult = Assert.IsType<ObjectResult>(actionResult.Result);
+        var objectResult = Assert.IsType<ObjectResult>(actionResult);
         var response = Assert.IsType<ApiResponse<int>>(objectResult.Value);
         Assert.Equal(3, response.Data);
-        notificationServiceMock.Verify(
-            service => service.GetUnreadCountAsync(userId, cancellationToken),
+        handlerMock.Verify(
+            handler => handler.HandleAsync(It.IsAny<GetUnreadCountQuery>(), cancellationToken),
             Times.Once);
     }
 }
