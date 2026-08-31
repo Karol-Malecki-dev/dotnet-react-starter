@@ -21,6 +21,7 @@ public sealed class ApplicationDbContextModelTests
         var configuredTypes = new[]
         {
             typeof(User),
+            typeof(AccountSecurityEvent),
             typeof(RefreshToken),
             typeof(EmailConfirmationToken),
             typeof(EmailTwoFactorChallenge),
@@ -31,6 +32,25 @@ public sealed class ApplicationDbContextModelTests
         };
 
         Assert.All(configuredTypes, type => Assert.NotNull(context.Model.FindEntityType(type)));
+    }
+
+    [Fact]
+    public void Account_security_event_keeps_user_references_optional_and_indexed()
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(nameof(Account_security_event_keeps_user_references_optional_and_indexed))
+            .Options;
+
+        using var context = new ApplicationDbContext(options);
+        var securityEvent = context.Model.FindEntityType(typeof(AccountSecurityEvent));
+
+        Assert.NotNull(securityEvent);
+        Assert.True(securityEvent.FindProperty(nameof(AccountSecurityEvent.ActorUserId))!.IsNullable);
+        Assert.True(securityEvent.FindProperty(nameof(AccountSecurityEvent.SubjectUserId))!.IsNullable);
+        Assert.Contains(securityEvent.GetIndexes(), index =>
+            index.Properties.Select(property => property.Name).SequenceEqual([
+                nameof(AccountSecurityEvent.SubjectUserId),
+                nameof(AccountSecurityEvent.OccurredAt)]));
     }
 
     [Fact]

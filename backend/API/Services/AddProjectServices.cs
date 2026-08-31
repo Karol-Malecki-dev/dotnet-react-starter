@@ -51,6 +51,7 @@ namespace API.Services
             services.AddPersistence(configuration);
             services.AddAuthenticationInfrastructure();
             services.AddApplicationServices();
+            services.AddScoped<IAccountSecurityAuditWriter, AccountSecurityAuditWriter>();
             services.AddCorsPolicy(configuration);
             services.AddRateLimitingInfrastructure(configuration);
 
