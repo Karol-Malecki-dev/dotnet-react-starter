@@ -25,6 +25,7 @@ public class AuthControllerTests
     private readonly Mock<IJwtTokenService> _jwtTokenServiceMock = new();
     private readonly Mock<IAccountEmailSender> _accountEmailSenderMock = new();
     private readonly Mock<IUserService> _userServiceMock = new();
+    private readonly Mock<IAccountSecurityAuditWriter> _auditWriterMock = new();
     private readonly Mock<ILogger<AuthController>> _loggerMock = new();
     private readonly IOptions<JwtSettings> _jwtOptions = UnitTestHelper.CreateJwtSettingsOptions();
     private readonly IOptions<EmailConfirmationSettings> _emailConfirmationOptions = UnitTestHelper.CreateEmailConfirmationSettingsOptions();
@@ -41,7 +42,14 @@ public class AuthControllerTests
             _loggerMock.Object,
             _jwtOptions,
             _emailConfirmationOptions,
-            _emailTwoFactorOptions);
+            _emailTwoFactorOptions,
+            auditWriter: _auditWriterMock.Object);
+            _auditWriterMock
+                .Setup(x => x.WriteAsync(It.IsAny<AccountSecurityAuditEntry>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+            _authServiceMock
+                .Setup(x => x.GetLoginAuditContextAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((LoginAuditContext?)null);
     }
 
     [Fact]
@@ -77,6 +85,15 @@ public class AuthControllerTests
         Assert.Contains("httponly", setCookieHeader, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("path=/api/auth", setCookieHeader, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("samesite=lax", setCookieHeader, StringComparison.OrdinalIgnoreCase);
+        _auditWriterMock.Verify(x => x.WriteAsync(
+            It.Is<AccountSecurityAuditEntry>(entry =>
+                entry.EventCode == "auth.login.succeeded"
+                && entry.Outcome == "success"
+                && entry.SubjectUserId == user.Id
+                && entry.ActorUserId == user.Id
+                && entry.Metadata == null
+                && entry.CorrelationId != null),
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -84,10 +101,17 @@ public class AuthControllerTests
     {
         var dto = new LoginUserDto { Email = "bad@example.com", Password = "wrong" };
         _authServiceMock.Setup(x => x.AuthenticateAsync(dto.Email, dto.Password, It.IsAny<CancellationToken>())).ReturnsAsync((User?)null);
+        _authServiceMock.Setup(x => x.GetLoginAuditContextAsync(dto.Email, It.IsAny<CancellationToken>())).ReturnsAsync((LoginAuditContext?)null);
 
         var actionResult = await _controller.Login(dto);
 
         Assert.IsType<UnauthorizedObjectResult>(actionResult);
+        _auditWriterMock.Verify(x => x.WriteAsync(
+            It.Is<AccountSecurityAuditEntry>(entry =>
+                entry.EventCode == "auth.login.failed"
+                && entry.SubjectUserId == null
+                && entry.Metadata == null),
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -261,6 +285,7 @@ public class AuthControllerTests
     [Fact]
     public async Task RefreshToken_Returns_unauthorized_when_refresh_token_is_invalid()
     {
+        var replayUserId = Guid.NewGuid();
         var httpContext = new DefaultHttpContext();
         httpContext.Request.Headers.Cookie = "drs.refreshToken=invalid-refresh";
         _controller.ControllerContext = new ControllerContext
@@ -269,6 +294,8 @@ public class AuthControllerTests
         };
 
         _jwtTokenServiceMock.Setup(x => x.RefreshTokensAsync("invalid-refresh", It.IsAny<CancellationToken>())).ReturnsAsync((JwtTokens?)null);
+        _jwtTokenServiceMock.Setup(x => x.GetRefreshTokenReplayInfoAsync("invalid-refresh", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new RefreshTokenReplayInfo(replayUserId));
 
         var actionResult = await _controller.RefreshToken();
         var setCookieHeader = _controller.Response.Headers.SetCookie.ToString();
@@ -276,6 +303,13 @@ public class AuthControllerTests
         Assert.IsType<UnauthorizedObjectResult>(actionResult);
         Assert.Contains("drs.refreshToken=", setCookieHeader);
         Assert.Contains("expires=thu, 01 jan 1970", setCookieHeader, StringComparison.OrdinalIgnoreCase);
+        _auditWriterMock.Verify(x => x.WriteAsync(
+            It.Is<AccountSecurityAuditEntry>(entry =>
+                entry.EventCode == "auth.refresh.replay-detected"
+                && entry.Outcome == "failure"
+                && entry.SubjectUserId == replayUserId
+                && entry.Metadata == null),
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -303,6 +337,13 @@ public class AuthControllerTests
         Assert.Equal("Logout successful", response.Message);
         Assert.Contains("drs.refreshToken=", setCookieHeader);
         Assert.Contains("expires=thu, 01 jan 1970", setCookieHeader, StringComparison.OrdinalIgnoreCase);
+        _auditWriterMock.Verify(x => x.WriteAsync(
+            It.Is<AccountSecurityAuditEntry>(entry =>
+                entry.EventCode == "auth.logout.succeeded"
+                && entry.Outcome == "success"
+                && entry.SubjectUserId == Guid.Parse(userId)
+                && entry.ActorUserId == Guid.Parse(userId)),
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

@@ -113,6 +113,22 @@ public class DatabaseAuthService : IAuthService
         return user;
     }
 
+    public async Task<LoginAuditContext?> GetLoginAuditContextAsync(string email, CancellationToken cancellationToken = default)
+    {
+        if (!EmailAddress.TryCreate(email, out var normalizedEmail) || normalizedEmail is null)
+        {
+            return null;
+        }
+
+        var user = await _dbContext.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Email == normalizedEmail, cancellationToken);
+
+        return user is null
+            ? null
+            : new LoginAuditContext(user.Id, user.LockoutEndAt.HasValue && user.LockoutEndAt.Value > DateTime.UtcNow);
+    }
+
     /// <inheritdoc />
     public async Task<User?> RegisterAsync(string email, string password, string displayName, CancellationToken cancellationToken = default)
     {

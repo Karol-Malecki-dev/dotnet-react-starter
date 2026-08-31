@@ -36,6 +36,7 @@ namespace API.Controllers
         private readonly EmailTwoFactorSettings _emailTwoFactorSettings;
         private readonly ILogger<AuthController> _logger;
         private readonly JwtSettings _jwtSettings;
+        private readonly IAccountSecurityAuditWriter? _auditWriter;
 
         public AuthController(
             IJwtTokenService jwtTokenService,
@@ -46,7 +47,8 @@ namespace API.Controllers
             IOptions<JwtSettings> jwtOptions,
             IOptions<EmailConfirmationSettings> emailConfirmationOptions,
             IOptions<EmailTwoFactorSettings> emailTwoFactorOptions,
-            INotificationWriter? notificationWriter = null)
+            INotificationWriter? notificationWriter = null,
+            IAccountSecurityAuditWriter? auditWriter = null)
         {
             _jwtTokenService = jwtTokenService;
             _authService = authService;
@@ -57,6 +59,7 @@ namespace API.Controllers
             _emailConfirmationSettings = emailConfirmationOptions.Value;
             _emailTwoFactorSettings = emailTwoFactorOptions.Value;
             _notificationWriter = notificationWriter;
+            _auditWriter = auditWriter;
         }
 
         /// <summary>
@@ -89,12 +92,18 @@ namespace API.Controllers
                 var user = await _authService.AuthenticateAsync(dto.Email, dto.Password, cancellationToken);
                 if (user == null)
                 {
+                    var loginContext = await _authService.GetLoginAuditContextAsync(dto.Email, cancellationToken);
+                    await WriteSecurityAuditAsync(
+                        loginContext?.IsLocked == true ? "auth.login.locked" : "auth.login.failed",
+                        "failure",
+                        loginContext?.UserId);
                     _logger.LogWarning("⚠️ Login failed for email: {Email}", dto.Email);
                     return Unauthorized(ApiResponse<object>.Error(401, "Invalid email or password", null));
                 }
 
                 if (!user.IsEmailConfirmed)
                 {
+                    await WriteSecurityAuditAsync("auth.login.failed", "failure", user.Id);
                     _logger.LogWarning("⚠️ Login blocked for unconfirmed email: {Email}", dto.Email);
                     return StatusCode(403, ApiResponse<object>.Error(403, "Email address is not confirmed", null));
                 }
@@ -141,6 +150,7 @@ namespace API.Controllers
                 // Generate JWT tokens
                 var tokens = await _jwtTokenService.GenerateTokensAsync(user, cancellationToken);
                 SetRefreshTokenCookie(tokens.RefreshToken);
+                await WriteSecurityAuditAsync("auth.login.succeeded", "success", user.Id);
 
                 _logger.LogInformation("✓ Login successful for user: {UserId} ({Email})", user.Id, user.Email.Value);
 
@@ -336,6 +346,7 @@ namespace API.Controllers
 
                 var tokens = await _jwtTokenService.GenerateTokensAsync(user, cancellationToken);
                 SetRefreshTokenCookie(tokens.RefreshToken);
+                await WriteSecurityAuditAsync("auth.login.succeeded", "success", user.Id);
 
                 return Ok(ApiResponse<AuthTokenResponse>.Success(
                     CreateTokenResponse(tokens),
@@ -510,6 +521,11 @@ namespace API.Controllers
                 var tokens = await _jwtTokenService.RefreshTokensAsync(refreshToken, cancellationToken);
                 if (tokens == null)
                 {
+                    var replayInfo = await _jwtTokenService.GetRefreshTokenReplayInfoAsync(refreshToken, cancellationToken);
+                    if (replayInfo is not null)
+                    {
+                        await WriteSecurityAuditAsync("auth.refresh.replay-detected", "failure", replayInfo.UserId);
+                    }
                     ClearRefreshTokenCookie();
                     return Unauthorized(ApiResponse<object>.Error(401, "Invalid or expired refresh token", null));
                 }
@@ -550,6 +566,7 @@ namespace API.Controllers
                 // Revoke refresh token
                 await _jwtTokenService.RevokeTokenAsync(refreshToken, cancellationToken);
                 ClearRefreshTokenCookie();
+                await WriteSecurityAuditAsync("auth.logout.succeeded", "success", ParseCurrentUserId());
 
                 _logger.LogInformation("✓ Logout successful for user: {UserId}", userId);
 
@@ -561,6 +578,19 @@ namespace API.Controllers
                 return StatusCode(500, ApiResponse.Error(500, "Internal server error", null));
             }
         }
+
+        private Guid? ParseCurrentUserId()
+            => Guid.TryParse(User.FindFirst("sub")?.Value, out var userId) ? userId : null;
+
+        private Task WriteSecurityAuditAsync(string eventCode, string outcome, Guid? subjectUserId)
+            => _auditWriter is null
+                ? Task.CompletedTask
+                : _auditWriter.WriteAsync(new AccountSecurityAuditEntry(
+                    eventCode,
+                    outcome,
+                    ActorUserId: subjectUserId,
+                    SubjectUserId: subjectUserId,
+                    CorrelationId: ControllerContext.HttpContext?.TraceIdentifier));
 
         /// <summary>
         /// Revokes every active refresh-token session for the authenticated user.

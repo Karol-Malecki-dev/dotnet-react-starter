@@ -34,6 +34,18 @@ namespace API.Controllers
             return StatusCode(result.StatusCode, result);
         }
 
+        /// <summary>
+        /// Returns a bounded page of account security events for administrators.
+        /// </summary>
+        [HttpGet("security-events")]
+        public async Task<ActionResult<ApiResponse<AdminPagedResultDto<AdminAccountSecurityEventDto>>>> GetAccountSecurityEventsAsync(
+            [FromQuery] AdminAccountSecurityEventFilterRequestDto request,
+            CancellationToken cancellationToken)
+        {
+            var result = await _adminService.GetAccountSecurityEventsAsync(request, cancellationToken);
+            return StatusCode(result.StatusCode, result);
+        }
+
         [HttpGet("users/{userId:guid}")]
         public async Task<ActionResult<ApiResponse<AdminUserDetailsDto>>> GetUserDetailsByIdAsync([FromRoute] Guid userId, CancellationToken cancellationToken)
         {

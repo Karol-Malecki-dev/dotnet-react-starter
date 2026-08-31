@@ -1,15 +1,19 @@
 using System.Text.Json;
+using System.Diagnostics.Metrics;
 using Application.Interfaces;
 using Domain.Entities;
 using Infrastructure.Data;
+using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.Services;
 
 /// <summary>
 /// Persists sanitized account security events without exposing secrets in audit metadata.
 /// </summary>
-public sealed class AccountSecurityAuditWriter(ApplicationDbContext dbContext) : IAccountSecurityAuditWriter
+public sealed class AccountSecurityAuditWriter(ApplicationDbContext dbContext, ILogger<AccountSecurityAuditWriter>? logger = null) : IAccountSecurityAuditWriter
 {
+    private static readonly Meter Meter = new("DotnetReactStarter.SecurityAudit");
+    private static readonly Counter<long> PersistenceFailureCounter = Meter.CreateCounter<long>("security_audit.persistence_failures");
     private static readonly HashSet<string> AllowedMetadataKeys = new(StringComparer.OrdinalIgnoreCase)
     {
         "ipAddress",
@@ -34,7 +38,15 @@ public sealed class AccountSecurityAuditWriter(ApplicationDbContext dbContext) :
             entry.CorrelationId,
             metadataJson);
 
-        dbContext.AccountSecurityEvents.Add(securityEvent);
-        await dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            dbContext.AccountSecurityEvents.Add(securityEvent);
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            PersistenceFailureCounter.Add(1);
+            logger?.LogError(ex, "Account security audit persistence failed for event {EventCode}", entry.EventCode);
+        }
     }
 }

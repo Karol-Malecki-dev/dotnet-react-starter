@@ -181,6 +181,64 @@ namespace Infrastructure.Services
             return ApiResponse<List<AdminUserListItemDto>>.Success(userDtos);
         }
 
+        public async Task<ApiResponse<AdminPagedResultDto<AdminAccountSecurityEventDto>>> GetAccountSecurityEventsAsync(
+            AdminAccountSecurityEventFilterRequestDto request,
+            CancellationToken cancellationToken = default)
+        {
+            if (request.PageNumber < 1 || request.PageSize is < 1 or > 20)
+                return ApiResponse<AdminPagedResultDto<AdminAccountSecurityEventDto>>.Error(400, "Page number must be positive and page size must be between 1 and 20");
+
+            if (request.From.HasValue && request.To.HasValue && request.From > request.To)
+                return ApiResponse<AdminPagedResultDto<AdminAccountSecurityEventDto>>.Error(400, "From must be earlier than or equal to To");
+
+            var query = _dbContext.AccountSecurityEvents.AsNoTracking().AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(request.EventCode))
+                query = query.Where(securityEvent => securityEvent.EventCode == request.EventCode.Trim());
+
+            if (!string.IsNullOrWhiteSpace(request.Outcome))
+                query = query.Where(securityEvent => securityEvent.Outcome == request.Outcome.Trim());
+
+            if (request.SubjectUserId.HasValue)
+                query = query.Where(securityEvent => securityEvent.SubjectUserId == request.SubjectUserId);
+
+            if (!string.IsNullOrWhiteSpace(request.CorrelationId))
+                query = query.Where(securityEvent => securityEvent.CorrelationId == request.CorrelationId.Trim());
+
+            if (request.From.HasValue)
+                query = query.Where(securityEvent => securityEvent.OccurredAt >= request.From.Value);
+
+            if (request.To.HasValue)
+                query = query.Where(securityEvent => securityEvent.OccurredAt <= request.To.Value);
+
+            var totalCount = await query.CountAsync(cancellationToken);
+            var events = await query
+                .OrderByDescending(securityEvent => securityEvent.OccurredAt)
+                .ThenByDescending(securityEvent => securityEvent.Id)
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .Select(securityEvent => new AdminAccountSecurityEventDto
+                {
+                    Id = securityEvent.Id,
+                    ActorUserId = securityEvent.ActorUserId,
+                    SubjectUserId = securityEvent.SubjectUserId,
+                    EventCode = securityEvent.EventCode,
+                    Outcome = securityEvent.Outcome,
+                    OccurredAt = securityEvent.OccurredAt,
+                    CorrelationId = securityEvent.CorrelationId,
+                    MetadataJson = securityEvent.MetadataJson
+                })
+                .ToListAsync(cancellationToken);
+
+            return ApiResponse<AdminPagedResultDto<AdminAccountSecurityEventDto>>.Success(new AdminPagedResultDto<AdminAccountSecurityEventDto>
+            {
+                Items = events,
+                PageNumber = request.PageNumber,
+                PageSize = request.PageSize,
+                TotalCount = totalCount
+            });
+        }
+
         //Update
         public async Task<ApiResponse<AdminUserDetailsDto>> UpdateUserAsync(Guid userId, AdminUpdateUserRequestDto dto, CancellationToken cancellationToken = default)
         {

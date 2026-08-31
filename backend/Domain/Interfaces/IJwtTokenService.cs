@@ -26,6 +26,8 @@ namespace Domain.Interfaces
         /// </summary>
         Task<JwtTokens?> RefreshTokensAsync(string refreshToken, CancellationToken cancellationToken = default);
 
+        Task<RefreshTokenReplayInfo?> GetRefreshTokenReplayInfoAsync(string refreshToken, CancellationToken cancellationToken = default);
+
         /// <summary>
         /// Revoke a refresh token (add to blacklist)
         /// </summary>
@@ -42,4 +44,6 @@ namespace Domain.Interfaces
         Task<bool> IsTokenRevokedAsync(string refreshToken, CancellationToken cancellationToken = default);
         
     }
+
+    public sealed record RefreshTokenReplayInfo(Guid UserId);
 }
