@@ -272,15 +272,20 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
 
   const updateProject = useCallback(async (projectId: string, request: UpdateProjectRequest) => {
     setError(null);
-    const response = await projectApi.updateProject(projectId, request);
-    if (!response.data) {
-      throw new Error(response.message || 'Project was not updated');
-    }
+    try {
+      const response = await projectApi.updateProject(projectId, request);
+      if (!response.data) {
+        throw new Error(response.message || 'Project was not updated');
+      }
 
-    setProjects((currentProjects) =>
-      currentProjects.map((project) => (project.id === projectId ? response.data! : project)),
-    );
-    return response.data;
+      setProjects((currentProjects) =>
+        currentProjects.map((project) => (project.id === projectId ? response.data! : project)),
+      );
+      return response.data;
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Project was not updated');
+      throw caughtError;
+    }
   }, []);
 
   const archiveProject = useCallback(async (projectId: string) => {

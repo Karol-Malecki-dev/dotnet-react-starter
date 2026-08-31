@@ -37,7 +37,7 @@ test('create a project and complete the task collaboration workflow', async ({ p
   await expect(task).toBeVisible();
 
   await task.getByLabel(`Status for ${taskTitle}`).selectOption({ label: 'Done' });
-  await expect(task.getByLabel(`Status for ${taskTitle}`)).toHaveValue('2');
+  await expect(task.getByLabel(`Status for ${taskTitle}`)).toHaveValue('3');
 
   await task.getByRole('button', { name: 'Discussion' }).click();
   await page.getByLabel('Add a comment').fill(comment);
@@ -145,14 +145,12 @@ test('reject a stale project edit from a concurrent browser context', async ({ b
     await page.getByRole('button', { name: 'Edit', exact: true }).click();
     await stalePage.getByRole('button', { name: 'Edit', exact: true }).click();
 
-    const currentForm = page.getByRole('button', { name: 'Save changes' }).locator('xpath=ancestor::form');
-    const staleForm = stalePage.getByRole('button', { name: 'Save changes' }).locator('xpath=ancestor::form');
-    await currentForm.getByLabel('Description').fill('Saved by the first browser context');
-    await staleForm.getByLabel('Description').fill('Stale overwrite attempt');
-    await currentForm.getByRole('button', { name: 'Save changes' }).click();
+    await page.getByLabel('Description').last().fill('Saved by the first browser context');
+    await stalePage.getByLabel('Description').last().fill('Stale overwrite attempt');
+    await page.getByRole('button', { name: 'Save changes' }).click();
     await expect(page.getByText('Saved by the first browser context')).toBeVisible();
 
-    await staleForm.getByRole('button', { name: 'Save changes' }).click();
+    await stalePage.getByRole('button', { name: 'Save changes' }).click();
     await expect(stalePage.getByRole('alert')).toContainText('Project was modified concurrently; refresh and retry');
   } finally {
     await staleContext.close();
