@@ -1,4 +1,4 @@
-name: CD - Publish container images
+name: CD - Publish and deploy
 
 on:
   workflow_run:
@@ -9,13 +9,23 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Optional immutable release tag, for example v5.0.0
+        required: false
+        type: string
+      deploy_staging:
+        description: Deploy the published commit to the protected staging environment
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
   packages: write
 
 concurrency:
-  group: cd-${{ github.ref }}
+  group: cd-${{ github.event.workflow_run.head_branch || github.ref }}
   cancel-in-progress: false
 
 env:
@@ -24,15 +34,22 @@ env:
 
 jobs:
   publish:
-    name: Build and publish Docker images
+    name: Scan and publish immutable images
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+      backend_image: ${{ steps.meta.outputs.backend_image }}
+      frontend_image: ${{ steps.meta.outputs.frontend_image }}
 
     steps:
-      - name: Checkout repository
+      - name: Checkout verified source
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -41,33 +58,179 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Prepare image metadata
+      - name: Prepare immutable image metadata
         id: meta
+        shell: bash
         run: |
+          set -euo pipefail
           namespace="${IMAGE_NAMESPACE,,}"
-          echo "backend=${REGISTRY}/${namespace}/dotnet-react-starter-backend" >> "$GITHUB_OUTPUT"
-          echo "frontend=${REGISTRY}/${namespace}/dotnet-react-starter-frontend" >> "$GITHUB_OUTPUT"
-          echo "tag=${{ github.event.workflow_run.head_sha || github.sha }}" >> "$GITHUB_OUTPUT"
+          image_tag="${{ github.event.workflow_run.head_sha || github.sha }}"
+          backend_image="${REGISTRY}/${namespace}/dotnet-react-starter-backend"
+          frontend_image="${REGISTRY}/${namespace}/dotnet-react-starter-frontend"
 
-      - name: Build and push backend image
+          if [[ ! "$image_tag" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Expected a full commit SHA, received '$image_tag'." >&2
+            exit 1
+          fi
+
+          echo "image_tag=$image_tag" >> "$GITHUB_OUTPUT"
+          echo "backend_image=$backend_image" >> "$GITHUB_OUTPUT"
+          echo "frontend_image=$frontend_image" >> "$GITHUB_OUTPUT"
+
+      - name: Build backend image for scanning
         uses: docker/build-push-action@v6
         with:
           context: ./backend
           file: ./backend/Dockerfile
-          push: true
-          tags: |
-            ${{ steps.meta.outputs.backend }}:${{ steps.meta.outputs.tag }}
-            ${{ steps.meta.outputs.backend }}:latest
+          load: true
+          tags: ${{ steps.meta.outputs.backend_image }}:${{ steps.meta.outputs.image_tag }}
+          labels: |
+            org.opencontainers.image.revision=${{ steps.meta.outputs.image_tag }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
 
-      - name: Build and push frontend image
+      - name: Scan backend image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ steps.meta.outputs.backend_image }}:${{ steps.meta.outputs.image_tag }}
+          format: table
+          exit-code: 1
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+
+      - name: Build frontend image for scanning
         uses: docker/build-push-action@v6
         with:
           context: ./frontend
           file: ./frontend/Dockerfile
-          push: true
+          load: true
           build-args: |
             VITE_API_URL=/api
             NODE_OPTIONS=--max_old_space_size=4096
-          tags: |
-            ${{ steps.meta.outputs.frontend }}:${{ steps.meta.outputs.tag }}
-            ${{ steps.meta.outputs.frontend }}:latest
+          tags: ${{ steps.meta.outputs.frontend_image }}:${{ steps.meta.outputs.image_tag }}
+          labels: |
+            org.opencontainers.image.revision=${{ steps.meta.outputs.image_tag }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+      - name: Scan frontend image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ steps.meta.outputs.frontend_image }}:${{ steps.meta.outputs.image_tag }}
+          format: table
+          exit-code: 1
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+
+      - name: Publish commit-tagged images
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker push "${{ steps.meta.outputs.backend_image }}:${{ steps.meta.outputs.image_tag }}"
+          docker push "${{ steps.meta.outputs.frontend_image }}:${{ steps.meta.outputs.image_tag }}"
+
+      - name: Publish optional release tag
+        if: inputs.release_tag != ''
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Release tag must use a vMAJOR.MINOR.PATCH format." >&2
+            exit 1
+          fi
+
+          docker tag "${{ steps.meta.outputs.backend_image }}:${{ steps.meta.outputs.image_tag }}" \
+            "${{ steps.meta.outputs.backend_image }}:${RELEASE_TAG}"
+          docker tag "${{ steps.meta.outputs.frontend_image }}:${{ steps.meta.outputs.image_tag }}" \
+            "${{ steps.meta.outputs.frontend_image }}:${RELEASE_TAG}"
+          docker push "${{ steps.meta.outputs.backend_image }}:${RELEASE_TAG}"
+          docker push "${{ steps.meta.outputs.frontend_image }}:${RELEASE_TAG}"
+
+  deploy-staging:
+    name: Deploy protected staging
+    needs:
+      - publish
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy_staging && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://${{ vars.STAGING_DOMAIN }}
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Checkout deployment files
+        uses: actions/checkout@v4
+
+      - name: Validate staging configuration
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ vars.STAGING_SSH_HOST }}
+          DEPLOY_USER: ${{ vars.STAGING_SSH_USER }}
+          DEPLOY_PATH: ${{ vars.STAGING_APP_PATH }}
+          DEPLOY_ENV_FILE: ${{ vars.STAGING_ENV_FILE }}
+          STAGING_DOMAIN: ${{ vars.STAGING_DOMAIN }}
+        run: |
+          set -euo pipefail
+          for variable_name in DEPLOY_HOST DEPLOY_USER DEPLOY_PATH DEPLOY_ENV_FILE STAGING_DOMAIN; do
+            if [[ -z "${!variable_name:-}" ]]; then
+              echo "Missing required staging variable: $variable_name" >&2
+              exit 1
+            fi
+          done
+
+      - name: Configure pinned SSH host identity
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.STAGING_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519" "$HOME/.ssh/known_hosts"
+
+      - name: Upload deployment definition
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ vars.STAGING_SSH_HOST }}
+          DEPLOY_USER: ${{ vars.STAGING_SSH_USER }}
+          DEPLOY_PATH: ${{ vars.STAGING_APP_PATH }}
+        run: |
+          set -euo pipefail
+          tar -czf /tmp/dotnet-react-deployment.tgz -C deploy/vps .
+          scp /tmp/dotnet-react-deployment.tgz "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/dotnet-react-deployment.tgz"
+          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "mkdir -p '${DEPLOY_PATH}' && tar -xzf /tmp/dotnet-react-deployment.tgz -C '${DEPLOY_PATH}' && rm /tmp/dotnet-react-deployment.tgz"
+
+      - name: Log deployment host in to GHCR
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ vars.STAGING_SSH_HOST }}
+          DEPLOY_USER: ${{ vars.STAGING_SSH_USER }}
+          GHCR_READ_TOKEN: ${{ secrets.STAGING_GHCR_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GHCR_READ_TOKEN" |
+            ssh "${DEPLOY_USER}@${DEPLOY_HOST}" \
+              "docker login ghcr.io --username '${{ github.actor }}' --password-stdin"
+
+      - name: Deploy and verify staging
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ vars.STAGING_SSH_HOST }}
+          DEPLOY_USER: ${{ vars.STAGING_SSH_USER }}
+          DEPLOY_PATH: ${{ vars.STAGING_APP_PATH }}
+          DEPLOY_ENV_FILE: ${{ vars.STAGING_ENV_FILE }}
+          STAGING_DOMAIN: ${{ vars.STAGING_DOMAIN }}
+          IMAGE_TAG: ${{ needs.publish.outputs.image_tag }}
+        run: |
+          set -euo pipefail
+          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "cd '${DEPLOY_PATH}' && chmod +x deploy.sh rollback.sh && ./deploy.sh '${IMAGE_TAG}' '${DEPLOY_ENV_FILE}' 'https://${STAGING_DOMAIN}'"
