@@ -43,22 +43,25 @@ public sealed class EfCreateProjectTaskCommentStore : ICreateProjectTaskCommentS
             Type = "task.comment-added",
             Description = "added a comment to a task."
         });
-        var assigneeId = await _dbContext.ProjectTasks
-            .Where(task => task.Id == command.ProjectTaskId)
-            .Select(task => task.AssignedUserId)
-            .SingleAsync(cancellationToken);
-        if (_notificationWriter is not null && assigneeId is { } recipientId && recipientId != command.AuthorUserId)
+        if (_notificationWriter is not null)
         {
-            await _notificationWriter.StageAsync(
-                recipientId,
-                NotificationType.TaskCommented,
-                "New task comment",
-                "A new comment was added to your assigned task.",
-                "projectTask",
-                command.ProjectTaskId,
-                command.ProjectId,
-                $"task:{command.ProjectTaskId}:comment:{comment.Id}",
-                cancellationToken);
+            var assigneeId = await _dbContext.ProjectTasks
+                .Where(task => task.Id == command.ProjectTaskId)
+                .Select(task => task.AssignedUserId)
+                .SingleAsync(cancellationToken);
+            if (assigneeId is { } recipientId && recipientId != command.AuthorUserId)
+            {
+                await _notificationWriter.StageAsync(
+                    recipientId,
+                    NotificationType.TaskCommented,
+                    "New task comment",
+                    "A new comment was added to your assigned task.",
+                    "projectTask",
+                    command.ProjectTaskId,
+                    command.ProjectId,
+                    $"task:{command.ProjectTaskId}:comment:{comment.Id}",
+                    cancellationToken);
+            }
         }
         await _dbContext.SaveChangesAsync(cancellationToken);
 

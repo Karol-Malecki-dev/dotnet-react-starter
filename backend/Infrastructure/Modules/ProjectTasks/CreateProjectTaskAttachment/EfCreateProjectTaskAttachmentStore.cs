@@ -86,22 +86,25 @@ public sealed class EfCreateProjectTaskAttachmentStore : ICreateProjectTaskAttac
             Type = "task.attachment-added",
             Description = $"added the attachment '{command.OriginalFileName}'."
         });
-        var assigneeId = await _dbContext.ProjectTasks
-            .Where(task => task.Id == command.TaskId)
-            .Select(task => task.AssignedUserId)
-            .SingleAsync(cancellationToken);
-        if (_notificationWriter is not null && assigneeId is { } recipientId && recipientId != command.UserId)
+        if (_notificationWriter is not null)
         {
-            await _notificationWriter.StageAsync(
-                recipientId,
-                NotificationType.TaskAttachmentAdded,
-                "Task attachment added",
-                $"'{attachment.OriginalFileName}' was added to your assigned task.",
-                "projectTask",
-                command.TaskId,
-                command.ProjectId,
-                $"task:{command.TaskId}:attachment:{attachment.Id}:added",
-                cancellationToken);
+            var assigneeId = await _dbContext.ProjectTasks
+                .Where(task => task.Id == command.TaskId)
+                .Select(task => task.AssignedUserId)
+                .SingleAsync(cancellationToken);
+            if (assigneeId is { } recipientId && recipientId != command.UserId)
+            {
+                await _notificationWriter.StageAsync(
+                    recipientId,
+                    NotificationType.TaskAttachmentAdded,
+                    "Task attachment added",
+                    $"'{attachment.OriginalFileName}' was added to your assigned task.",
+                    "projectTask",
+                    command.TaskId,
+                    command.ProjectId,
+                    $"task:{command.TaskId}:attachment:{attachment.Id}:added",
+                    cancellationToken);
+            }
         }
         await _dbContext.SaveChangesAsync(cancellationToken);
         if (transaction is not null)
