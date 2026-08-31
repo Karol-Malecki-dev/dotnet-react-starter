@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -7,15 +7,29 @@ import type { LoginFormValues } from '../utils/authSchemas';
 import { loginSchema } from '../utils/authSchemas';
 import { getApiErrorMessage } from '../utils/helpers';
 import { clearPendingTwoFactor, savePendingTwoFactor } from '../utils/pendingTwoFactor';
+import { HttpError } from '../services/api';
 
 export default function Login() {
   const { login, loading, error, clearError } = useAuth();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [retryAfterSeconds, setRetryAfterSeconds] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: Location } | null)?.from?.pathname ?? '/dashboard';
   const reason = (location.state as { reason?: string } | null)?.reason;
   const registrationPendingEmail = (location.state as { registrationPendingEmail?: string } | null)?.registrationPendingEmail;
+
+  useEffect(() => {
+    if (retryAfterSeconds <= 0) {
+      return undefined;
+    }
+
+    const timer = window.setInterval(() => {
+      setRetryAfterSeconds((remaining) => Math.max(remaining - 1, 0));
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [retryAfterSeconds]);
   const {
     register,
     handleSubmit,
@@ -31,6 +45,7 @@ export default function Login() {
   const onSubmit = async (values: LoginFormValues) => {
     clearError();
     setSubmitError(null);
+    setRetryAfterSeconds(0);
 
     try {
       const result = await login(values.email, values.password);
@@ -54,6 +69,10 @@ export default function Login() {
       clearPendingTwoFactor();
       navigate(from, { replace: true });
     } catch (caughtError) {
+      if (caughtError instanceof HttpError && caughtError.status === 429) {
+        setRetryAfterSeconds(Math.max(caughtError.retryAfterSeconds ?? 0, 1));
+      }
+
       setSubmitError(
         getApiErrorMessage(caughtError, {
           defaultMessage: 'Unable to sign in. Check your credentials, try again later if access is temporarily blocked, or reset your password.',
@@ -122,9 +141,14 @@ export default function Login() {
           <p className="auth-panel__footer">
             <Link to="/forgot-password">Forgot your password?</Link>
           </p>
-          {submitError ?? error ? <p className="form__error">{submitError ?? error}</p> : null}
-          <button className="button button--block" type="submit" disabled={loading}>
-            {loading ? 'Signing in...' : 'Sign in'}
+          {submitError ?? error ? <p className="form__error" aria-live="assertive">{submitError ?? error}</p> : null}
+          {retryAfterSeconds > 0 ? (
+            <p className="form__warning" role="status">
+              Please wait {retryAfterSeconds} seconds before trying again.
+            </p>
+          ) : null}
+          <button className="button button--block" type="submit" disabled={loading || retryAfterSeconds > 0} aria-disabled={loading || retryAfterSeconds > 0}>
+            {loading ? 'Signing in...' : retryAfterSeconds > 0 ? 'Try again later' : 'Sign in'}
           </button>
         </form>
 
