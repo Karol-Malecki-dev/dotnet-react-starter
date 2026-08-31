@@ -3,6 +3,8 @@ using Application.Features.Projects;
 using Application.Modules.ProjectTasks.Attachments;
 using Application.Modules.ProjectTasks.CreateProjectTaskAttachment;
 using Domain.Enums;
+using Microsoft.Extensions.Options;
+using Shared.Settings;
 
 namespace Infrastructure.Modules.ProjectTasks.CreateProjectTaskAttachment;
 
@@ -11,8 +13,6 @@ namespace Infrastructure.Modules.ProjectTasks.CreateProjectTaskAttachment;
 /// </summary>
 public sealed class CreateProjectTaskAttachmentHandler : ICreateProjectTaskAttachmentHandler
 {
-    private const long MaxFileSizeBytes = 10 * 1024 * 1024;
-
     private static readonly IReadOnlyDictionary<string, string> AllowedContentTypes =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -28,15 +28,18 @@ public sealed class CreateProjectTaskAttachmentHandler : ICreateProjectTaskAttac
     private readonly IProjectTaskAccess _projectTaskAccess;
     private readonly ICreateProjectTaskAttachmentStore _attachmentStore;
     private readonly IProjectTaskAttachmentStorage _storage;
+    private readonly AttachmentSettings _settings;
 
     public CreateProjectTaskAttachmentHandler(
         IProjectTaskAccess projectTaskAccess,
         ICreateProjectTaskAttachmentStore attachmentStore,
-        IProjectTaskAttachmentStorage storage)
+        IProjectTaskAttachmentStorage storage,
+        IOptions<AttachmentSettings> settings)
     {
         _projectTaskAccess = projectTaskAccess;
         _attachmentStore = attachmentStore;
         _storage = storage;
+        _settings = settings.Value;
     }
 
     public async Task<ProjectOperationResult<ProjectTaskAttachmentView>> HandleAsync(
@@ -75,7 +78,8 @@ public sealed class CreateProjectTaskAttachmentHandler : ICreateProjectTaskAttac
         var validationError = ValidateFile(
             command.OriginalFileName,
             command.ContentType,
-            command.SizeBytes);
+            command.SizeBytes,
+            _settings);
         if (validationError is not null)
         {
             return ProjectOperationResult<ProjectTaskAttachmentView>.Failure(
@@ -116,6 +120,13 @@ public sealed class CreateProjectTaskAttachmentHandler : ICreateProjectTaskAttac
                 "Project task attachment created",
                 201);
         }
+            catch (ProjectTaskAttachmentQuotaExceededException exception)
+            {
+            await _storage.DeleteAsync(storedFileName, CancellationToken.None);
+                return ProjectOperationResult<ProjectTaskAttachmentView>.Failure(
+                ProjectOperationStatus.Conflict,
+                exception.Message);
+            }
         catch
         {
             await _storage.DeleteAsync(storedFileName, CancellationToken.None);
@@ -126,16 +137,17 @@ public sealed class CreateProjectTaskAttachmentHandler : ICreateProjectTaskAttac
     private static string? ValidateFile(
         string originalFileName,
         string contentType,
-        long sizeBytes)
+        long sizeBytes,
+        AttachmentSettings settings)
     {
         if (string.IsNullOrWhiteSpace(originalFileName))
         {
             return "A file name is required";
         }
 
-        if (sizeBytes <= 0 || sizeBytes > MaxFileSizeBytes)
+        if (sizeBytes <= 0 || sizeBytes > settings.MaxFileSizeBytes)
         {
-            return "Attachment size must be between 1 byte and 10 MB";
+            return $"Attachment size must be between 1 byte and {settings.MaxFileSizeBytes / (1024 * 1024)} MB";
         }
 
         var extension = Path.GetExtension(originalFileName.Trim());

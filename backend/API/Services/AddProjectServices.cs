@@ -70,7 +70,8 @@ namespace API.Services
 
             services.AddHealthChecks()
                 .AddCheck<DatabaseHealthCheck>("database", tags: ["ready", "database"])
-                .AddCheck<BackgroundWorkerHealthCheck>("background-workers", tags: ["workers"]);
+                .AddCheck<BackgroundWorkerHealthCheck>("background-workers", tags: ["workers"])
+                .AddCheck<AttachmentStorageHealthCheck>("attachment-storage", tags: ["ready", "storage"]);
             services.AddHttpContextAccessor();
             services.AddSwaggerGen();
             services.AddAuthorization();
@@ -160,6 +161,22 @@ namespace API.Services
                     "Maximum failed login attempts must be greater than 0.")
                 .Validate(settings => settings.LockoutDurationMinutes > 0,
                     "Lockout duration must be greater than 0 minutes.")
+                .ValidateOnStart();
+
+            services.AddOptions<AttachmentSettings>()
+                .Bind(configuration.GetSection("Attachments"))
+                .Validate(settings => !isProduction
+                    || (!string.IsNullOrWhiteSpace(settings.RootPath) && Path.IsPathRooted(settings.RootPath)),
+                    "An absolute attachment storage root is required in production.")
+                .Validate(settings => string.IsNullOrWhiteSpace(settings.RootPath)
+                    || Path.IsPathRooted(settings.RootPath),
+                    "Attachment storage root must be absolute when configured.")
+                .Validate(settings => settings.MaxFileSizeBytes > 0,
+                    "Attachment maximum file size must be greater than 0.")
+                .Validate(settings => settings.MaxCountPerTask > 0,
+                    "Attachment maximum count per task must be greater than 0.")
+                .Validate(settings => settings.MaxBytesPerTask >= settings.MaxFileSizeBytes,
+                    "Attachment maximum bytes per task must be at least the maximum file size.")
                 .ValidateOnStart();
 
             services.AddOptions<EmailDeliverySettings>()

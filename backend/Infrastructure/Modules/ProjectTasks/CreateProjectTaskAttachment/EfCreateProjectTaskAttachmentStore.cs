@@ -3,6 +3,8 @@ using Application.Modules.ProjectTasks.CreateProjectTaskAttachment;
 using Domain.Entities;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Shared.Settings;
 
 namespace Infrastructure.Modules.ProjectTasks.CreateProjectTaskAttachment;
 
@@ -12,10 +14,12 @@ namespace Infrastructure.Modules.ProjectTasks.CreateProjectTaskAttachment;
 public sealed class EfCreateProjectTaskAttachmentStore : ICreateProjectTaskAttachmentStore
 {
     private readonly ApplicationDbContext _dbContext;
+    private readonly AttachmentSettings _settings;
 
-    public EfCreateProjectTaskAttachmentStore(ApplicationDbContext dbContext)
+    public EfCreateProjectTaskAttachmentStore(ApplicationDbContext dbContext, IOptions<AttachmentSettings> settings)
     {
         _dbContext = dbContext;
+        _settings = settings.Value;
     }
 
     public async Task<ProjectTaskAttachmentView> CreateAsync(
@@ -23,6 +27,40 @@ public sealed class EfCreateProjectTaskAttachmentStore : ICreateProjectTaskAttac
         string storedFileName,
         CancellationToken cancellationToken = default)
     {
+        var isPostgreSql = string.Equals(
+            _dbContext.Database.ProviderName,
+            "Npgsql.EntityFrameworkCore.PostgreSQL",
+            StringComparison.Ordinal);
+        await using var transaction = isPostgreSql
+            ? await _dbContext.Database.BeginTransactionAsync(cancellationToken)
+            : null;
+
+        if (isPostgreSql)
+        {
+            await _dbContext.ProjectTasks
+                .FromSqlInterpolated($"SELECT * FROM \"ProjectTasks\" WHERE \"Id\" = {command.TaskId} FOR UPDATE")
+                .Select(task => task.Id)
+                .SingleAsync(cancellationToken);
+        }
+
+        var attachmentCount = await _dbContext.ProjectTaskAttachments
+            .CountAsync(attachment => attachment.ProjectTaskId == command.TaskId, cancellationToken);
+        var attachmentBytes = await _dbContext.ProjectTaskAttachments
+            .Where(attachment => attachment.ProjectTaskId == command.TaskId)
+            .SumAsync(attachment => (long?)attachment.SizeBytes, cancellationToken) ?? 0;
+
+        if (attachmentCount >= _settings.MaxCountPerTask)
+        {
+            throw new ProjectTaskAttachmentQuotaExceededException(
+                $"A task cannot contain more than {_settings.MaxCountPerTask} attachments.");
+        }
+
+        if (attachmentBytes > _settings.MaxBytesPerTask - command.SizeBytes)
+        {
+            throw new ProjectTaskAttachmentQuotaExceededException(
+                "The task attachment size quota would be exceeded.");
+        }
+
         var attachment = new ProjectTaskAttachment
         {
             ProjectTaskId = command.TaskId,
@@ -42,6 +80,10 @@ public sealed class EfCreateProjectTaskAttachmentStore : ICreateProjectTaskAttac
             Description = $"added the attachment '{command.OriginalFileName}'."
         });
         await _dbContext.SaveChangesAsync(cancellationToken);
+        if (transaction is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+        }
 
         var uploaderDisplayName = await _dbContext.Users
             .Where(user => user.Id == command.UserId)

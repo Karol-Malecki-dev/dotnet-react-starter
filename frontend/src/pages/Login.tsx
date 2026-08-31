@@ -56,7 +56,7 @@ export default function Login() {
     } catch (caughtError) {
       setSubmitError(
         getApiErrorMessage(caughtError, {
-          defaultMessage: 'Unable to sign in right now. Please try again.',
+          defaultMessage: 'Unable to sign in. Check your credentials, try again later if access is temporarily blocked, or reset your password.',
           rateLimitMessage: 'Too many login attempts. Please wait a moment and try again.',
         }),
       );

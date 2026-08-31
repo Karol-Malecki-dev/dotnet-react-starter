@@ -32,8 +32,8 @@ RUN apt-get -o Acquire::Check-Valid-Until=false -o Acquire::Check-Date=false upd
 COPY --from=builder /app/publish .
 
 # Runtime-owned directories must remain writable by the non-root application user.
-RUN mkdir -p /home/app/.aspnet/DataProtection-Keys /app/logs \
-	&& chown -R $APP_UID /home/app /app/logs
+RUN mkdir -p /home/app/.aspnet/DataProtection-Keys /app/logs /app/data/task-attachments \
+	&& chown -R $APP_UID /home/app /app/logs /app/data
 
 USER $APP_UID
 
