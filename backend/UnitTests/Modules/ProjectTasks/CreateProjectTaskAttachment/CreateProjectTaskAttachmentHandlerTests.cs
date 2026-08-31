@@ -17,6 +17,7 @@ public sealed class CreateProjectTaskAttachmentHandlerTests
     private readonly Mock<IProjectTaskAccess> _access = new();
     private readonly Mock<ICreateProjectTaskAttachmentStore> _attachmentStore = new();
     private readonly Mock<IProjectTaskAttachmentStorage> _storage = new();
+    private readonly Mock<IProjectTaskAttachmentMalwareScanner> _malwareScanner = new();
 
     [Fact]
     public async Task Handle_forbids_viewer_before_storing_file()
@@ -277,12 +278,81 @@ public sealed class CreateProjectTaskAttachmentHandlerTests
             Times.Once);
     }
 
-    private CreateProjectTaskAttachmentHandler CreateHandler()
+    [Theory]
+    [InlineData(ProjectTaskAttachmentScanStatus.ThreatDetected, ProjectOperationStatus.ValidationError)]
+    [InlineData(ProjectTaskAttachmentScanStatus.Unavailable, ProjectOperationStatus.Conflict)]
+    public async Task Handle_rejects_non_clean_scan_before_storing_file(
+        ProjectTaskAttachmentScanStatus scanStatus,
+        ProjectOperationStatus expectedStatus)
+    {
+        var command = CreateCommand();
+        ConfigureAccess(command, ProjectMemberRole.Owner);
+        _malwareScanner
+            .Setup(scanner => scanner.ScanAsync(
+                command.Content,
+                command.OriginalFileName,
+                command.ContentType,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(scanStatus);
+
+        var result = await CreateHandler(requireMalwareScan: true).HandleAsync(command);
+
+        Assert.Equal(expectedStatus, result.Status);
+        _storage.Verify(
+            storage => storage.SaveAsync(
+                It.IsAny<Stream>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_stores_clean_scanned_file_from_the_start_of_the_stream()
+    {
+        var command = CreateCommand();
+        ConfigureAccess(command, ProjectMemberRole.Owner);
+        _malwareScanner
+            .Setup(scanner => scanner.ScanAsync(
+                command.Content,
+                command.OriginalFileName,
+                command.ContentType,
+                It.IsAny<CancellationToken>()))
+            .Callback(() => command.Content.Position = command.Content.Length)
+            .ReturnsAsync(ProjectTaskAttachmentScanStatus.Clean);
+        _storage
+            .Setup(storage => storage.SaveAsync(
+                command.Content,
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .Callback(() => Assert.Equal(0, command.Content.Position))
+            .Returns(Task.CompletedTask);
+        _attachmentStore
+            .Setup(store => store.CreateAsync(
+                It.IsAny<CreateProjectTaskAttachmentCommand>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ProjectTaskAttachmentView(
+                Guid.NewGuid(),
+                command.TaskId,
+                command.UserId,
+                "Owner",
+                command.OriginalFileName,
+                command.ContentType,
+                command.SizeBytes,
+                DateTime.UtcNow));
+
+        var result = await CreateHandler(requireMalwareScan: true).HandleAsync(command);
+
+        Assert.True(result.IsSuccess);
+    }
+
+    private CreateProjectTaskAttachmentHandler CreateHandler(bool requireMalwareScan = false)
         => new(
             _access.Object,
             _attachmentStore.Object,
             _storage.Object,
-            Options.Create(new AttachmentSettings()));
+            _malwareScanner.Object,
+            Options.Create(new AttachmentSettings { RequireMalwareScan = requireMalwareScan }));
 
     private void ConfigureAccess(
         CreateProjectTaskAttachmentCommand command,

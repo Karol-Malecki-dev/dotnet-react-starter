@@ -49,6 +49,13 @@ selected for the deployment platform. Until a scanner is configured, the applica
 provides content-signature inspection and extension/MIME validation, but must not claim
 malware protection.
 
+The upload pipeline invokes `IProjectTaskAttachmentMalwareScanner` before binary or
+metadata persistence when `Attachments:RequireMalwareScan` is enabled. Production
+configuration is rejected at startup unless this setting is `true`. The registered
+fallback scanner returns `Unavailable`, so uploads fail closed until the deployment
+replaces it with a provider adapter. Threat results are rejected as invalid content;
+timeouts, scanner errors, and unavailable results must never be converted to `Clean`.
+
 Recommended provider choices:
 
 - Azure Blob Storage with Microsoft Defender for Storage scanning;
@@ -59,6 +66,11 @@ The production adapter must quarantine new objects before they become downloadab
 persist a safe scan status, handle timeout/failure as non-clean, and expose scan backlog
 and failure metrics. Scanner credentials and storage keys must remain outside the
 repository.
+
+The provider adapter, quarantine lifecycle, persisted scan status, and platform metrics
+cannot be certified by this repository until a production storage/scanner provider is
+selected. They remain mandatory deployment work rather than capabilities supplied by
+the fallback implementation.
 
 ## Alerts
 

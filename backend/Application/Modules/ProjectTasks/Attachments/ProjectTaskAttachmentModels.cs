@@ -48,3 +48,26 @@ public interface IProjectTaskAttachmentStorageInventory
 {
     IAsyncEnumerable<string> EnumerateStoredFileNamesAsync(CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// Result returned by the deployment-specific malware scanner before an attachment is persisted.
+/// </summary>
+public enum ProjectTaskAttachmentScanStatus
+{
+    Clean,
+    ThreatDetected,
+    Unavailable
+}
+
+/// <summary>
+/// Scans attachment content without taking ownership of the supplied stream.
+/// Implementations must not treat scanner errors or timeouts as a clean result.
+/// </summary>
+public interface IProjectTaskAttachmentMalwareScanner
+{
+    Task<ProjectTaskAttachmentScanStatus> ScanAsync(
+        Stream content,
+        string originalFileName,
+        string contentType,
+        CancellationToken cancellationToken = default);
+}

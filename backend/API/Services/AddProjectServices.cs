@@ -180,6 +180,8 @@ namespace API.Services
                     "Attachment maximum count per task must be greater than 0.")
                 .Validate(settings => settings.MaxBytesPerTask >= settings.MaxFileSizeBytes,
                     "Attachment maximum bytes per task must be at least the maximum file size.")
+                .Validate(settings => !isProduction || settings.RequireMalwareScan,
+                    "Attachment malware scanning must be required in production.")
                 .ValidateOnStart();
 
             services.AddOptions<EmailDeliverySettings>()

@@ -69,6 +69,7 @@ public static class ProjectTasksModule
         services.AddScoped<IDownloadProjectTaskAttachmentStore, EfDownloadProjectTaskAttachmentStore>();
         services.AddScoped<IDeleteProjectTaskAttachmentStore, EfDeleteProjectTaskAttachmentStore>();
         services.AddSingleton<IProjectTaskAttachmentStorage, LocalProjectTaskAttachmentStorage>();
+        services.AddSingleton<IProjectTaskAttachmentMalwareScanner, UnavailableProjectTaskAttachmentMalwareScanner>();
         services.AddScoped<ICreateProjectTaskHandler, CreateProjectTaskHandler>();
         services.AddScoped<ICreateProjectTaskAttachmentHandler, CreateProjectTaskAttachmentHandler>();
         services.AddScoped<ICreateProjectTaskCommentHandler, CreateProjectTaskCommentHandler>();

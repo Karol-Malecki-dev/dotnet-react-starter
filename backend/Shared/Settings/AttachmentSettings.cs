@@ -14,4 +14,7 @@ public sealed class AttachmentSettings
 
     /// <summary>Maximum combined attachment size allowed for one task in bytes.</summary>
     public long MaxBytesPerTask { get; set; } = 100 * 1024 * 1024;
+
+    /// <summary>Whether uploads must receive a clean result from the configured malware scanner.</summary>
+    public bool RequireMalwareScan { get; set; }
 }
