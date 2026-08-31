@@ -1,5 +1,6 @@
 using Application.Features.Projects;
 using Application.Modules.Projects.ChangeProjectMemberRole;
+using Application.Interfaces;
 using Domain.Entities;
 using Domain.Enums;
 
@@ -11,10 +12,14 @@ namespace Infrastructure.Modules.Projects.ChangeProjectMemberRole;
 public sealed class ChangeProjectMemberRoleHandler : IChangeProjectMemberRoleHandler
 {
     private readonly IChangeProjectMemberRoleStore _store;
+    private readonly ICollaborationNotificationWriter? _notificationWriter;
 
-    public ChangeProjectMemberRoleHandler(IChangeProjectMemberRoleStore store)
+    public ChangeProjectMemberRoleHandler(
+        IChangeProjectMemberRoleStore store,
+        ICollaborationNotificationWriter? notificationWriter = null)
     {
         _store = store;
+        _notificationWriter = notificationWriter;
     }
 
     public async Task<ProjectOperationResult<ProjectMemberView>> HandleAsync(
@@ -64,6 +69,20 @@ public sealed class ChangeProjectMemberRoleHandler : IChangeProjectMemberRoleHan
             return ProjectOperationResult<ProjectMemberView>.Failure(
                 ProjectOperationStatus.Conflict,
                 "The project member role cannot be changed");
+        }
+
+        if (_notificationWriter is not null)
+        {
+            await _notificationWriter.StageAsync(
+                command.UserId,
+                NotificationType.ProjectMemberRoleChanged,
+                "Project role changed",
+                $"Your role in '{project.Name}' changed to {member.Role}.",
+                "project",
+                project.Id,
+                project.Id,
+                $"project:{project.Id}:member:{command.UserId}:role:{member.Role}",
+                cancellationToken);
         }
 
         await _store.SaveChangesAsync(cancellationToken);

@@ -38,6 +38,9 @@ using Infrastructure.Modules.ProjectTasks.ListProjectTaskAttachments;
 using Infrastructure.Modules.ProjectTasks.UpdateProjectTask;
 using Infrastructure.Modules.ProjectTasks.UpdateProjectTaskStatus;
 using Infrastructure.Services;
+using Amazon;
+using Amazon.Runtime;
+using Amazon.S3;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Infrastructure.Modules.ProjectTasks;
@@ -52,6 +55,7 @@ public static class ProjectTasksModule
         services.AddScoped<IProjectTaskDeadlineReminderProcessor, ProjectTaskDeadlineReminderProcessor>();
         services.AddHostedService<ProjectTaskDeadlineReminderWorker>();
         services.AddScoped<IProjectTaskAttachmentCleanupProcessor, ProjectTaskAttachmentCleanupProcessor>();
+        services.AddScoped<ProjectTaskAttachmentReconciliationService>();
         services.AddHostedService<ProjectTaskAttachmentCleanupWorker>();
 
         services.AddScoped<IProjectTaskAccess, EfProjectTaskAccess>();
@@ -67,7 +71,50 @@ public static class ProjectTasksModule
         services.AddScoped<ICreateProjectTaskAttachmentStore, EfCreateProjectTaskAttachmentStore>();
         services.AddScoped<IDownloadProjectTaskAttachmentStore, EfDownloadProjectTaskAttachmentStore>();
         services.AddScoped<IDeleteProjectTaskAttachmentStore, EfDeleteProjectTaskAttachmentStore>();
-        services.AddSingleton<IProjectTaskAttachmentStorage, LocalProjectTaskAttachmentStorage>();
+        services.AddSingleton<LocalProjectTaskAttachmentStorage>();
+        services.AddSingleton<S3ProjectTaskAttachmentStorage>();
+        services.AddSingleton<IAmazonS3>(serviceProvider =>
+        {
+            var settings = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<Shared.Settings.AttachmentSettings>>().Value;
+            var config = new AmazonS3Config
+            {
+                ForcePathStyle = settings.S3ForcePathStyle,
+                MaxErrorRetry = 3
+            };
+
+            if (!string.IsNullOrWhiteSpace(settings.S3ServiceUrl))
+            {
+                config.ServiceURL = settings.S3ServiceUrl;
+            }
+            else
+            {
+                config.RegionEndpoint = RegionEndpoint.GetBySystemName(settings.S3Region);
+            }
+
+            if (!string.IsNullOrWhiteSpace(settings.S3AccessKey))
+            {
+                return new AmazonS3Client(
+                    new BasicAWSCredentials(settings.S3AccessKey, settings.S3SecretKey),
+                    config);
+            }
+
+            return new AmazonS3Client(config);
+        });
+        services.AddSingleton<IProjectTaskAttachmentStorage>(serviceProvider =>
+        {
+            var settings = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<Shared.Settings.AttachmentSettings>>().Value;
+            return string.Equals(settings.StorageProvider, "S3", StringComparison.OrdinalIgnoreCase)
+                ? serviceProvider.GetRequiredService<S3ProjectTaskAttachmentStorage>()
+                : serviceProvider.GetRequiredService<LocalProjectTaskAttachmentStorage>();
+        });
+        services.AddSingleton<IProjectTaskAttachmentMalwareScanner>(serviceProvider =>
+        {
+            var settings = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<Shared.Settings.AttachmentSettings>>().Value;
+            return string.IsNullOrWhiteSpace(settings.MalwareScannerHost)
+                ? new UnavailableProjectTaskAttachmentMalwareScanner()
+                : serviceProvider.GetRequiredService<ClamAvProjectTaskAttachmentMalwareScanner>();
+        });
+        services.AddSingleton<ClamAvProjectTaskAttachmentMalwareScanner>();
         services.AddScoped<ICreateProjectTaskHandler, CreateProjectTaskHandler>();
         services.AddScoped<ICreateProjectTaskAttachmentHandler, CreateProjectTaskAttachmentHandler>();
         services.AddScoped<ICreateProjectTaskCommentHandler, CreateProjectTaskCommentHandler>();

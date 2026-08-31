@@ -28,17 +28,20 @@ public sealed class CreateProjectTaskAttachmentHandler : ICreateProjectTaskAttac
     private readonly IProjectTaskAccess _projectTaskAccess;
     private readonly ICreateProjectTaskAttachmentStore _attachmentStore;
     private readonly IProjectTaskAttachmentStorage _storage;
+    private readonly IProjectTaskAttachmentMalwareScanner _malwareScanner;
     private readonly AttachmentSettings _settings;
 
     public CreateProjectTaskAttachmentHandler(
         IProjectTaskAccess projectTaskAccess,
         ICreateProjectTaskAttachmentStore attachmentStore,
         IProjectTaskAttachmentStorage storage,
+        IProjectTaskAttachmentMalwareScanner malwareScanner,
         IOptions<AttachmentSettings> settings)
     {
         _projectTaskAccess = projectTaskAccess;
         _attachmentStore = attachmentStore;
         _storage = storage;
+        _malwareScanner = malwareScanner;
         _settings = settings.Value;
     }
 
@@ -99,6 +102,30 @@ public sealed class CreateProjectTaskAttachmentHandler : ICreateProjectTaskAttac
             return ProjectOperationResult<ProjectTaskAttachmentView>.Failure(
                 ProjectOperationStatus.ValidationError,
                 contentValidationError);
+        }
+
+        if (_settings.RequireMalwareScan)
+        {
+            var scanStatus = await _malwareScanner.ScanAsync(
+                command.Content,
+                originalFileName,
+                command.ContentType.Trim(),
+                cancellationToken);
+            command.Content.Position = 0;
+
+            if (scanStatus == ProjectTaskAttachmentScanStatus.ThreatDetected)
+            {
+                return ProjectOperationResult<ProjectTaskAttachmentView>.Failure(
+                    ProjectOperationStatus.ValidationError,
+                    "Attachment content was rejected by malware scanning");
+            }
+
+            if (scanStatus != ProjectTaskAttachmentScanStatus.Clean)
+            {
+                return ProjectOperationResult<ProjectTaskAttachmentView>.Failure(
+                    ProjectOperationStatus.Conflict,
+                    "Attachment malware scanning is temporarily unavailable");
+            }
         }
 
         var storedFileName = $"{Guid.NewGuid():N}{extension}";

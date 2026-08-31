@@ -38,6 +38,7 @@ function Invoke-HttpCheck {
 try {
     Assert-CommandAvailable -Name 'docker'
     Assert-CommandAvailable -Name 'dotnet'
+    Assert-CommandAvailable -Name 'npm'
 
     Set-Location $repositoryRoot
 
@@ -64,10 +65,31 @@ try {
     $env:SMOKE_API_URL = 'http://localhost:5000'
     $env:SMOKE_FRONTEND_URL = 'http://localhost:3000'
 
-    Write-Host 'Running the complete .NET test solution...'
-    & dotnet test backend/backend.slnx
+    Write-Host 'Building and testing the backend release...'
+    & dotnet build backend/backend.slnx --configuration Release
     if ($LASTEXITCODE -ne 0) {
         $exitCode = $LASTEXITCODE
+    }
+
+    & dotnet test backend/backend.slnx --configuration Release --no-build
+    if ($LASTEXITCODE -ne 0) {
+        $exitCode = $LASTEXITCODE
+    }
+
+    Write-Host 'Building and testing the frontend release...'
+    Push-Location (Join-Path $repositoryRoot 'frontend')
+    try {
+        & npm ci
+        if ($LASTEXITCODE -ne 0) { $exitCode = $LASTEXITCODE }
+        & npm run test:once
+        if ($LASTEXITCODE -ne 0) { $exitCode = $LASTEXITCODE }
+        & npm run build
+        if ($LASTEXITCODE -ne 0) { $exitCode = $LASTEXITCODE }
+        & npm run test:e2e
+        if ($LASTEXITCODE -ne 0) { $exitCode = $LASTEXITCODE }
+    }
+    finally {
+        Pop-Location
     }
 }
 catch {

@@ -1,6 +1,8 @@
 using Application.Modules.ProjectTasks.Attachments;
 using Application.Modules.ProjectTasks.CreateProjectTaskAttachment;
+using Application.Interfaces;
 using Domain.Entities;
+using Domain.Enums;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -15,11 +17,16 @@ public sealed class EfCreateProjectTaskAttachmentStore : ICreateProjectTaskAttac
 {
     private readonly ApplicationDbContext _dbContext;
     private readonly AttachmentSettings _settings;
+    private readonly ICollaborationNotificationWriter? _notificationWriter;
 
-    public EfCreateProjectTaskAttachmentStore(ApplicationDbContext dbContext, IOptions<AttachmentSettings> settings)
+    public EfCreateProjectTaskAttachmentStore(
+        ApplicationDbContext dbContext,
+        IOptions<AttachmentSettings> settings,
+        ICollaborationNotificationWriter? notificationWriter = null)
     {
         _dbContext = dbContext;
         _settings = settings.Value;
+        _notificationWriter = notificationWriter;
     }
 
     public async Task<ProjectTaskAttachmentView> CreateAsync(
@@ -79,6 +86,26 @@ public sealed class EfCreateProjectTaskAttachmentStore : ICreateProjectTaskAttac
             Type = "task.attachment-added",
             Description = $"added the attachment '{command.OriginalFileName}'."
         });
+        if (_notificationWriter is not null)
+        {
+            var assigneeId = await _dbContext.ProjectTasks
+                .Where(task => task.Id == command.TaskId)
+                .Select(task => task.AssignedUserId)
+                .SingleAsync(cancellationToken);
+            if (assigneeId is { } recipientId && recipientId != command.UserId)
+            {
+                await _notificationWriter.StageAsync(
+                    recipientId,
+                    NotificationType.TaskAttachmentAdded,
+                    "Task attachment added",
+                    $"'{attachment.OriginalFileName}' was added to your assigned task.",
+                    "projectTask",
+                    command.TaskId,
+                    command.ProjectId,
+                    $"task:{command.TaskId}:attachment:{attachment.Id}:added",
+                    cancellationToken);
+            }
+        }
         await _dbContext.SaveChangesAsync(cancellationToken);
         if (transaction is not null)
         {

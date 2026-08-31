@@ -20,9 +20,10 @@ docker-compose up --build
 Najważniejsze grupy zmiennych:
 
 - PostgreSQL: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`
-- Backend: `DEFAULT_CONNECTION`, `JWT_SECRET`, `JWT_*`, `CORS_*`, `DATA_PROTECTION_*`, `FORWARDED_HEADERS_*`, `EMAIL_CONFIRMATION_*`, `EMAIL_TWO_FACTOR_*`, `EMAIL_DELIVERY_*`
+- Backend: `DEFAULT_CONNECTION`, `JWT_SECRET`, `JWT_*`, `CORS_*`, `DATA_PROTECTION_*`, `ATTACHMENTS_*`, `FORWARDED_HEADERS_*`, `EMAIL_CONFIRMATION_*`, `EMAIL_TWO_FACTOR_*`, `EMAIL_DELIVERY_*`
 - Frontend build: `FRONTEND_REACT_APP_API_URL` (passed to Vite as `VITE_API_URL`)
 - Mailpit: `MAILPIT_SMTP_PORT`, `MAILPIT_HTTP_PORT`
+- MinIO: `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `MINIO_BUCKET`, `MINIO_API_PORT`, `MINIO_CONSOLE_PORT`
 
 ## Struktura naszego docker-compose.yml
 
@@ -93,6 +94,12 @@ Backend zapisuje klucze Data Protection w named volume `data-protection-keys`. T
 wolumen trzeba zachować między restartami i wdrożeniami, jeśli zaszyfrowane dane mają
 pozostać dostępne. Obraz backendu przygotowuje katalog z uprawnieniami użytkownika
 non-root, a `docker-compose.yml` montuje do niego named volume.
+
+Załączniki są przechowywane przez adapter S3 w prywatnym buckecie MinIO. Dane MinIO
+znajdują się w named volume `minio-data`, a jednorazowy serwis `minio-init` tworzy bucket
+i wyłącza anonimowy dostęp przed startem backendu. Port `9000` udostępnia API S3, a
+`9001` konsolę administracyjną. Domyślne dane dostępowe służą wyłącznie lokalnemu
+Compose; w innym środowisku należy je zastąpić sekretami.
 
 Przed wdrożeniem produkcyjnym ustaw `ASPNETCORE_ENVIRONMENT=Production`, własny losowy
 `JWT_SECRET`, `JWT_REFRESH_TOKEN_COOKIE_SECURE_POLICY=Always`, trwały
@@ -225,7 +232,8 @@ docker-compose down
 docker-compose down -v
 ```
 - `-v` = remove volumes (usuwa dane/bazy)
-- Usuwa również `data-protection-keys`, więc unieważnia poprzedni key ring.
+- Usuwa również `data-protection-keys` i `minio-data`, więc unieważnia key ring oraz
+  trwale kasuje lokalne załączniki.
 
 ### Przebudowanie po zmianie kodu:
 ```bash

@@ -17,11 +17,24 @@ public sealed class DatabaseNotificationWriter : INotificationWriter
         _dbContext = dbContext;
     }
 
-    public async Task CreateAsync(Guid userId, NotificationType type, string title, string message, string? resourceType = null, Guid? resourceId = null, Guid? projectId = null, bool sendEmail = true, CancellationToken cancellationToken = default)
+    public async Task CreateAsync(Guid userId, NotificationType type, string title, string message, string? resourceType = null, Guid? resourceId = null, Guid? projectId = null, bool sendEmail = true, CancellationToken cancellationToken = default, string? deduplicationKey = null)
     {
         if (userId == Guid.Empty || string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(message))
         {
             throw new ArgumentException("A notification requires a user, title, and message.");
+        }
+
+        var normalizedDeduplicationKey = string.IsNullOrWhiteSpace(deduplicationKey) ? null : deduplicationKey.Trim();
+        if (normalizedDeduplicationKey is not null && normalizedDeduplicationKey.Length > 200)
+        {
+            throw new ArgumentException("Notification deduplication key cannot exceed 200 characters.", nameof(deduplicationKey));
+        }
+
+        if (normalizedDeduplicationKey is not null && await _dbContext.Notifications.AnyAsync(
+            notification => notification.UserId == userId && notification.DeduplicationKey == normalizedDeduplicationKey,
+            cancellationToken))
+        {
+            return;
         }
 
         var now = DateTime.UtcNow;
@@ -35,6 +48,7 @@ public sealed class DatabaseNotificationWriter : INotificationWriter
             ResourceType = string.IsNullOrWhiteSpace(resourceType) ? null : resourceType.Trim(),
             ResourceId = resourceId,
             ProjectId = projectId,
+            DeduplicationKey = normalizedDeduplicationKey,
             CreatedAt = now
         };
         _dbContext.Notifications.Add(notification);

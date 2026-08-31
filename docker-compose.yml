@@ -27,6 +27,46 @@ services:
     networks:
       - dotnet-react-network
 
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
+    container_name: dotnet-react-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - dotnet-react-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    container_name: dotnet-react-minio-init
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"
+        mc mb --ignore-existing "local/$${MINIO_BUCKET}"
+        mc anonymous set none "local/$${MINIO_BUCKET}"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_BUCKET: ${MINIO_BUCKET:-task-attachments}
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - dotnet-react-network
+
   # Backend API (.NET)
   backend:
     build:
@@ -52,7 +92,18 @@ services:
       - Jwt__RefreshTokenCookieDomain=${JWT_REFRESH_TOKEN_COOKIE_DOMAIN:-}
       - DataProtection__KeyRingPath=${DATA_PROTECTION_KEY_RING_PATH:-/home/app/.aspnet/DataProtection-Keys}
       - DataProtection__ApplicationName=${DATA_PROTECTION_APPLICATION_NAME:-DotnetReactStarter}
+      - Attachments__StorageProvider=${ATTACHMENTS_STORAGE_PROVIDER:-S3}
       - Attachments__RootPath=${ATTACHMENTS_ROOT_PATH:-/app/data/task-attachments}
+      - Attachments__S3BucketName=${ATTACHMENTS_S3_BUCKET_NAME:-task-attachments}
+      - Attachments__S3Region=${ATTACHMENTS_S3_REGION:-us-east-1}
+      - Attachments__S3ServiceUrl=${ATTACHMENTS_S3_SERVICE_URL:-http://minio:9000}
+      - Attachments__S3ForcePathStyle=${ATTACHMENTS_S3_FORCE_PATH_STYLE:-true}
+      - Attachments__S3AccessKey=${ATTACHMENTS_S3_ACCESS_KEY:-minioadmin}
+      - Attachments__S3SecretKey=${ATTACHMENTS_S3_SECRET_KEY:-minioadmin}
+      - Attachments__RequireMalwareScan=${ATTACHMENTS_REQUIRE_MALWARE_SCAN:-false}
+      - Attachments__MalwareScannerHost=${ATTACHMENTS_MALWARE_SCANNER_HOST:-}
+      - Attachments__MalwareScannerPort=${ATTACHMENTS_MALWARE_SCANNER_PORT:-3310}
+      - Attachments__MalwareScannerTimeoutSeconds=${ATTACHMENTS_MALWARE_SCANNER_TIMEOUT_SECONDS:-30}
       - ForwardedHeaders__Enabled=${FORWARDED_HEADERS_ENABLED:-true}
       - ForwardedHeaders__KnownNetworks__0=${FORWARDED_HEADERS_KNOWN_NETWORK_0:-172.28.0.0/16}
       - ForwardedHeaders__ForwardLimit=${FORWARDED_HEADERS_FORWARD_LIMIT:-1}
@@ -81,11 +132,12 @@ services:
         condition: service_healthy
       mailpit:
         condition: service_started
+      minio-init:
+        condition: service_completed_successfully
     networks:
       - dotnet-react-network
     volumes:
       - data-protection-keys:/home/app/.aspnet/DataProtection-Keys
-      - attachment-files:/app/data/task-attachments
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:5000/health" ]
       interval: 30s
@@ -125,4 +177,4 @@ networks:
 volumes:
   postgres-data:
   data-protection-keys:
-  attachment-files:
+  minio-data:

@@ -5,7 +5,7 @@ using Shared.Settings;
 
 namespace Infrastructure.Services;
 
-public sealed class LocalProjectTaskAttachmentStorage : IProjectTaskAttachmentStorage
+public sealed class LocalProjectTaskAttachmentStorage : IProjectTaskAttachmentStorage, IProjectTaskAttachmentStorageInventory
 {
     private static readonly HashSet<string> AllowedExtensions = new(StringComparer.Ordinal)
     {
@@ -71,6 +71,22 @@ public sealed class LocalProjectTaskAttachmentStorage : IProjectTaskAttachmentSt
         return Task.CompletedTask;
     }
 
+    public async IAsyncEnumerable<string> EnumerateStoredFileNamesAsync(
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        foreach (var path in Directory.EnumerateFiles(_rootPath))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var fileName = Path.GetFileName(path);
+            if (IsGeneratedFileName(fileName))
+            {
+                yield return fileName;
+            }
+
+            await Task.Yield();
+        }
+    }
+
     private string GetPath(string storedFileName)
     {
         var extension = Path.GetExtension(storedFileName);
@@ -84,5 +100,12 @@ public sealed class LocalProjectTaskAttachmentStorage : IProjectTaskAttachmentSt
         }
 
         return Path.Combine(_rootPath, storedFileName);
+    }
+
+    private static bool IsGeneratedFileName(string fileName)
+    {
+        var identifier = Path.GetFileNameWithoutExtension(fileName);
+        return Guid.TryParseExact(identifier, "N", out _)
+            && AllowedExtensions.Contains(Path.GetExtension(fileName));
     }
 }

@@ -7,5 +7,11 @@ public enum NotificationType
     SecurityAlert = 3,
     System = 4,
     TaskDeadlineApproaching = 5,
-    TaskOverdue = 6
+    TaskOverdue = 6,
+    ProjectMemberRemoved = 7,
+    ProjectMemberRoleChanged = 8,
+    TaskStatusChanged = 9,
+    TaskCommented = 10,
+    TaskAttachmentAdded = 11,
+    TaskAttachmentRemoved = 12
 }
