@@ -83,7 +83,7 @@ public sealed class CreateProjectTaskAttachmentHandler : ICreateProjectTaskAttac
                 validationError);
         }
 
-        var originalFileName = Path.GetFileName(command.OriginalFileName.Trim());
+        var originalFileName = NormalizeFileName(command.OriginalFileName);
         var extension = Path.GetExtension(originalFileName).ToLowerInvariant();
         var storedFileName = $"{Guid.NewGuid():N}{extension}";
         var normalizedCommand = command with
@@ -136,9 +136,12 @@ public sealed class CreateProjectTaskAttachmentHandler : ICreateProjectTaskAttac
             return "Attachment format or content type is not allowed";
         }
 
-        var normalizedName = Path.GetFileName(originalFileName.Trim());
+        var normalizedName = NormalizeFileName(originalFileName);
         return normalizedName.Length > 255
             ? "Attachment file name cannot exceed 255 characters"
             : null;
     }
+
+    private static string NormalizeFileName(string fileName)
+        => Path.GetFileName(fileName.Trim().Replace('\\', '/'));
 }
