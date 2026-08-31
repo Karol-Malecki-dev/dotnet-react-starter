@@ -14,6 +14,9 @@ namespace Application.Interfaces
     {
         Task<ApiResponse<AdminDashboardStatsDto>> GetDashboardStatsAsync(CancellationToken cancellationToken = default);
         Task<ApiResponse<List<AdminUserListItemDto>>> GetUsersAsync(AdminUserFilterRequestDto adminUserGetRequestDto, CancellationToken cancellationToken = default);
+        Task<ApiResponse<AdminPagedResultDto<AdminAccountSecurityEventDto>>> GetAccountSecurityEventsAsync(
+            AdminAccountSecurityEventFilterRequestDto request,
+            CancellationToken cancellationToken = default);
         Task<ApiResponse<AdminUserDetailsDto>> GetUserDetailsByIdAsync(Guid userId, CancellationToken cancellationToken = default);
         Task<ApiResponse<AdminUserDetailsDto>> GetUserDetailsByEmailAsync(string email, CancellationToken cancellationToken = default);
 
