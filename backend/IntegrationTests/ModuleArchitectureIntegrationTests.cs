@@ -1,3 +1,4 @@
+using Application.Modules.Notifications.GetUnreadCount;
 using Application.Modules.Projects.GetProjectDashboard;
 using Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc;
@@ -15,7 +16,7 @@ public sealed class ModuleArchitectureIntegrationTests : IDisposable
     private readonly CustomWebApplicationFactory _factory = new();
 
     [Fact]
-    public void Every_projects_and_project_tasks_handler_is_registered_in_dependency_injection()
+    public void Every_module_handler_is_registered_in_dependency_injection()
     {
         using var scope = _factory.Services.CreateScope();
         var applicationAssembly = typeof(IGetProjectDashboardHandler).Assembly;
@@ -27,6 +28,9 @@ public sealed class ModuleArchitectureIntegrationTests : IDisposable
                         StringComparison.Ordinal) == true
                     || type.Namespace?.StartsWith(
                         "Application.Modules.ProjectTasks",
+                        StringComparison.Ordinal) == true
+                    || type.Namespace?.StartsWith(
+                        "Application.Modules.Notifications",
                         StringComparison.Ordinal) == true))
             .OrderBy(type => type.FullName, StringComparer.Ordinal)
             .ToList();

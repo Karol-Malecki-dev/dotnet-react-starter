@@ -1,5 +1,4 @@
 using Application.DTOs.Notification;
-using Application.Interfaces;
 using Shared.Responses;
 
 namespace Application.Modules.Notifications.Commands;
@@ -21,4 +20,23 @@ public interface IMarkAllNotificationsAsReadHandler
 public interface IUpdateNotificationEmailPreferenceHandler
 {
     Task<ApiResponse<NotificationEmailPreferenceDto>> HandleAsync(UpdateNotificationEmailPreferenceCommand command, CancellationToken cancellationToken = default);
+}
+
+public interface IMarkNotificationAsReadStore
+{
+    Task<NotificationDto?> MarkAsReadAsync(Guid userId, Guid notificationId, CancellationToken cancellationToken = default);
+}
+
+public interface IMarkAllNotificationsAsReadStore
+{
+    Task<int> MarkAllAsReadAsync(Guid userId, CancellationToken cancellationToken = default);
+}
+
+public interface IUpdateNotificationEmailPreferenceStore
+{
+    Task<NotificationEmailPreferenceDto> UpdateAsync(
+        Guid userId,
+        bool? isEmailEnabled,
+        bool? isTaskDeadlineReminderEmailEnabled,
+        CancellationToken cancellationToken = default);
 }
