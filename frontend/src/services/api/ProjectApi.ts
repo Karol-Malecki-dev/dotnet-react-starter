@@ -25,6 +25,7 @@ import type {
   UpdateProjectTaskRequest,
   UpdateProjectTaskStatusRequest,
   ProjectMemberRole,
+  WorkspaceSearchResponse,
 } from '../../types';
 import { httpClient, type HttpClient } from './HttpClient';
 
@@ -34,6 +35,11 @@ export class ProjectApi {
   getProjects(includeArchived = false, scope = 'all'): Promise<ProjectsResponse> {
     const query = `?includeArchived=${includeArchived}&scope=${encodeURIComponent(scope)}`;
     return this.client.get<ProjectsResponse>(`/projects${query}`);
+  }
+
+  searchWorkspace(query: string, signal?: AbortSignal): Promise<WorkspaceSearchResponse> {
+    const params = new URLSearchParams({ query: query.trim(), type: 'projectTask', page: '1', pageSize: '10' });
+    return this.client.get<WorkspaceSearchResponse>(`/workspace/search?${params.toString()}`, { signal });
   }
 
   createProject(request: CreateProjectRequest): Promise<ProjectResponse> {

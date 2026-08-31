@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import type { WorkspaceSearchResult } from '../../types';
 
 export interface QuickSearchItem {
   label: string;
@@ -12,6 +13,7 @@ interface QuickSearchBarProps {
   items: QuickSearchItem[];
   placeholder?: string;
   label?: string;
+  searchWorkspace?: (query: string, signal: AbortSignal) => Promise<{ data: { items: WorkspaceSearchResult[] } }>;
 }
 
 function matchesQuery(item: QuickSearchItem, query: string) {
@@ -25,11 +27,13 @@ function matchesQuery(item: QuickSearchItem, query: string) {
   return searchableText.includes(normalizedQuery);
 }
 
-export function QuickSearchBar({ items, placeholder = 'Search pages, actions, and shortcuts', label = 'Quick search' }: QuickSearchBarProps) {
+export function QuickSearchBar({ items, placeholder = 'Search pages, actions, and shortcuts', label = 'Quick search', searchWorkspace }: QuickSearchBarProps) {
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
+  const [workspaceItems, setWorkspaceItems] = useState<WorkspaceSearchResult[]>([]);
+  const [workspaceLoading, setWorkspaceLoading] = useState(false);
 
   useEffect(() => {
     const handleKeyboardShortcut = (event: KeyboardEvent) => {
@@ -43,6 +47,32 @@ export function QuickSearchBar({ items, placeholder = 'Search pages, actions, an
     window.addEventListener('keydown', handleKeyboardShortcut);
     return () => window.removeEventListener('keydown', handleKeyboardShortcut);
   }, []);
+
+  useEffect(() => {
+    if (!searchWorkspace || query.trim().length < 2) {
+      setWorkspaceItems([]);
+      setWorkspaceLoading(false);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setWorkspaceLoading(true);
+      try {
+        const response = await searchWorkspace(query, controller.signal);
+        if (!controller.signal.aborted) setWorkspaceItems(response.data?.items ?? []);
+      } catch {
+        if (!controller.signal.aborted) setWorkspaceItems([]);
+      } finally {
+        if (!controller.signal.aborted) setWorkspaceLoading(false);
+      }
+    }, 250);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [query, searchWorkspace]);
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => matchesQuery(item, query)).slice(0, 6);
@@ -102,8 +132,22 @@ export function QuickSearchBar({ items, placeholder = 'Search pages, actions, an
               </button>
             ))
           ) : (
-            <p className="quick-search__empty">No matches for “{query}”.</p>
+            <>
+              {workspaceLoading ? <p className="quick-search__empty">Searching workspace...</p> : null}
+              {!workspaceLoading && workspaceItems.length === 0 ? <p className="quick-search__empty">No matches for &quot;{query}&quot;.</p> : null}
+            </>
           )}
+          {workspaceItems.length > 0 ? (
+            <div className="quick-search__group">
+              <span className="quick-search__group-title">Workspace</span>
+              {workspaceItems.map((item) => (
+                <button key={item.resourceId} type="button" className="quick-search__item" onMouseDown={(event) => event.preventDefault()} onClick={() => handleSelect(`/projects?projectId=${item.projectId}`)}>
+                  <strong>{item.title}</strong>
+                  <span>{item.context || 'Project task'}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>
