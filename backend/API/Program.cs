@@ -3,7 +3,9 @@ using API.Services;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Options;
 using Serilog;
+using Shared.Settings;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,34 +30,25 @@ try
     builder.Services.AddProjectServices(builder.Configuration, builder.Environment);
 
     var app = builder.Build();
+    var databaseSettings = app.Services.GetRequiredService<IOptions<DatabaseSettings>>().Value;
+    var migrateOnly = args.Any(argument =>
+        string.Equals(argument, "--migrate-only", StringComparison.OrdinalIgnoreCase));
 
     Log.Information("📊 Configuring application middleware...");
 
     app.UseForwardedHeaders();
 
-    // Apply migrations and seed data automatically
-    using (var scope = app.Services.CreateScope())
+    if (migrateOnly || databaseSettings.ApplyMigrationsOnStartup)
     {
-        try
-        {
-            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        await ApplyDatabaseMigrationsAsync(
+            app.Services,
+            app.Lifetime.ApplicationStopping);
+    }
 
-            if (dbContext.Database.IsRelational())
-            {
-                // Apply pending Entity Framework migrations only for relational providers.
-                await dbContext.Database.MigrateAsync(app.Lifetime.ApplicationStopping);
-                Log.Information("✓ Database initialized successfully!");
-            }
-            else
-            {
-                Log.Information("✓ Database initialized using non-relational provider");
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "✗ Database initialization failed");
-            throw;
-        }
+    if (migrateOnly)
+    {
+        Log.Information("Database migration job completed successfully.");
+        return;
     }
 
     // Configure the HTTP request pipeline
@@ -100,9 +93,35 @@ try
 catch (Exception ex)
 {
     Log.Fatal(ex, "💥 Application terminated unexpectedly");
+    Environment.ExitCode = 1;
 }
 finally
 {
     Log.Information("🛑 Application shutting down...");
     await Log.CloseAndFlushAsync();
+}
+
+static async Task ApplyDatabaseMigrationsAsync(
+    IServiceProvider services,
+    CancellationToken cancellationToken)
+{
+    await using var scope = services.CreateAsyncScope();
+    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+    try
+    {
+        if (dbContext.Database.IsRelational())
+        {
+            await dbContext.Database.MigrateAsync(cancellationToken);
+            Log.Information("Database migrations applied successfully.");
+            return;
+        }
+
+        Log.Information("Database initialization skipped for a non-relational provider.");
+    }
+    catch (Exception exception)
+    {
+        Log.Error(exception, "Database migration failed.");
+        throw;
+    }
 }

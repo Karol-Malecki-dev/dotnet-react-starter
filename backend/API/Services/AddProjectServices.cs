@@ -135,6 +135,12 @@ namespace API.Services
                     "Data Protection key ring path is required in production.")
                 .ValidateOnStart();
 
+            services.AddOptions<DatabaseSettings>()
+                .Bind(configuration.GetSection("Database"))
+                .Validate(settings => !isProduction || !settings.ApplyMigrationsOnStartup,
+                    "Automatic database migrations must be disabled in production. Run the API image with --migrate-only before starting the application.")
+                .ValidateOnStart();
+
             services.AddOptions<EmailConfirmationSettings>()
                 .Bind(configuration.GetSection("EmailConfirmation"))
                 .Validate(settings => Uri.TryCreate(settings.PublicOrigin, UriKind.Absolute, out _),

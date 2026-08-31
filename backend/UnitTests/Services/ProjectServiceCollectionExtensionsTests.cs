@@ -90,6 +90,35 @@ public class ProjectServiceCollectionExtensionsTests
         }
     }
 
+    [Fact]
+    public void Production_configuration_rejects_automatic_database_migrations()
+    {
+        using var provider = BuildProvider(
+            new Dictionary<string, string?>
+            {
+                ["Database:ApplyMigrationsOnStartup"] = "true"
+            },
+            Environments.Production);
+
+        Assert.Throws<OptionsValidationException>(
+            () => provider.GetRequiredService<IOptions<DatabaseSettings>>().Value);
+    }
+
+    [Fact]
+    public void Production_configuration_accepts_dedicated_database_migration_job()
+    {
+        using var provider = BuildProvider(
+            new Dictionary<string, string?>
+            {
+                ["Database:ApplyMigrationsOnStartup"] = "false"
+            },
+            Environments.Production);
+
+        var settings = provider.GetRequiredService<IOptions<DatabaseSettings>>().Value;
+
+        Assert.False(settings.ApplyMigrationsOnStartup);
+    }
+
     private static ServiceProvider BuildProvider(
         IReadOnlyDictionary<string, string?> overrides,
         string environmentName)
@@ -111,6 +140,7 @@ public class ProjectServiceCollectionExtensionsTests
             ["Cors:AllowedOrigins:0"] = "http://localhost:3000",
             ["DataProtection:ApplicationName"] = "UnitTests",
             ["DataProtection:KeyRingPath"] = Path.Combine(Path.GetTempPath(), "dotnet-react-unit-test-keys"),
+            ["Database:ApplyMigrationsOnStartup"] = "true",
             ["ForwardedHeaders:Enabled"] = "false",
             ["ForwardedHeaders:KnownNetworks:0"] = "172.28.0.0/16",
             ["ForwardedHeaders:ForwardLimit"] = "1",
