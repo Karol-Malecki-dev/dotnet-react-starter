@@ -233,4 +233,4 @@ jobs:
         run: |
           set -euo pipefail
           ssh "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "cd '${DEPLOY_PATH}' && chmod +x deploy.sh rollback.sh && ./deploy.sh '${IMAGE_TAG}' '${DEPLOY_ENV_FILE}' 'https://${STAGING_DOMAIN}'"
+            "cd '${DEPLOY_PATH}' && chmod +x deploy.sh rollback.sh backup.sh restore.sh && ./deploy.sh '${IMAGE_TAG}' '${DEPLOY_ENV_FILE}' 'https://${STAGING_DOMAIN}'"

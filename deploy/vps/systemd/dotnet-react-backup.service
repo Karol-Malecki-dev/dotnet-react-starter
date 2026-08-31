@@ -1,0 +1,18 @@
+[Unit]
+Description=Back up Dotnet React Starter production data
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+User=dotnet-react
+Group=dotnet-react
+ExecStart=/opt/dotnet-react-starter/backup.sh /etc/dotnet-react-starter/production.env /var/backups/dotnet-react-starter 14
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

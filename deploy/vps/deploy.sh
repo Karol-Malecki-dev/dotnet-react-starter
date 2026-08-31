@@ -37,7 +37,7 @@ compose() {
 
 wait_for_readiness() {
   local attempt
-  for attempt in $(seq 1 30); do
+  for ((attempt = 1; attempt <= 30; attempt++)); do
     if curl --fail --silent --show-error --max-time 10 \
       "${public_base_url}/health/ready" >/dev/null; then
       return 0

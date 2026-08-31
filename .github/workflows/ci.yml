@@ -79,12 +79,48 @@ jobs:
       - name: Build frontend
         run: npm run build
 
+  deployment-config:
+    name: Production deployment configuration
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate production Compose model
+        run: docker compose --env-file deploy/vps/.env.production.example -f deploy/vps/compose.production.yml config --quiet
+
+      - name: Validate deployment scripts
+        run: |
+          bash -n deploy/vps/deploy.sh
+          bash -n deploy/vps/rollback.sh
+          bash -n deploy/vps/backup.sh
+          bash -n deploy/vps/restore.sh
+
+      - name: Validate Caddy configuration
+        run: |
+          docker run --rm \
+            -v "${PWD}/deploy/vps/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            -e APP_DOMAIN=staging.example.com \
+            -e TLS_EMAIL=operations@example.com \
+            caddy:2.10-alpine \
+            caddy validate --config /etc/caddy/Caddyfile
+
+      - name: Validate Prometheus configuration and alerts
+        run: |
+          docker run --rm --entrypoint promtool \
+            -v "${PWD}/deploy/vps/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro" \
+            -v "${PWD}/deploy/vps/observability/alerts.yml:/etc/prometheus/alerts.yml:ro" \
+            prom/prometheus:v3.5.0 \
+            check config /etc/prometheus/prometheus.yml
+
   docker-smoke:
     name: Docker Compose smoke tests
     runs-on: ubuntu-latest
     needs:
       - backend
       - frontend
+      - deployment-config
 
     steps:
       - name: Checkout repository
