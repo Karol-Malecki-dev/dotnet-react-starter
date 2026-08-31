@@ -20,14 +20,14 @@ Stan na: **2026-08-31**.
 |---|---:|---|
 | 1. Granica agregatów projektu i zadań | 75% | `Project` chroni członkostwo przez metody domenowe, automatycznie tworzy właściciela i ma prywatne settery; `ProjectTask` został przyjęty jako osobny agregat, a niezależność tokenu projektu potwierdza test integracyjny. |
 | 2. Model użytkownika i value objects | 55% | `User.Email` i `User.DisplayName` używają kanonicznych value objectów domenowych, a `User` ma fabrykę, prywatne settery i jawne metody zmian profilu oraz stanu bezpieczeństwa; istniejąca płaska tabela `Users` i kontrakty HTTP zostały zachowane. Zastosowanie value objectu dla `Address` oraz pełne rozdzielenie profilu od stanu bezpieczeństwa nadal wymagają oceny. |
-| 3. Application services i porty | 65% | Handlery i focused ports dla backendowego pilota `ProjectTasks` są wydzielone; część współdzielonych portów i kontraktów pozostaje przejściowa. |
-| 4. Mapping i kontrakty | 60% | DTO i kontrakty HTTP są obecne oraz dokumentowane, a endpointy pilota mają slice-specific adaptery; pełne rozdzielenie modeli nie jest zakończone. |
-| 5. Transakcje i partial failure | 70% | Akceptacja zaproszenia, bezpośrednie dodanie członka oraz usunięcie członka mają relacyjne granice transakcji; usunięcie obejmuje także unassign zadań i aktywność, a rollbacki przy błędzie notification są pokryte dla dwóch workflowów z powiadomieniami. |
-| 6. Optimistic concurrency | 70% | `Project`, `ProjectInvitation` i `ProjectTask` mają tokeny wersji, konflikty są mapowane na `409`, a konflikty zapisów projektu i zadania oraz wyścig akceptacji są testowane na PostgreSQL. |
-| 7. Zapytania dashboardu | 60% | Statystyki dashboardu są agregowane po stronie SQL, listy overdue/upcoming używają zakresów dat przyjaznych indeksom i limitów, a test PostgreSQL potwierdza użycie indeksu `IX_ProjectTasks_ProjectId_Status_DueDate`; benchmark obciążeniowy nadal należy do V6. |
-| 8. Pilotaż modularnego VSA | 75% | `ProjectTasks` ma slice'y CRUD, comments, attachments i deadline reminders, własny modułowy entry point, focused ports oraz testy jednostkowe i integracyjne; brakuje migracji frontendowej, lekkich guardrails, przeniesienia ostatnich współdzielonych kontraktów i końcowej oceny kosztu pilota. |
+| 3. Application services i porty | 90% | Backendowe use case'y `ProjectTasks` i `Projects` mają focused handlery i porty; usunięto szerokie project services, a współpraca modułów przechodzi przez jawne porty. |
+| 4. Mapping i kontrakty | 75% | DTO i kontrakty HTTP są obecne oraz dokumentowane, a endpointy obu modułów mają slice-specific adaptery; frontend i część starszych application models pozostają przejściowe. |
+| 5. Transakcje i partial failure | 90% | Task/member/invitation/activity/notification/outbox są stagingowane w jednym scoped context i zapisywane jednym commitem; cleanup plików korzysta z trwałego outboxu, a rollbacki są pokryte testami PostgreSQL. |
+| 6. Optimistic concurrency | 75% | `Project`, `ProjectInvitation` i `ProjectTask` mają tokeny wersji, konflikty są mapowane na `409`, a konflikty zapisów projektu i zadania, wyścig akceptacji oraz równoległe tworzenie zaproszeń są testowane na PostgreSQL. |
+| 7. Zapytania dashboardu | 80% | `ProjectTasks` posiada jawny dashboard read port; `Projects` nie czyta jego `DbSet`, a agregacje SQL, zakresy dat, limity i indeks są zachowane. Benchmark obciążeniowy nadal należy do V6. |
+| 8. Pilotaż modularnego VSA | 100% | Backendowe moduły `ProjectTasks` i `Projects` mają komplet slice'ów, modułowe entry pointy i guardrails DI/route/dependency. Pełne testy PostgreSQL, backend unit/integration, Release build oraz regresja frontendu przechodzą; feature-first frontend pozostaje osobnym późniejszym inkrementem. |
 
-**Postęp V3: 50%**.
+**Postęp V3: 65%**.
 
 Procent obejmuje istniejące fundamenty, nie samą liczbę klas lub endpointów. V3 nie jest jeszcze etapem ukończonym.
 
@@ -75,20 +75,17 @@ nie pełny podział persystencji na osobne `UserProfile` i `UserSecurityState`.
 - ograniczyć kontrolery do transportu HTTP, autoryzacji wejścia i mapowania wyniku;
 - przenosić reguły biznesowe z kontrolerów i dużych serwisów do odpowiedniego miejsca.
 
-Backendowy inkrement modularizacji został zwalidowany na `ProjectTasks`: CRUD zadań,
-komentarze, załączniki i deadline reminders mają osobne command/query, kontrakty
-handlerów, implementacje, adaptery HTTP albo workery oraz testy. Rejestracje tasków
-są skupione w `ProjectTasksModule.AddProjectTasksModule`, a publiczne endpointy,
-kontrakty JSON i `ApplicationDbContext` nie zostały zmienione. Współdzielone porty
-`IProjectTaskAccess`, `IProjectTaskCommandStore` oraz `ProjectTaskView` pozostają
-świadomie przejściowe, ponieważ korzysta z nich kilka slice'ów i istniejący dashboard.
+Backendowy inkrement modularizacji został zwalidowany na dwóch granicach.
+`ProjectTasks` ma osobne slice'y CRUD, comments, attachments i deadline reminders,
+a `Projects` ma slice'y lifecycle, membership, invitations, activity i dashboard.
+Rejestracje są skupione odpowiednio w `ProjectTasksModule` i `ProjectsModule`.
+Szerokie kontrolery oraz project application services zostały usunięte.
 
-Po zamknięciu głównej części pilota rozpoczęto następny, nadal przyrostowy krok:
-`Projects/GetProjectDetails`. Ten slice zachowuje istniejący endpoint i model
-odpowiedzi, ale korzysta już z własnego handlera, portu odczytu, adaptera EF,
-kontrolera oraz `ProjectsModule`. Pozostałe use case'y `Projects` pozostają
-przejściowo w szerokim serwisie i nie są przenoszone mechanicznie razem z tym
-odczytem.
+Współpraca modułów jest jawna: usunięcie członka używa write portu należącego do
+`ProjectTasks`, a dashboard używa należącego do niego read portu statystyk. Moduły
+przekazują identyfikatory i read modele, nie encje. `IProjectTaskAccess`,
+`IProjectTaskCommandStore` oraz `ProjectTaskView` pozostają świadomie przejściowymi
+kontraktami współdzielonymi wewnątrz obszaru tasków.
 
 ### 4. Mapping i kontrakty
 
@@ -107,12 +104,12 @@ Zidentyfikować operacje obejmujące więcej niż jeden zapis, między innymi:
 - zmiana biznesowa, activity i notification/outbox;
 - reset lub zmiana hasła oraz unieważnienie sesji.
 
-Akceptacja zaproszenia, bezpośrednie dodanie członka oraz usunięcie członka używają
-wspólnego portu `IProjectTransaction`. W providerze relacyjnym commit następuje
-dopiero po zapisaniu wszystkich zmian danego workflowu. Dla usunięcia są to
-unassign zadań, usunięcie członkostwa i aktywność. Awaria notification wycofuje cały
-workflow w przepływach, które zapisują notification/outbox; provider InMemory
-zachowuje dotychczasowe zachowanie bez transakcji relacyjnej.
+Akceptacja zaproszenia, bezpośrednie dodanie członka oraz usunięcie członka stage'ują
+wszystkie zmiany w jednym scoped `ApplicationDbContext`. Jeden końcowy
+`SaveChangesAsync` obejmuje relacyjną transakcją membership, invitation, activity,
+notification i email outbox. Usunięcie członka dodatkowo korzysta z write portu
+`ProjectTasks`, który stage'uje unassign bez własnego commitu. Nie jest potrzebna
+ręczna transakcja ani generyczny unit of work dla pojedynczego zapisu.
 
 Dla każdej operacji określić:
 
@@ -136,6 +133,13 @@ Mutacje wymagają oczekiwanej wersji, zwracają nową wersję po sukcesie, a nie
 wersja kończy się konfliktem `409`. Migracja backfilluje token dla istniejących zadań,
 a test PostgreSQL potwierdza konflikt dwóch kontekstów EF Core.
 
+Tworzenie zaproszenia dodatkowo korzysta z częściowego unikalnego indeksu
+`(ProjectId, InvitedUserId, Status) WHERE Status = 'Pending'`. Dzięki filtrowi
+historyczne zaproszenia nie blokują kolejnych. Handler zmienia wygasłe rekordy
+`Pending` na `Expired`, a naruszenie indeksu przez równoległy insert zwraca `409`.
+Migracja przed utworzeniem indeksu porządkuje ewentualne istniejące duplikaty,
+pozostawiając jako `Pending` wyłącznie najnowszy rekord dla danej pary.
+
 Nie trzeba dodawać concurrency tokenu do każdej tabeli. Wybór powinien wynikać z ryzyka utraty zmian.
 
 ### 7. Zapytania dashboardu
@@ -149,11 +153,11 @@ Nie trzeba dodawać concurrency tokenu do każdej tabeli. Wybór powinien wynika
 
 ### 8. Pilotaż modułu biznesowego zawierającego vertical slices
 
-Pilotem pozostaje `ProjectTasks`, ponieważ ma osobny agregat, jawne reguły dostępu,
-feature-specific ports oraz testy integracyjne. Celem V3 nie jest jeszcze przeniesienie
-całego obszaru Projects ani frontendu do nowej struktury. `GetProjectDetails` jest
-pierwszym kontrolowanym slice'em po pilocie i służy do sprawdzenia, czy standard
-działa także dla odczytu agregatu `Project`.
+Pierwszym pilotem pozostaje `ProjectTasks`, ponieważ ma osobny agregat, jawne reguły
+dostępu, feature-specific ports oraz testy integracyjne. Standard został następnie
+potwierdzony przez kompletny backendowy moduł `Projects`. Frontend pozostaje poza
+tym inkrementem i ma zostać przeniesiony feature-first dopiero po ustabilizowaniu
+kontraktów backendu.
 
 W ramach pilota należy:
 
@@ -186,6 +190,8 @@ sam folder `Modules` bez ograniczonych zależności nie jest jeszcze modularnoś
 
 - transakcja akceptacji zaproszenia nie zostawia częściowego członkostwa;
 - równoległa akceptacja tego samego zaproszenia kończy się jednym sukcesem i jednym `409`;
+- równoległe utworzenie zaproszenia dla tej samej pary projekt-użytkownik pozostawia
+  tylko jeden rekord `Pending`, a wygasły rekord może zostać bezpiecznie zastąpiony;
 - błąd zapisu notification/outbox ma ustaloną reakcję;
 - usunięcie członka atomowo odpina jego zadania, usuwa membership i zapisuje aktywność;
 - dwa zapisy tej samej wersji zwracają jeden sukces i jeden `409`;
@@ -211,6 +217,8 @@ Concurrency i transakcje należy testować na PostgreSQL, ponieważ zachowanie I
 - publiczne trasy i kontrakty pilota pozostają zgodne albo ich zmiana jest osobno uzasadniona;
 - wynik pilota opisuje koszt, korzyści i kryteria wyboru następnego modułu;
 - istnieją testy reguł domenowych i partial failure.
+- testy architektoniczne wykrywają brak DI handlera, duplikat route oraz bezpośredni
+  `ApplicationDbContext` w module controller/handler.
 
 ## Poza zakresem V3
 

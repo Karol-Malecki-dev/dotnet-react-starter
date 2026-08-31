@@ -1,12 +1,15 @@
 using Application.Features.ProjectManagement.Tasks;
 using Application.Interfaces;
 using Application.Modules.ProjectTasks.Attachments;
+using Application.Modules.ProjectTasks.Assignments;
+using Application.Modules.ProjectTasks.AssignmentNotifications;
 using Application.Modules.ProjectTasks.CreateProjectTask;
 using Application.Modules.ProjectTasks.CreateProjectTaskComment;
 using Application.Modules.ProjectTasks.CreateProjectTaskAttachment;
 using Application.Modules.ProjectTasks.DeadlineReminders;
 using Application.Modules.ProjectTasks.DeleteProjectTask;
 using Application.Modules.ProjectTasks.DeleteProjectTaskComment;
+using Application.Modules.ProjectTasks.Dashboard;
 using Application.Modules.ProjectTasks.DeleteProjectTaskAttachment;
 using Application.Modules.ProjectTasks.DownloadProjectTaskAttachment;
 using Application.Modules.ProjectTasks.GetProjectTaskDetails;
@@ -19,9 +22,13 @@ using Infrastructure.ProjectManagement.Tasks;
 using Infrastructure.Modules.ProjectTasks.CreateProjectTask;
 using Infrastructure.Modules.ProjectTasks.CreateProjectTaskComment;
 using Infrastructure.Modules.ProjectTasks.CreateProjectTaskAttachment;
+using Infrastructure.Modules.ProjectTasks.AssignmentNotifications;
+using Infrastructure.Modules.ProjectTasks.Assignments;
+using Infrastructure.Modules.ProjectTasks.Attachments;
 using Infrastructure.Modules.ProjectTasks.DeadlineReminders;
 using Infrastructure.Modules.ProjectTasks.DeleteProjectTask;
 using Infrastructure.Modules.ProjectTasks.DeleteProjectTaskComment;
+using Infrastructure.Modules.ProjectTasks.Dashboard;
 using Infrastructure.Modules.ProjectTasks.DeleteProjectTaskAttachment;
 using Infrastructure.Modules.ProjectTasks.DownloadProjectTaskAttachment;
 using Infrastructure.Modules.ProjectTasks.GetProjectTaskDetails;
@@ -44,10 +51,15 @@ public static class ProjectTasksModule
     {
         services.AddScoped<IProjectTaskDeadlineReminderProcessor, ProjectTaskDeadlineReminderProcessor>();
         services.AddHostedService<ProjectTaskDeadlineReminderWorker>();
+        services.AddScoped<IProjectTaskAttachmentCleanupProcessor, ProjectTaskAttachmentCleanupProcessor>();
+        services.AddHostedService<ProjectTaskAttachmentCleanupWorker>();
 
         services.AddScoped<IProjectTaskAccess, EfProjectTaskAccess>();
+        services.AddScoped<IProjectTaskAssignmentNotificationWriter, EfProjectTaskAssignmentNotificationWriter>();
+        services.AddScoped<IProjectTaskMemberAssignmentWriter, EfProjectTaskMemberAssignmentWriter>();
         services.AddScoped<IListProjectTasksQueryStore, EfProjectTaskQueryStore>();
         services.AddScoped<IProjectTaskCommandStore, EfProjectTaskCommandStore>();
+        services.AddScoped<IProjectTaskAttachmentCleanupQueue, EfProjectTaskAttachmentCleanupQueue>();
         services.AddScoped<IListProjectTaskCommentsQueryStore, EfListProjectTaskCommentsQueryStore>();
         services.AddScoped<ICreateProjectTaskCommentStore, EfCreateProjectTaskCommentStore>();
         services.AddScoped<IDeleteProjectTaskCommentStore, EfDeleteProjectTaskCommentStore>();
@@ -62,6 +74,7 @@ public static class ProjectTasksModule
         services.AddScoped<IDeleteProjectTaskHandler, DeleteProjectTaskHandler>();
         services.AddScoped<IDeleteProjectTaskAttachmentHandler, DeleteProjectTaskAttachmentHandler>();
         services.AddScoped<IDeleteProjectTaskCommentHandler, DeleteProjectTaskCommentHandler>();
+        services.AddScoped<IProjectTaskDashboardReader, EfProjectTaskDashboardReader>();
         services.AddScoped<IDownloadProjectTaskAttachmentHandler, DownloadProjectTaskAttachmentHandler>();
         services.AddScoped<IGetProjectTaskDetailsHandler, GetProjectTaskDetailsHandler>();
         services.AddScoped<IListProjectTasksHandler, ListProjectTasksHandler>();

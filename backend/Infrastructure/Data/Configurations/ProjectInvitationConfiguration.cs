@@ -17,6 +17,14 @@ public sealed class ProjectInvitationConfiguration : IEntityTypeConfiguration<Pr
         builder.HasIndex(invitation => invitation.TokenHash).IsUnique();
         builder.HasIndex(invitation => new { invitation.InvitedUserId, invitation.Status, invitation.ExpiresAt });
         builder.HasIndex(invitation => new { invitation.ProjectId, invitation.Status });
+        builder.HasIndex(invitation => new
+        {
+            invitation.ProjectId,
+            invitation.InvitedUserId,
+            invitation.Status
+        })
+            .IsUnique()
+            .HasFilter("\"Status\" = 'Pending'");
         builder.HasOne(invitation => invitation.Project)
             .WithMany(project => project.Invitations)
             .HasForeignKey(invitation => invitation.ProjectId)

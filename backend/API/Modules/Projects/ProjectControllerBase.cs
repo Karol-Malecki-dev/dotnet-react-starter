@@ -50,6 +50,19 @@ public abstract class ProjectControllerBase : ControllerBase
         user.DisplayName,
         user.Email);
 
+    protected static ProjectInvitationResponse MapInvitation(ProjectInvitationView invitation) => new(
+        invitation.Id,
+        invitation.ProjectId,
+        invitation.ProjectName,
+        invitation.InvitedUserId,
+        invitation.InvitedUserDisplayName,
+        invitation.InvitedUserEmail,
+        invitation.InvitedByDisplayName,
+        invitation.Role,
+        invitation.Status,
+        invitation.ExpiresAt,
+        invitation.CreatedAt);
+
     protected bool TryGetCurrentUserId(out Guid userId)
     {
         var userIdValue = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value

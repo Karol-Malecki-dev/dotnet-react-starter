@@ -284,16 +284,6 @@ namespace API.Services
             });
             services.AddHostedService<NotificationEmailOutboxWorker>();
             services.AddScoped<IAdminService, DatabaseAdminService>();
-            services.AddScoped<DatabaseProjectService>();
-            services.AddScoped<DatabaseProjectManagementService>();
-            services.AddScoped<DatabaseProjectMembershipApplicationService>();
-            services.AddScoped<DatabaseProjectInvitationApplicationService>();
-            services.AddScoped<IProjectApplicationService>(serviceProvider => serviceProvider.GetRequiredService<DatabaseProjectService>());
-            services.AddScoped<IProjectManagementService>(serviceProvider => serviceProvider.GetRequiredService<DatabaseProjectManagementService>());
-            services.AddScoped<IProjectMembershipApplicationService>(serviceProvider => serviceProvider.GetRequiredService<DatabaseProjectMembershipApplicationService>());
-            services.AddScoped<IProjectInvitationApplicationService>(serviceProvider => serviceProvider.GetRequiredService<DatabaseProjectInvitationApplicationService>());
-            services.AddScoped<IProjectMembershipStore, EfProjectMembershipStore>();
-            services.AddScoped<IProjectInvitationStore, EfProjectInvitationStore>();
             services.AddProjectTasksModule();
             services.AddProjectsModule();
 

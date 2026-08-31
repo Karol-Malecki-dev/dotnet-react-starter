@@ -1,6 +1,6 @@
 using Application.Features.ProjectManagement.Tasks;
 using Application.Features.Projects;
-using Application.Interfaces;
+using Application.Modules.ProjectTasks.AssignmentNotifications;
 using Application.Modules.ProjectTasks.UpdateProjectTask;
 using Domain.Entities;
 using Domain.Enums;
@@ -18,16 +18,16 @@ public sealed class UpdateProjectTaskHandler : IUpdateProjectTaskHandler
 
     private readonly IProjectTaskAccess _projectTaskAccess;
     private readonly IProjectTaskCommandStore _commandStore;
-    private readonly INotificationService _notificationService;
+    private readonly IProjectTaskAssignmentNotificationWriter _assignmentNotificationWriter;
 
     public UpdateProjectTaskHandler(
         IProjectTaskAccess projectTaskAccess,
         IProjectTaskCommandStore commandStore,
-        INotificationService notificationService)
+        IProjectTaskAssignmentNotificationWriter assignmentNotificationWriter)
     {
         _projectTaskAccess = projectTaskAccess;
         _commandStore = commandStore;
-        _notificationService = notificationService;
+        _assignmentNotificationWriter = assignmentNotificationWriter;
     }
 
     public async Task<ProjectOperationResult<ProjectTaskView>> HandleAsync(
@@ -104,6 +104,12 @@ public sealed class UpdateProjectTaskHandler : IUpdateProjectTaskHandler
 
         try
         {
+            await PrepareAssigneeNotificationAsync(
+                task,
+                previousAssignedUserId,
+                command.UserId,
+                cancellationToken);
+
             await _commandStore.SaveChangesAsync(cancellationToken);
         }
         catch (DbUpdateConcurrencyException)
@@ -113,12 +119,6 @@ public sealed class UpdateProjectTaskHandler : IUpdateProjectTaskHandler
                 ProjectOperationStatus.Conflict,
                 ConcurrencyConflictMessage);
         }
-
-        await NotifyAssigneeAsync(
-            task,
-            previousAssignedUserId,
-            command.UserId,
-            cancellationToken);
 
         return ProjectOperationResult<ProjectTaskView>.Success(
             MapToView(task),
@@ -182,7 +182,7 @@ public sealed class UpdateProjectTaskHandler : IUpdateProjectTaskHandler
             : "Assigned user is not an active member of this project";
     }
 
-    private async Task NotifyAssigneeAsync(
+    private async Task PrepareAssigneeNotificationAsync(
         ProjectTask task,
         Guid? previousAssignedUserId,
         Guid actorUserId,
@@ -195,15 +195,12 @@ public sealed class UpdateProjectTaskHandler : IUpdateProjectTaskHandler
             return;
         }
 
-        await _notificationService.CreateAsync(
+        await _assignmentNotificationWriter.AddTaskAssignedNotificationAsync(
             task.AssignedUserId.Value,
-            NotificationType.TaskAssigned,
-            "You were assigned a task",
-            $"You were assigned the task '{task.Title}'.",
-            "ProjectTask",
-            task.Id,
             task.ProjectId,
-            cancellationToken: cancellationToken);
+            task.Id,
+            task.Title,
+            cancellationToken);
     }
 
     private void AddActivity(

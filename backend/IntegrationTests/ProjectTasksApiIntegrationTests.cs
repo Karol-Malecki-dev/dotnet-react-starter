@@ -5,6 +5,7 @@ using Domain.Entities;
 using Domain.Enums;
 using Domain.ValueObjects;
 using Infrastructure.Data;
+using Application.Modules.ProjectTasks.Attachments;
 using Application.Modules.ProjectTasks.DeadlineReminders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
@@ -713,6 +714,80 @@ public class ProjectTasksApiIntegrationTests
     }
 
     [Fact]
+    public async Task Deleting_task_queues_all_attachment_files_for_cleanup()
+    {
+        var ownerId = await SeedUserAsync("attachments.task-delete-owner@example.com", "password123", "Task Attachment Delete Owner");
+        var projectId = await SeedProjectAsync(ownerId, "Task attachment delete project");
+        var tokens = await LoginAsync("attachments.task-delete-owner@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+
+        var taskResponse = await _client.PostAsJsonAsync(
+            $"/api/projects/{projectId}/tasks",
+            new { Title = "Delete task with attachments" });
+        taskResponse.EnsureSuccessStatusCode();
+        var task = await taskResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskResponse>>();
+        Assert.NotNull(task?.Data);
+
+        var firstUpload = await UploadAttachmentAsync(
+            projectId,
+            task.Data.Id,
+            Encoding.UTF8.GetBytes("first attachment"),
+            "first.txt",
+            "text/plain");
+        firstUpload.EnsureSuccessStatusCode();
+        var firstAttachment = await firstUpload.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskAttachmentResponse>>();
+        Assert.NotNull(firstAttachment?.Data);
+
+        var secondUpload = await UploadAttachmentAsync(
+            projectId,
+            task.Data.Id,
+            Encoding.UTF8.GetBytes("second attachment"),
+            "second.txt",
+            "text/plain");
+        secondUpload.EnsureSuccessStatusCode();
+        var secondAttachment = await secondUpload.Content.ReadFromJsonAsync<ApiResponse<ProjectTaskAttachmentResponse>>();
+        Assert.NotNull(secondAttachment?.Data);
+
+        string firstStoredFileName;
+        string secondStoredFileName;
+        using (var storageScope = _factory.Services.CreateScope())
+        {
+            var storedFileContext = storageScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var storedFiles = await storedFileContext.ProjectTaskAttachments
+                .Where(attachment => attachment.ProjectTaskId == task.Data.Id)
+                .Select(attachment => new { attachment.Id, attachment.StoredFileName })
+                .ToListAsync();
+            firstStoredFileName = storedFiles.Single(file => file.Id == firstAttachment.Data.Id).StoredFileName;
+            secondStoredFileName = storedFiles.Single(file => file.Id == secondAttachment.Data.Id).StoredFileName;
+        }
+
+        var deleteResponse = await _client.DeleteAsync(
+            $"/api/projects/{projectId}/tasks/{task.Data.Id}?concurrencyStamp={Uri.EscapeDataString(task.Data.ConcurrencyStamp)}");
+        deleteResponse.EnsureSuccessStatusCode();
+
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.DoesNotContain(dbContext.ProjectTasks, projectTask => projectTask.Id == task.Data.Id);
+        Assert.DoesNotContain(dbContext.ProjectTaskAttachments, attachment => attachment.ProjectTaskId == task.Data.Id);
+        var cleanupMessages = await dbContext.ProjectTaskAttachmentCleanupMessages
+            .Where(message => message.StoredFileName == firstStoredFileName || message.StoredFileName == secondStoredFileName)
+            .ToListAsync();
+        Assert.Equal(2, cleanupMessages.Count);
+        Assert.Equal(
+            new[] { firstStoredFileName, secondStoredFileName }.OrderBy(fileName => fileName),
+            cleanupMessages.Select(message => message.StoredFileName).OrderBy(fileName => fileName));
+
+        var cleanupProcessor = scope.ServiceProvider.GetRequiredService<IProjectTaskAttachmentCleanupProcessor>();
+        await cleanupProcessor.ProcessPendingMessagesAsync();
+        var storage = scope.ServiceProvider.GetRequiredService<IProjectTaskAttachmentStorage>();
+        await using var firstDeletedFile = await storage.OpenReadAsync(firstStoredFileName);
+        await using var secondDeletedFile = await storage.OpenReadAsync(secondStoredFileName);
+        Assert.Null(firstDeletedFile);
+        Assert.Null(secondDeletedFile);
+        Assert.All(cleanupMessages, message => Assert.NotNull(message.ProcessedAt));
+    }
+
+    [Fact]
     public async Task Owner_can_upload_list_download_and_delete_task_attachment()
     {
         var ownerId = await SeedUserAsync("attachments.owner@example.com", "password123", "Attachments Owner");
@@ -734,6 +809,19 @@ public class ProjectTasksApiIntegrationTests
         Assert.Equal("release-notes.txt", uploaded.Data.OriginalFileName);
         Assert.Equal(ownerId, uploaded.Data.UploadedByUserId);
         Assert.Equal(bytes.Length, uploaded.Data.SizeBytes);
+
+        string storedFileName;
+        using (var storageScope = _factory.Services.CreateScope())
+        {
+            var storedFileContext = storageScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            storedFileName = await storedFileContext.ProjectTaskAttachments
+                .Where(attachment => attachment.Id == uploaded.Data.Id)
+                .Select(attachment => attachment.StoredFileName)
+                .SingleAsync();
+            var storage = storageScope.ServiceProvider.GetRequiredService<IProjectTaskAttachmentStorage>();
+            await using var storedFile = await storage.OpenReadAsync(storedFileName);
+            Assert.NotNull(storedFile);
+        }
 
         var listResponse = await _client.GetAsync($"/api/projects/{projectId}/tasks/{task.Data.Id}/attachments");
         listResponse.EnsureSuccessStatusCode();
@@ -757,6 +845,14 @@ public class ProjectTasksApiIntegrationTests
         Assert.DoesNotContain(dbContext.ProjectTaskAttachments, attachment => attachment.Id == uploaded.Data.Id);
         Assert.Contains(dbContext.ProjectActivities, activity => activity.Type == "task.attachment-added");
         Assert.Contains(dbContext.ProjectActivities, activity => activity.Type == "task.attachment-removed");
+        var cleanupMessage = Assert.Single(dbContext.ProjectTaskAttachmentCleanupMessages);
+        Assert.Equal(storedFileName, cleanupMessage.StoredFileName);
+
+        var cleanupProcessor = scope.ServiceProvider.GetRequiredService<IProjectTaskAttachmentCleanupProcessor>();
+        await cleanupProcessor.ProcessPendingMessagesAsync();
+        var storageAfterCleanup = scope.ServiceProvider.GetRequiredService<IProjectTaskAttachmentStorage>();
+        await using var deletedFile = await storageAfterCleanup.OpenReadAsync(storedFileName);
+        Assert.Null(deletedFile);
     }
 
     [Fact]

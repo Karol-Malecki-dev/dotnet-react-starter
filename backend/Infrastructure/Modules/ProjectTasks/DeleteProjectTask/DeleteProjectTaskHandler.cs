@@ -1,5 +1,6 @@
 using Application.Features.ProjectManagement.Tasks;
 using Application.Features.Projects;
+using Application.Modules.ProjectTasks.Attachments;
 using Application.Modules.ProjectTasks.DeleteProjectTask;
 using Domain.Entities;
 using Domain.Enums;
@@ -17,13 +18,16 @@ public sealed class DeleteProjectTaskHandler : IDeleteProjectTaskHandler
 
     private readonly IProjectTaskAccess _projectTaskAccess;
     private readonly IProjectTaskCommandStore _commandStore;
+    private readonly IProjectTaskAttachmentCleanupQueue _cleanupQueue;
 
     public DeleteProjectTaskHandler(
         IProjectTaskAccess projectTaskAccess,
-        IProjectTaskCommandStore commandStore)
+        IProjectTaskCommandStore commandStore,
+        IProjectTaskAttachmentCleanupQueue cleanupQueue)
     {
         _projectTaskAccess = projectTaskAccess;
         _commandStore = commandStore;
+        _cleanupQueue = cleanupQueue;
     }
 
     public async Task<ProjectOperationResult<bool>> HandleAsync(
@@ -55,6 +59,12 @@ public sealed class DeleteProjectTaskHandler : IDeleteProjectTaskHandler
             return ProjectOperationResult<bool>.Failure(
                 ProjectOperationStatus.Conflict,
                 ConcurrencyConflictMessage);
+        }
+
+        var storedFileNames = await _cleanupQueue.PrepareTaskDeletionAsync(task.Id, cancellationToken);
+        foreach (var storedFileName in storedFileNames.Distinct(StringComparer.Ordinal))
+        {
+            _cleanupQueue.Enqueue(storedFileName);
         }
 
         _commandStore.RemoveTask(task);

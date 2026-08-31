@@ -1,6 +1,6 @@
 using Application.Features.ProjectManagement.Tasks;
 using Application.Features.Projects;
-using Application.Interfaces;
+using Application.Modules.ProjectTasks.AssignmentNotifications;
 using Application.Modules.ProjectTasks.CreateProjectTask;
 using Domain.Entities;
 using Domain.Enums;
@@ -13,7 +13,7 @@ public sealed class CreateProjectTaskHandlerTests
 {
     private readonly Mock<IProjectTaskAccess> _access = new();
     private readonly Mock<IProjectTaskCommandStore> _commandStore = new();
-    private readonly Mock<INotificationService> _notificationService = new();
+    private readonly Mock<IProjectTaskAssignmentNotificationWriter> _assignmentNotificationWriter = new();
 
     [Fact]
     public async Task Handle_returns_forbidden_for_viewer_without_persisting()
@@ -83,7 +83,7 @@ public sealed class CreateProjectTaskHandlerTests
     }
 
     [Fact]
-    public async Task Handle_notifies_different_assignee_after_persisting_task()
+    public async Task Handle_prepares_notification_for_a_different_assignee_before_persisting_task()
     {
         var assignedUserId = Guid.NewGuid();
         var command = CreateCommand() with { AssignedUserId = assignedUserId };
@@ -103,20 +103,47 @@ public sealed class CreateProjectTaskHandlerTests
         var result = await CreateHandler().HandleAsync(command);
 
         Assert.True(result.IsSuccess);
-        _notificationService.Verify(notification => notification.CreateAsync(
+        _assignmentNotificationWriter.Verify(writer => writer.AddTaskAssignedNotificationAsync(
             assignedUserId,
-            NotificationType.TaskAssigned,
-            "You were assigned a task",
-            It.Is<string>(message => message.Contains(command.Title, StringComparison.Ordinal)),
-            "ProjectTask",
-            It.IsAny<Guid>(),
             command.ProjectId,
-            It.IsAny<bool>(),
+            It.IsAny<Guid>(),
+            command.Title,
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [Fact]
+    public async Task Handle_does_not_persist_when_assignment_notification_preparation_fails()
+    {
+        var assignedUserId = Guid.NewGuid();
+        var command = CreateCommand() with { AssignedUserId = assignedUserId };
+        _access
+            .Setup(access => access.GetActiveProjectRoleAsync(
+                command.OwnerId,
+                command.ProjectId,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ProjectMemberRole.Owner);
+        _commandStore
+            .Setup(store => store.IsActiveProjectMemberAsync(
+                command.ProjectId,
+                assignedUserId,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _assignmentNotificationWriter
+            .Setup(writer => writer.AddTaskAssignedNotificationAsync(
+                assignedUserId,
+                command.ProjectId,
+                It.IsAny<Guid>(),
+                command.Title,
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("notification preparation failed"));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => CreateHandler().HandleAsync(command));
+
+        _commandStore.Verify(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     private CreateProjectTaskHandler CreateHandler()
-        => new(_access.Object, _commandStore.Object, _notificationService.Object);
+        => new(_access.Object, _commandStore.Object, _assignmentNotificationWriter.Object);
 
     private static CreateProjectTaskCommand CreateCommand()
         => new(

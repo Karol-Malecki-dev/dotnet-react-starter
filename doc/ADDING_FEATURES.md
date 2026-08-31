@@ -114,16 +114,18 @@ Rekomendowany podział:
    powinien znać tylko punkt wejścia modułu.
 6. Testuj handler przez mocki portów, a zapis i zapytania EF przez testy integracyjne.
 
-Dla `ProjectManagement.Tasks` aktualne porty to:
+Dla `ProjectTasks` aktualne porty współdzielone przez uzasadnione capability to:
 
 - `IProjectTaskAccess` - aktywna rola użytkownika i pobranie zadania z etykietami,
 - `IListProjectTasksQueryStore` - filtrowanie, sortowanie i paginacja listy zadań,
-- `IProjectTaskCommandStore` - zapis zadania, etykiet, aktywności i zmian.
-- `IProjectMembershipStore` - odczyt i zmiana członkostwa oraz czyszczenie przypisań zadań.
+- `IProjectTaskCommandStore` - zapis zadania, etykiet, aktywności i zmian,
+- `IProjectTaskMemberAssignmentWriter` - staging unassign przy usuwaniu członka,
+- `IProjectTaskDashboardReader` - read model statystyk dla dashboardu `Projects`.
 
-Dla `Projects/GetProjectDetails` portem odczytu jest `IGetProjectDetailsStore`.
-Zwraca on projekcję `ProjectView` po sprawdzeniu widoczności projektu, dzięki czemu
-kontroler i handler nie muszą znać `ApplicationDbContext`.
+Każdy use case `Projects` ma focused store lub jawny port modułowy. Dashboard
+rozdziela `IGetProjectDashboardStore` dla danych należących do `Projects` od
+`IProjectTaskDashboardReader` dla danych należących do `ProjectTasks`. Kontroler
+i handler nie znają `ApplicationDbContext`.
 
 Nie twórz generycznego `IRepository<T>` tylko po to, aby ukryć EF Core. Port powinien
 wynikać z przypadku użycia i przyjmować typy oraz operacje potrzebne konkretnej

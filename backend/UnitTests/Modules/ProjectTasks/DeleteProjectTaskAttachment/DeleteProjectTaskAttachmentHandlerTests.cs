@@ -1,6 +1,5 @@
 using Application.Features.ProjectManagement.Tasks;
 using Application.Features.Projects;
-using Application.Modules.ProjectTasks.Attachments;
 using Application.Modules.ProjectTasks.DeleteProjectTaskAttachment;
 using Domain.Entities;
 using Domain.Enums;
@@ -13,7 +12,6 @@ public sealed class DeleteProjectTaskAttachmentHandlerTests
 {
     private readonly Mock<IProjectTaskAccess> _access = new();
     private readonly Mock<IDeleteProjectTaskAttachmentStore> _attachmentStore = new();
-    private readonly Mock<IProjectTaskAttachmentStorage> _storage = new();
 
     [Fact]
     public async Task Handle_forbids_member_from_deleting_another_users_attachment()
@@ -38,13 +36,10 @@ public sealed class DeleteProjectTaskAttachmentHandlerTests
                 It.IsAny<Guid>(),
                 It.IsAny<CancellationToken>()),
             Times.Never);
-        _storage.Verify(
-            storage => storage.DeleteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
-            Times.Never);
     }
 
     [Fact]
-    public async Task Handle_deletes_metadata_then_binary_for_the_uploader()
+    public async Task Handle_deletes_attachment_metadata_for_the_uploader()
     {
         var command = CreateCommand();
         ConfigureAccess(command, ProjectMemberRole.Member);
@@ -62,12 +57,6 @@ public sealed class DeleteProjectTaskAttachmentHandlerTests
                 command.UserId,
                 It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
-        _storage
-            .Setup(storage => storage.DeleteAsync(
-                attachment.StoredFileName,
-                It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-
         var result = await CreateHandler().HandleAsync(command);
 
         Assert.True(result.IsSuccess);
@@ -79,15 +68,10 @@ public sealed class DeleteProjectTaskAttachmentHandlerTests
                 command.UserId,
                 It.IsAny<CancellationToken>()),
             Times.Once);
-        _storage.Verify(
-            storage => storage.DeleteAsync(
-                attachment.StoredFileName,
-                It.IsAny<CancellationToken>()),
-            Times.Once);
     }
 
     private DeleteProjectTaskAttachmentHandler CreateHandler()
-        => new(_access.Object, _attachmentStore.Object, _storage.Object);
+        => new(_access.Object, _attachmentStore.Object);
 
     private void ConfigureAccess(
         DeleteProjectTaskAttachmentCommand command,

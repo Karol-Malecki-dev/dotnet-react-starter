@@ -1,7 +1,7 @@
 using Application.Features.ProjectManagement.Tasks;
 using Application.Features.Projects;
-using Application.Interfaces;
 using Application.Modules.ProjectTasks.UpdateProjectTask;
+using Application.Modules.ProjectTasks.AssignmentNotifications;
 using Domain.Entities;
 using Domain.Enums;
 using Infrastructure.Modules.ProjectTasks.UpdateProjectTask;
@@ -14,7 +14,7 @@ public sealed class UpdateProjectTaskHandlerTests
 {
     private readonly Mock<IProjectTaskAccess> _access = new();
     private readonly Mock<IProjectTaskCommandStore> _commandStore = new();
-    private readonly Mock<INotificationService> _notificationService = new();
+    private readonly Mock<IProjectTaskAssignmentNotificationWriter> _assignmentNotificationWriter = new();
 
     [Fact]
     public async Task Handle_returns_not_found_without_loading_task_when_user_has_no_project_access()
@@ -176,16 +176,39 @@ public sealed class UpdateProjectTaskHandlerTests
             activity.Type == "task.assigned"
             && activity.ActorUserId == command.UserId)), Times.Once);
         _commandStore.Verify(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-        _notificationService.Verify(notification => notification.CreateAsync(
+        _assignmentNotificationWriter.Verify(writer => writer.AddTaskAssignedNotificationAsync(
             assignedUserId,
-            NotificationType.TaskAssigned,
-            "You were assigned a task",
-            It.Is<string>(message => message.Contains(command.Title, StringComparison.Ordinal)),
-            "ProjectTask",
-            task.Id,
             command.ProjectId,
-            It.IsAny<bool>(),
+            task.Id,
+            command.Title,
             It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_does_not_persist_when_assignment_notification_preparation_fails()
+    {
+        var assignedUserId = Guid.NewGuid();
+        var (scenarioCommand, task) = CreateScenario();
+        var command = scenarioCommand with { AssignedUserId = assignedUserId };
+        ConfigureAuthorizedOwner(command, task);
+        _commandStore
+            .Setup(store => store.IsActiveProjectMemberAsync(
+                command.ProjectId,
+                assignedUserId,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _assignmentNotificationWriter
+            .Setup(writer => writer.AddTaskAssignedNotificationAsync(
+                assignedUserId,
+                command.ProjectId,
+                task.Id,
+                command.Title,
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("notification preparation failed"));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => CreateHandler().HandleAsync(command));
+
+        _commandStore.Verify(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -204,7 +227,7 @@ public sealed class UpdateProjectTaskHandlerTests
     }
 
     private UpdateProjectTaskHandler CreateHandler()
-        => new(_access.Object, _commandStore.Object, _notificationService.Object);
+        => new(_access.Object, _commandStore.Object, _assignmentNotificationWriter.Object);
 
     private void ConfigureAuthorizedOwner(UpdateProjectTaskCommand command, ProjectTask task)
     {

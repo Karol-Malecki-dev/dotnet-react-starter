@@ -165,6 +165,108 @@ public class ProjectsApiIntegrationTests
     }
 
     [Fact]
+    public async Task Project_owner_can_list_active_users_who_are_not_project_members()
+    {
+        var ownerId = await SeedUserAsync("project.available-owner@example.com", "password123", "Available Owner");
+        var memberId = await SeedUserAsync("project.available-member@example.com", "password123", "Current Member");
+        await SeedUserAsync("project.available-zebra@example.com", "password123", "Zebra Available");
+        await SeedUserAsync("project.available-alice@example.com", "password123", "Alice Available");
+        await SeedUserAsync("project.available-inactive@example.com", "password123", "Inactive User", isActive: false);
+        var projectId = await SeedProjectAsync(ownerId, "Available members project");
+        await SeedProjectMemberAsync(projectId, memberId, ProjectMemberRole.Member);
+
+        var tokens = await LoginAsync("project.available-owner@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+
+        var response = await _client.GetAsync($"/api/projects/{projectId}/members/available");
+
+        response.EnsureSuccessStatusCode();
+        var availableUsers = await response.Content.ReadFromJsonAsync<ApiResponse<List<ProjectMemberUserResponse>>>();
+        Assert.NotNull(availableUsers?.Data);
+        Assert.Equal(
+            ["Alice Available", "Zebra Available"],
+            availableUsers.Data.Select(user => user.DisplayName).ToArray());
+        Assert.DoesNotContain(availableUsers.Data, user => user.Id == ownerId);
+        Assert.DoesNotContain(availableUsers.Data, user => user.Id == memberId);
+    }
+
+    [Fact]
+    public async Task Non_owner_cannot_list_available_project_members()
+    {
+        var ownerId = await SeedUserAsync("project.available-access-owner@example.com", "password123", "Available Access Owner");
+        await SeedUserAsync("project.available-access-outsider@example.com", "password123", "Available Access Outsider");
+        var projectId = await SeedProjectAsync(ownerId, "Available access project");
+
+        var tokens = await LoginAsync("project.available-access-outsider@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+
+        var response = await _client.GetAsync($"/api/projects/{projectId}/members/available");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Project_owner_can_change_and_remove_member_with_task_unassignment()
+    {
+        var ownerId = await SeedUserAsync("project.membership-owner@example.com", "password123", "Membership Owner");
+        var memberId = await SeedUserAsync("project.membership-member@example.com", "password123", "Membership Member");
+        var projectId = await SeedProjectAsync(ownerId, "Membership commands project");
+        await SeedProjectMemberAsync(projectId, memberId, ProjectMemberRole.Member);
+        await SeedProjectTaskAsync(
+            projectId,
+            "Assigned membership task",
+            ProjectTaskStatus.InProgress,
+            ProjectTaskPriority.Normal,
+            DateTime.UtcNow.AddDays(2),
+            memberId,
+            ownerId);
+
+        var tokens = await LoginAsync("project.membership-owner@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+
+        var roleResponse = await _client.PatchAsJsonAsync(
+            $"/api/projects/{projectId}/members/{memberId}/role",
+            new { Role = ProjectMemberRole.Viewer });
+
+        roleResponse.EnsureSuccessStatusCode();
+        var changedMember = await roleResponse.Content.ReadFromJsonAsync<ApiResponse<ProjectMemberResponse>>();
+        Assert.Equal(memberId, changedMember?.Data?.UserId);
+        Assert.Equal(ProjectMemberRole.Viewer, changedMember?.Data?.Role);
+
+        var removeResponse = await _client.DeleteAsync($"/api/projects/{projectId}/members/{memberId}");
+
+        removeResponse.EnsureSuccessStatusCode();
+        var removed = await removeResponse.Content.ReadFromJsonAsync<ApiResponse<bool>>();
+        Assert.True(removed?.Data);
+
+        using var verificationScope = _factory.Services.CreateScope();
+        var dbContext = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.False(await dbContext.ProjectMembers.AnyAsync(
+            member => member.ProjectId == projectId && member.UserId == memberId));
+        Assert.Null(await dbContext.ProjectTasks
+            .Where(task => task.ProjectId == projectId && task.Title == "Assigned membership task")
+            .Select(task => task.AssignedUserId)
+            .SingleAsync());
+        Assert.Equal(1, await dbContext.ProjectActivities.CountAsync(
+            activity => activity.ProjectId == projectId && activity.Type == "member.removed"));
+    }
+
+    [Fact]
+    public async Task Add_project_member_rejects_empty_user_identifier()
+    {
+        var ownerId = await SeedUserAsync("project.member-validation-owner@example.com", "password123", "Member Validation Owner");
+        var projectId = await SeedProjectAsync(ownerId, "Member validation project");
+        var tokens = await LoginAsync("project.member-validation-owner@example.com", "password123");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+
+        var response = await _client.PostAsJsonAsync(
+            $"/api/projects/{projectId}/members",
+            new { UserId = Guid.Empty });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Project_update_rejects_a_stale_concurrency_stamp()
     {
         var ownerId = await SeedUserAsync("project.concurrency-owner@example.com", "password123", "Concurrency Owner");
@@ -410,11 +512,25 @@ public class ProjectsApiIntegrationTests
         await dbContext.SaveChangesAsync();
     }
 
-    private async Task SeedProjectTaskAsync(Guid projectId, string title, ProjectTaskStatus status, ProjectTaskPriority priority, DateTime dueDate)
+    private async Task SeedProjectTaskAsync(
+        Guid projectId,
+        string title,
+        ProjectTaskStatus status,
+        ProjectTaskPriority priority,
+        DateTime dueDate,
+        Guid? assignedUserId = null,
+        Guid? createdByUserId = null)
     {
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var task = ProjectTask.Create(projectId, title, null, priority, dueDate, null, null);
+        var task = ProjectTask.Create(
+            projectId,
+            title,
+            null,
+            priority,
+            dueDate,
+            assignedUserId,
+            createdByUserId);
         task.ChangeStatus(status);
         dbContext.ProjectTasks.Add(task);
         await dbContext.SaveChangesAsync();

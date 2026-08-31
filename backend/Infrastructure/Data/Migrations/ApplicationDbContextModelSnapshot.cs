@@ -523,6 +523,10 @@ namespace Infrastructure.Data.Migrations
 
                     b.HasIndex("InvitedUserId", "Status", "ExpiresAt");
 
+                    b.HasIndex("ProjectId", "InvitedUserId", "Status")
+                        .IsUnique()
+                        .HasFilter("\"Status\" = 'Pending'");
+
                     b.ToTable("ProjectInvitations", (string)null);
                 });
 
@@ -658,6 +662,40 @@ namespace Infrastructure.Data.Migrations
                     b.HasIndex("ProjectTaskId", "CreatedAt");
 
                     b.ToTable("ProjectTaskAttachments", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.ProjectTaskAttachmentCleanupMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ProcessedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("StoredFileName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProcessedAt", "NextAttemptAt");
+
+                    b.ToTable("ProjectTaskAttachmentCleanupMessages", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.ProjectTaskComment", b =>

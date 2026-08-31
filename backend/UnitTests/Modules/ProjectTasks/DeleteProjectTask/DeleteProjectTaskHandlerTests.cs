@@ -1,5 +1,6 @@
 using Application.Features.ProjectManagement.Tasks;
 using Application.Features.Projects;
+using Application.Modules.ProjectTasks.Attachments;
 using Application.Modules.ProjectTasks.DeleteProjectTask;
 using Domain.Entities;
 using Domain.Enums;
@@ -13,6 +14,7 @@ public sealed class DeleteProjectTaskHandlerTests
 {
     private readonly Mock<IProjectTaskAccess> _access = new();
     private readonly Mock<IProjectTaskCommandStore> _commandStore = new();
+    private readonly Mock<IProjectTaskAttachmentCleanupQueue> _cleanupQueue = new();
 
     [Fact]
     public async Task Handle_returns_not_found_without_loading_task_when_user_has_no_project_access()
@@ -105,6 +107,27 @@ public sealed class DeleteProjectTaskHandlerTests
     }
 
     [Fact]
+    public async Task Handle_queues_each_attachment_file_once_before_removing_task()
+    {
+        var (command, task) = CreateScenario();
+        ConfigureTaskAccess(command, task, ProjectMemberRole.Owner);
+        var handler = CreateHandler();
+        _cleanupQueue
+            .Setup(queue => queue.PrepareTaskDeletionAsync(
+                task.Id,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(["first.bin", "second.bin", "first.bin"]);
+
+        var result = await handler.HandleAsync(command);
+
+        Assert.True(result.IsSuccess);
+        _cleanupQueue.Verify(queue => queue.Enqueue("first.bin"), Times.Once);
+        _cleanupQueue.Verify(queue => queue.Enqueue("second.bin"), Times.Once);
+        _commandStore.Verify(store => store.RemoveTask(task), Times.Once);
+        _commandStore.Verify(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task Handle_returns_conflict_when_persistence_detects_a_concurrent_change()
     {
         var (command, task) = CreateScenario();
@@ -120,7 +143,15 @@ public sealed class DeleteProjectTaskHandlerTests
     }
 
     private DeleteProjectTaskHandler CreateHandler()
-        => new(_access.Object, _commandStore.Object);
+    {
+        _cleanupQueue
+            .Setup(queue => queue.PrepareTaskDeletionAsync(
+                It.IsAny<Guid>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        return new(_access.Object, _commandStore.Object, _cleanupQueue.Object);
+    }
 
     private void ConfigureTaskAccess(
         DeleteProjectTaskCommand command,

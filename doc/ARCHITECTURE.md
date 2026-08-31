@@ -154,35 +154,36 @@ członka przechodzą przez metody domenowe projektu, a bezpośrednie tworzenie c
 jest ograniczone do fabryki encji i warstwy persistence. Dzięki temu właściciel
 projektu nie może zostać dodany drugi raz, usunięty ani zdegradowany do innej roli.
 
-Akceptacja zaproszenia jest wieloetapowym przypadkiem użycia. Dla providerów
-relacyjnych `IProjectInvitationStore.BeginTransactionAsync` otwiera transakcję,
-która obejmuje:
+Akceptacja zaproszenia jest wieloetapowym przypadkiem użycia. Handler stage'uje w
+jednym scoped `ApplicationDbContext`:
 
 - dodanie członka przez `Project.AddMember`;
 - zmianę statusu zaproszenia i wpis aktywności;
 - zapis powiadomienia oraz `NotificationEmailOutboxMessage`.
 
-Commit następuje dopiero po pomyślnym zapisie powiadomienia. Błąd powiadomienia
-wycofuje więc całą akceptację, zamiast zostawić członkostwo bez informacji dla
-użytkownika. Provider InMemory nie obsługuje transakcji relacyjnych, dlatego testy
-jednostkowe używają tam zachowania bez transakcji, a atomowość jest weryfikowana
-testami PostgreSQL.
+Jeden końcowy `SaveChangesAsync` wykonuje relacyjną transakcję dla wszystkich
+śledzonych zmian. Writer powiadomienia i email outbox nie wykonuje własnego commitu.
+Błąd zapisu wycofuje więc całą akceptację, zamiast zostawić członkostwo bez
+powiadomienia. Atomowość i równoległa odpowiedź są weryfikowane na PostgreSQL.
 
-Bezpośrednie dodanie członka przez właściciela używa tego samego portu
-`IProjectTransaction`. Relacyjny commit następuje dopiero po zapisie członkostwa,
-aktywności i notification/outbox, dlatego błąd notification nie zostawia częściowego
-członkostwa ani aktywności. Ten rollback jest również sprawdzany w teście PostgreSQL.
-
-Usunięcie członka również używa tego portu. Granica obejmuje pobranie i unassign jego
-zadań, usunięcie membershipu oraz wpis aktywności, a commit następuje dopiero po
-`SaveChangesAsync()`. Test PostgreSQL sprawdza, że po udanym workflowie członek nie
-istnieje, jego zadania są nieprzypisane, a aktywność została zapisana.
+Bezpośrednie dodanie członka działa analogicznie. Usunięcie członka używa jawnego
+write portu należącego do `ProjectTasks`, aby stage'ować unassign zadań bez
+przekazywania encji między modułami i bez drugiego commitu. Membership, task
+assignments i activity zostają zapisane atomowo.
 
 `Project.ConcurrencyStamp` chroni równoległe zmiany agregatu, a
 `ProjectInvitation.ConcurrencyStamp` chroni przejścia stanu zaproszenia. Dodatkowo
-unikalny indeks `(ProjectId, UserId)` pozostaje obroną na poziomie bazy. Naruszenie
-tego indeksu podczas równoległej akceptacji jest mapowane na wynik konfliktu,
-który kontroler zwraca jako `409 Conflict`.
+unikalny indeks `(ProjectId, UserId)` pozostaje obroną membership na poziomie bazy.
+Naruszenie tego indeksu podczas równoległej akceptacji jest mapowane na wynik
+konfliktu, który kontroler zwraca jako `409 Conflict`.
+
+Tworzenie zaproszeń ma osobną ochronę przed wyścigiem check-then-insert. Częściowy
+unikalny indeks `(ProjectId, InvitedUserId, Status)` obejmuje wyłącznie rekordy ze
+statusem `Pending`, dlatego historia `Accepted`, `Declined` i `Expired` pozostaje
+nieograniczona. Przed utworzeniem kolejnego zaproszenia handler oznacza wygasłe
+rekordy `Pending` jako `Expired`. Naruszenie indeksu przez dwa równoległe żądania
+jest mapowane na `409 Conflict`, a test PostgreSQL potwierdza, że w bazie pozostaje
+tylko jedno aktywne zaproszenie.
 
 `ProjectTask.ConcurrencyStamp` chroni niezależne zmiany zadania. Aktualizacja danych,
 zmiana statusu i usunięcie wymagają wersji odczytanej przez klienta; po udanym zapisie
@@ -207,9 +208,8 @@ UnitTests/Modules/ProjectTasks/<UseCase>/
 ```
 
 Przejściowo współdzielone pozostają `IProjectTaskAccess`, `IProjectTaskCommandStore`
-oraz `ProjectTaskView`, ponieważ są używane przez kilka slice'ów i istniejące
-zapytanie dashboardu. Ich przeniesienie do modułowych kontraktów nastąpi dopiero
-po przygotowaniu konsumentów, w szczególności dashboardu.
+oraz `ProjectTaskView`, ponieważ są używane przez kilka slice'ów. Dashboard korzysta
+już z jawnego `IProjectTaskDashboardReader` należącego do `ProjectTasks`.
 
 Przepływ dla odczytu listy zadań wygląda następująco:
 
@@ -258,8 +258,9 @@ ICreateProjectTaskAttachmentStore
 ApplicationDbContext / PostgreSQL
 ```
 
-`IProjectTaskAccess`, `IListProjectTasksQueryStore`, `IProjectTaskCommandStore` oraz
-`IProjectMembershipStore` są portami przypadków użycia, a nie generycznym repository.
+`IProjectTaskAccess`, `IListProjectTasksQueryStore`, `IProjectTaskCommandStore`,
+`IProjectTaskMemberAssignmentWriter` oraz `IProjectTaskDashboardReader` są portami
+przypadków użycia, a nie generycznym repository.
 Dzięki temu kontrakty
 opisują rzeczywiste potrzeby funkcji: kontrolę dostępu, listowanie z filtrami oraz
 zapis zmian zadania. Implementacje EF pozostają w `Infrastructure`, a kontrolery
@@ -275,44 +276,31 @@ tasków osobno. Nie oznacza to jeszcze osobnego projektu .NET ani osobnej bazy; 
 decyzje pozostają odłożone do czasu, gdy granice zostaną potwierdzone większą liczbą
 slice'ów i realnymi potrzebami utrzymania.
 
-### Projects: First Incremental Module Slice
+### Projects As A Business Module With Vertical Slices
 
-Migracja obszaru `Projects` rozpoczęła się od pojedynczego odczytu
-`GetProjectDetails`. Pozostałe przypadki użycia nadal korzystają z przejściowego
-`IProjectManagementService`, dlatego nie należy jeszcze traktować całego folderu
-`Projects` jako w pełni odizolowanego modułu.
+Backendowy obszar `Projects` ma osobne slice'y dla lifecycle, membership,
+invitations, activity i dashboardu. Każdy endpoint zależy od focused handlera,
+a implementacje EF są podłączane wyłącznie przez
+`ProjectsModule.AddProjectsModule`. Nie istnieje już szeroki
+`IProjectManagementService`, `IProjectMembershipStore` ani project invitation
+service.
 
-Slice ma własne kontrakty, handler, port persistence, adapter HTTP, rejestrację
-modułu i testy:
-
-```text
-Application/Modules/Projects/GetProjectDetails/
-Infrastructure/Modules/Projects/GetProjectDetails/
-API/Modules/Projects/GetProjectDetails/
-UnitTests/Modules/Projects/GetProjectDetails/
-```
-
-Przepływ zachowuje istniejący endpoint `GET /api/projects/{projectId}` oraz
-maskowanie braku dostępu jako `404`:
+Dashboard ilustruje kontrolowaną współpracę modułów:
 
 ```text
-GetProjectDetailsController
+GetProjectDashboardController
     |
-IGetProjectDetailsHandler
+IGetProjectDashboardHandler
     |
-GetProjectDetailsHandler
-    |
-IGetProjectDetailsStore
-    |
-EfGetProjectDetailsStore
-    |
-ApplicationDbContext / PostgreSQL
+GetProjectDashboardHandler
+    |-- IGetProjectDashboardStore (access + Projects activity)
+    `-- IProjectTaskDashboardReader (ProjectTasks metrics + due tasks)
 ```
 
-`ProjectsModule.AddProjectsModule` jest punktem rejestracji nowego slice'a.
-Zapytanie wykonuje kontrolę widoczności w persistence query, zwraca ten sam
-`ProjectView` i zachowuje `includeArchived`, role oraz dotychczasowy kontrakt
-JSON. Nie wprowadzono migracji bazy ani zmiany frontendowej.
+Usunięcie członka używa `IProjectTaskMemberAssignmentWriter` z modułu
+`ProjectTasks`. Oba porty przekazują identyfikatory i read modele zamiast encji.
+Wspólna baza i scoped context pozwalają zachować atomowy zapis, ale zależność jest
+jawna i testowalna.
 
 Przypisanie zadania jest dodatkowo walidowane względem aktywnego członkostwa
 w projekcie. Zarządzanie członkami jest dostępne wyłącznie właścicielowi projektu,
@@ -353,7 +341,11 @@ Health endpoints mają rozdzielone odpowiedzialności:
 - `/health` agreguje podstawową gotowość API i bazy, bez stanu workerów;
 - `/health/workers` raportuje świeżość ostatnich cykli workerów.
 
-Workery `NotificationEmailOutboxWorker` i `ProjectTaskDeadlineReminderWorker` są hostowanymi usługami infrastruktury. Ich stan jest przechowywany w pamięci procesu, więc endpoint worker health opisuje bieżącą instancję aplikacji i nie zastępuje trwałego monitoringu ani kolejki rozproszonej.
+Workery `NotificationEmailOutboxWorker`, `ProjectTaskDeadlineReminderWorker` i
+`ProjectTaskAttachmentCleanupWorker` są hostowanymi usługami infrastruktury. Ich
+stan zdrowia jest raportowany dla bieżącej instancji procesu. Email outbox oraz
+attachment cleanup mają trwałe rekordy w bazie, ale endpoint worker health nadal
+nie zastępuje zewnętrznego monitoringu.
 
 ## Runtime Configuration as a Project Pattern
 

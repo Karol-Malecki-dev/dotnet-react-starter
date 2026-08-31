@@ -1,14 +1,32 @@
 using Application.Features.Projects;
-using Application.DTOs.Notification;
 using Application.Interfaces;
 using Application.Features.ProjectManagement.Tasks;
+using Application.Modules.ProjectTasks.Attachments;
+using Application.Modules.ProjectTasks.Assignments;
+using Application.Modules.ProjectTasks.AssignmentNotifications;
+using Application.Modules.ProjectTasks.CreateProjectTask;
+using Application.Modules.ProjectTasks.DeleteProjectTask;
+using Application.Modules.Projects.AddProjectMember;
+using Application.Modules.Projects.AcceptProjectInvitation;
+using Application.Modules.Projects.CreateProjectInvitation;
+using Application.Modules.Projects.Invitations;
+using Application.Modules.Projects.RemoveProjectMember;
 using Domain.Entities;
 using Domain.Entities.JWT;
 using Domain.Enums;
 using Domain.Interfaces;
 using Domain.ValueObjects;
 using Infrastructure.Data;
+using Infrastructure.Modules.ProjectTasks.Attachments;
+using Infrastructure.Modules.ProjectTasks.Assignments;
+using Infrastructure.Modules.ProjectTasks.CreateProjectTask;
+using Infrastructure.Modules.ProjectTasks.DeleteProjectTask;
 using Infrastructure.Modules.ProjectTasks.UpdateProjectTask;
+using Infrastructure.Modules.Projects.AddProjectMember;
+using Infrastructure.Modules.Projects.AcceptProjectInvitation;
+using Infrastructure.Modules.Projects.CreateProjectInvitation;
+using Infrastructure.Modules.Projects.Invitations;
+using Infrastructure.Modules.Projects.RemoveProjectMember;
 using Infrastructure.Modules.Projects.UpdateProject;
 using Infrastructure.ProjectManagement.Tasks;
 using Infrastructure.Services;
@@ -18,7 +36,6 @@ using Microsoft.Extensions.DependencyInjection;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
-using Shared.Responses;
 
 namespace IntegrationTests;
 
@@ -47,6 +64,12 @@ public sealed class PostgreSqlIntegrationTests
         var appliedMigrations = await dbContext.Database.GetAppliedMigrationsAsync();
         var knownMigrations = dbContext.Database.GetMigrations();
         Assert.Equal(knownMigrations.Order(), appliedMigrations.Order());
+        Assert.Contains(
+            "20260830232316_AddProjectTaskAttachmentCleanup",
+            appliedMigrations);
+        Assert.Contains(
+            "20260831100826_PreventConcurrentPendingProjectInvitations",
+            appliedMigrations);
     }
 
     [Fact]
@@ -161,7 +184,7 @@ public sealed class PostgreSqlIntegrationTests
         var handler = new UpdateProjectTaskHandler(
             new EfProjectTaskAccess(staleContext),
             new EfProjectTaskCommandStore(staleContext),
-            staleScope.ServiceProvider.GetRequiredService<INotificationService>());
+            staleScope.ServiceProvider.GetRequiredService<IProjectTaskAssignmentNotificationWriter>());
         var result = await handler.HandleAsync(new Application.Modules.ProjectTasks.UpdateProjectTask.UpdateProjectTaskCommand(
             ownerId,
             projectId,
@@ -283,12 +306,12 @@ public sealed class PostgreSqlIntegrationTests
 
         await using var firstScope = _factory.Services.CreateAsyncScope();
         await using var secondScope = _factory.Services.CreateAsyncScope();
-        var firstService = firstScope.ServiceProvider.GetRequiredService<IProjectInvitationApplicationService>();
-        var secondService = secondScope.ServiceProvider.GetRequiredService<IProjectInvitationApplicationService>();
+        var firstHandler = firstScope.ServiceProvider.GetRequiredService<IAcceptProjectInvitationHandler>();
+        var secondHandler = secondScope.ServiceProvider.GetRequiredService<IAcceptProjectInvitationHandler>();
 
         var results = await Task.WhenAll(
-            firstService.AcceptProjectInvitationAsync(recipientId, token),
-            secondService.AcceptProjectInvitationAsync(recipientId, token));
+            firstHandler.HandleAsync(new AcceptProjectInvitationCommand(recipientId, token)),
+            secondHandler.HandleAsync(new AcceptProjectInvitationCommand(recipientId, token)));
 
         Assert.Single(results, result => result.IsSuccess);
         Assert.Single(results, result => result.Status == ProjectOperationStatus.Conflict);
@@ -300,6 +323,130 @@ public sealed class PostgreSqlIntegrationTests
             .Where(invitation => invitation.ProjectId == projectId)
             .Select(invitation => invitation.Status)
             .SingleAsync());
+    }
+
+    [Fact]
+    public async Task PostgreSql_project_invitation_creation_replaces_an_expired_pending_invitation()
+    {
+        var ownerId = Guid.NewGuid();
+        var recipientId = Guid.NewGuid();
+        var recipientEmail = $"reinvite-recipient-{recipientId:N}@example.com";
+        var projectId = Guid.Empty;
+
+        await using (var setupScope = _factory.Services.CreateAsyncScope())
+        {
+            var setupContext = setupScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var project = Project.Create(ownerId, "Invitation replacement project");
+            projectId = project.Id;
+            setupContext.Users.AddRange(
+                User.Create(
+                    EmailAddress.Create($"reinvite-owner-{ownerId:N}@example.com"),
+                    DisplayName.Create("Reinvite Owner"),
+                    UserRole.User,
+                    isActive: true,
+                    isEmailConfirmed: true,
+                    id: ownerId,
+                    createdAt: DateTime.UtcNow),
+                User.Create(
+                    EmailAddress.Create(recipientEmail),
+                    DisplayName.Create("Reinvite Recipient"),
+                    UserRole.User,
+                    isActive: true,
+                    isEmailConfirmed: true,
+                    id: recipientId,
+                    createdAt: DateTime.UtcNow));
+            setupContext.Projects.Add(project);
+            setupContext.ProjectInvitations.Add(new ProjectInvitation
+            {
+                ProjectId = project.Id,
+                InvitedUserId = recipientId,
+                InvitedByUserId = ownerId,
+                Role = ProjectMemberRole.Member,
+                TokenHash = HashToken(Guid.NewGuid().ToString("N")),
+                ExpiresAt = DateTime.UtcNow.AddMinutes(-1)
+            });
+            await setupContext.SaveChangesAsync();
+        }
+
+        await using (var createScope = _factory.Services.CreateAsyncScope())
+        {
+            var handler = createScope.ServiceProvider.GetRequiredService<ICreateProjectInvitationHandler>();
+
+            var result = await handler.HandleAsync(
+                new CreateProjectInvitationCommand(
+                    ownerId,
+                    projectId,
+                    recipientEmail,
+                    ProjectMemberRole.Viewer));
+
+            Assert.True(result.IsSuccess);
+        }
+
+        await using var verificationScope = _factory.Services.CreateAsyncScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var statuses = await verificationContext.ProjectInvitations
+            .Where(invitation => invitation.ProjectId == projectId
+                && invitation.InvitedUserId == recipientId)
+            .Select(invitation => invitation.Status)
+            .ToListAsync();
+        Assert.Equal(2, statuses.Count);
+        Assert.Single(statuses, status => status == ProjectInvitationStatus.Expired);
+        Assert.Single(statuses, status => status == ProjectInvitationStatus.Pending);
+    }
+
+    [Fact]
+    public async Task PostgreSql_allows_only_one_concurrent_pending_invitation_per_project_user()
+    {
+        var ownerId = Guid.NewGuid();
+        var recipientId = Guid.NewGuid();
+        var projectId = Guid.Empty;
+
+        await using (var setupScope = _factory.Services.CreateAsyncScope())
+        {
+            var setupContext = setupScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var project = Project.Create(ownerId, "Invitation uniqueness project");
+            projectId = project.Id;
+            setupContext.Users.AddRange(
+                User.Create(
+                    EmailAddress.Create($"unique-invite-owner-{ownerId:N}@example.com"),
+                    DisplayName.Create("Unique Invite Owner"),
+                    UserRole.User,
+                    isActive: true,
+                    isEmailConfirmed: true,
+                    id: ownerId,
+                    createdAt: DateTime.UtcNow),
+                User.Create(
+                    EmailAddress.Create($"unique-invite-recipient-{recipientId:N}@example.com"),
+                    DisplayName.Create("Unique Invite Recipient"),
+                    UserRole.User,
+                    isActive: true,
+                    isEmailConfirmed: true,
+                    id: recipientId,
+                    createdAt: DateTime.UtcNow));
+            setupContext.Projects.Add(project);
+            await setupContext.SaveChangesAsync();
+        }
+
+        await using var firstScope = _factory.Services.CreateAsyncScope();
+        await using var secondScope = _factory.Services.CreateAsyncScope();
+        var firstContext = firstScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var secondContext = secondScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        firstContext.ProjectInvitations.Add(CreatePendingInvitation(projectId, ownerId, recipientId));
+        secondContext.ProjectInvitations.Add(CreatePendingInvitation(projectId, ownerId, recipientId));
+
+        var saveResults = await Task.WhenAll(
+            TrySaveChangesAsync(firstContext),
+            TrySaveChangesAsync(secondContext));
+
+        Assert.Single(saveResults, succeeded => succeeded);
+        Assert.Single(saveResults, succeeded => !succeeded);
+
+        await using var verificationScope = _factory.Services.CreateAsyncScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal(1, await verificationContext.ProjectInvitations.CountAsync(
+            invitation => invitation.ProjectId == projectId
+                && invitation.InvitedUserId == recipientId
+                && invitation.Status == ProjectInvitationStatus.Pending));
     }
 
     [Fact]
@@ -348,13 +495,12 @@ public sealed class PostgreSqlIntegrationTests
         await using (var responseScope = _factory.Services.CreateAsyncScope())
         {
             var responseContext = responseScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            var service = new DatabaseProjectInvitationApplicationService(
-                new EfProjectMembershipStore(responseContext),
-                new EfProjectInvitationStore(responseContext),
-                new FailingNotificationService());
+            var handler = new AcceptProjectInvitationHandler(
+                new EfProjectInvitationResponseStore(responseContext),
+                new InvalidProjectInvitationNotificationWriter(responseContext));
 
-            await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                service.AcceptProjectInvitationAsync(recipientId, token));
+            await Assert.ThrowsAsync<DbUpdateException>(() =>
+                handler.HandleAsync(new AcceptProjectInvitationCommand(recipientId, token)));
         }
 
         await using var verificationScope = _factory.Services.CreateAsyncScope();
@@ -402,13 +548,12 @@ public sealed class PostgreSqlIntegrationTests
         await using (var responseScope = _factory.Services.CreateAsyncScope())
         {
             var responseContext = responseScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            var service = new DatabaseProjectMembershipApplicationService(
-                responseContext,
-                new EfProjectMembershipStore(responseContext),
-                new FailingNotificationService());
+            var handler = new AddProjectMemberHandler(
+                new EfAddProjectMemberStore(responseContext),
+                new FailingAddProjectMemberNotificationWriter());
 
             await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                service.AddProjectMemberAsync(ownerId, projectId, memberId));
+                handler.HandleAsync(new AddProjectMemberCommand(ownerId, projectId, memberId)));
         }
 
         await using var verificationScope = _factory.Services.CreateAsyncScope();
@@ -466,12 +611,12 @@ public sealed class PostgreSqlIntegrationTests
         await using (var responseScope = _factory.Services.CreateAsyncScope())
         {
             var responseContext = responseScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            var service = new DatabaseProjectMembershipApplicationService(
-                responseContext,
-                new EfProjectMembershipStore(responseContext),
-                responseScope.ServiceProvider.GetRequiredService<INotificationService>());
+            var handler = new RemoveProjectMemberHandler(
+                new EfRemoveProjectMemberStore(responseContext),
+                new EfProjectTaskMemberAssignmentWriter(responseContext));
 
-            var result = await service.RemoveProjectMemberAsync(ownerId, projectId, memberId);
+            var result = await handler.HandleAsync(
+                new RemoveProjectMemberCommand(ownerId, projectId, memberId));
 
             Assert.True(result.IsSuccess);
         }
@@ -483,6 +628,298 @@ public sealed class PostgreSqlIntegrationTests
         Assert.Null(persistedTask.AssignedUserId);
         Assert.Equal(1, await verificationContext.ProjectActivities.CountAsync(activity =>
             activity.ProjectId == projectId && activity.Type == "member.removed"));
+    }
+
+    [Fact]
+    public async Task PostgreSql_task_deletion_removes_attachment_metadata_and_persists_cleanup_messages()
+    {
+        var ownerId = Guid.NewGuid();
+        await SeedProjectOwnerAsync(ownerId);
+        var storedFileName = $"task-delete-{Guid.NewGuid():N}.bin";
+        var duplicateStoredFileName = $"task-delete-duplicate-{Guid.NewGuid():N}.bin";
+        Guid projectId;
+        Guid taskId;
+
+        await using (var setupScope = _factory.Services.CreateAsyncScope())
+        {
+            var setupContext = setupScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var project = Project.Create(ownerId, "Task attachment cleanup project");
+            var task = ProjectTask.Create(
+                project.Id,
+                "Task with attachments",
+                null,
+                ProjectTaskPriority.Normal,
+                null,
+                null,
+                ownerId);
+            projectId = project.Id;
+            taskId = task.Id;
+            setupContext.Projects.Add(project);
+            setupContext.ProjectTasks.Add(task);
+            setupContext.ProjectTaskAttachments.AddRange(
+                new ProjectTaskAttachment
+                {
+                    ProjectTaskId = task.Id,
+                    UploadedByUserId = ownerId,
+                    OriginalFileName = "first.bin",
+                    StoredFileName = storedFileName,
+                    ContentType = "application/octet-stream",
+                    SizeBytes = 1
+                },
+                new ProjectTaskAttachment
+                {
+                    ProjectTaskId = task.Id,
+                    UploadedByUserId = ownerId,
+                    OriginalFileName = "duplicate.bin",
+                    StoredFileName = duplicateStoredFileName,
+                    ContentType = "application/octet-stream",
+                    SizeBytes = 1
+                },
+                new ProjectTaskAttachment
+                {
+                    ProjectTaskId = task.Id,
+                    UploadedByUserId = ownerId,
+                    OriginalFileName = "duplicate-copy.bin",
+                    StoredFileName = duplicateStoredFileName,
+                    ContentType = "application/octet-stream",
+                    SizeBytes = 1
+                });
+            await setupContext.SaveChangesAsync();
+        }
+
+        await using (var responseScope = _factory.Services.CreateAsyncScope())
+        {
+            var responseContext = responseScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var handler = new DeleteProjectTaskHandler(
+                new EfProjectTaskAccess(responseContext),
+                new EfProjectTaskCommandStore(responseContext),
+                new EfProjectTaskAttachmentCleanupQueue(responseContext));
+
+            var result = await handler.HandleAsync(new DeleteProjectTaskCommand(
+                ownerId,
+                projectId,
+                taskId,
+                await responseContext.ProjectTasks
+                    .Where(task => task.Id == taskId)
+                    .Select(task => task.ConcurrencyStamp)
+                    .SingleAsync()));
+
+            Assert.True(result.IsSuccess);
+        }
+
+        await using var verificationScope = _factory.Services.CreateAsyncScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.False(await verificationContext.ProjectTasks.AnyAsync(task => task.Id == taskId));
+        Assert.False(await verificationContext.ProjectTaskAttachments.AnyAsync(
+            attachment => attachment.ProjectTaskId == taskId));
+        var cleanupMessages = await verificationContext.ProjectTaskAttachmentCleanupMessages
+            .Where(message => message.StoredFileName == storedFileName || message.StoredFileName == duplicateStoredFileName)
+            .ToListAsync();
+        Assert.Equal(2, cleanupMessages.Count);
+        Assert.Equal(
+            new[] { storedFileName, duplicateStoredFileName }.OrderBy(fileName => fileName),
+            cleanupMessages.Select(message => message.StoredFileName).OrderBy(fileName => fileName));
+    }
+
+    [Fact]
+    public async Task PostgreSql_task_creation_rolls_back_task_and_activity_when_notification_insert_fails()
+    {
+        var ownerId = Guid.NewGuid();
+        var assigneeId = Guid.NewGuid();
+        await SeedProjectOwnerAsync(ownerId);
+        Guid projectId;
+
+        await using (var setupScope = _factory.Services.CreateAsyncScope())
+        {
+            var setupContext = setupScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var project = Project.Create(ownerId, "Task notification rollback project");
+            project.AddMember(assigneeId);
+            projectId = project.Id;
+            setupContext.Users.Add(User.Create(
+                EmailAddress.Create($"task-assignment-{assigneeId:N}@example.com"),
+                DisplayName.Create("Task Assignment Recipient"),
+                UserRole.User,
+                isActive: true,
+                isEmailConfirmed: true,
+                id: assigneeId,
+                createdAt: DateTime.UtcNow));
+            setupContext.Projects.Add(project);
+            await setupContext.SaveChangesAsync();
+        }
+
+        await using (var responseScope = _factory.Services.CreateAsyncScope())
+        {
+            var responseContext = responseScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var handler = new CreateProjectTaskHandler(
+                new EfProjectTaskAccess(responseContext),
+                new EfProjectTaskCommandStore(responseContext),
+                new InvalidAssignmentNotificationWriter(responseContext));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => handler.HandleAsync(
+                new CreateProjectTaskCommand(
+                    ownerId,
+                    projectId,
+                    "Task should roll back",
+                    null,
+                    ProjectTaskPriority.Normal,
+                    null,
+                    assigneeId,
+                    [])));
+        }
+
+        await using var verificationScope = _factory.Services.CreateAsyncScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.False(await verificationContext.ProjectTasks.AnyAsync(task => task.ProjectId == projectId));
+        Assert.False(await verificationContext.ProjectActivities.AnyAsync(activity => activity.ProjectId == projectId));
+        Assert.False(await verificationContext.Notifications.AnyAsync(notification => notification.ProjectId == projectId));
+    }
+
+    [Fact]
+    public async Task PostgreSql_task_deletion_rolls_back_cleanup_and_metadata_when_cleanup_insert_fails()
+    {
+        var ownerId = Guid.NewGuid();
+        await SeedProjectOwnerAsync(ownerId);
+        var storedFileName = $"task-delete-rollback-{Guid.NewGuid():N}.bin";
+        Guid projectId;
+        Guid taskId;
+
+        await using (var setupScope = _factory.Services.CreateAsyncScope())
+        {
+            var setupContext = setupScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var project = Project.Create(ownerId, "Task cleanup rollback project");
+            var task = ProjectTask.Create(
+                project.Id,
+                "Task cleanup rollback",
+                null,
+                ProjectTaskPriority.Normal,
+                null,
+                null,
+                ownerId);
+            projectId = project.Id;
+            taskId = task.Id;
+            setupContext.Projects.Add(project);
+            setupContext.ProjectTasks.Add(task);
+            setupContext.ProjectTaskAttachments.Add(new ProjectTaskAttachment
+            {
+                ProjectTaskId = task.Id,
+                UploadedByUserId = ownerId,
+                OriginalFileName = "rollback.bin",
+                StoredFileName = storedFileName,
+                ContentType = "application/octet-stream",
+                SizeBytes = 1
+            });
+            await setupContext.SaveChangesAsync();
+        }
+
+        await using (var responseScope = _factory.Services.CreateAsyncScope())
+        {
+            var responseContext = responseScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var cleanupQueue = new FailingCleanupQueue(
+                new EfProjectTaskAttachmentCleanupQueue(responseContext));
+            var handler = new DeleteProjectTaskHandler(
+                new EfProjectTaskAccess(responseContext),
+                new EfProjectTaskCommandStore(responseContext),
+                cleanupQueue);
+            var concurrencyStamp = await responseContext.ProjectTasks
+                .Where(task => task.Id == taskId)
+                .Select(task => task.ConcurrencyStamp)
+                .SingleAsync();
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => handler.HandleAsync(
+                new DeleteProjectTaskCommand(
+                    ownerId,
+                    projectId,
+                    taskId,
+                    concurrencyStamp)));
+        }
+
+        await using var verificationScope = _factory.Services.CreateAsyncScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.True(await verificationContext.ProjectTasks.AnyAsync(task => task.Id == taskId));
+        Assert.True(await verificationContext.ProjectTaskAttachments.AnyAsync(
+            attachment => attachment.ProjectTaskId == taskId));
+        Assert.False(await verificationContext.ProjectTaskAttachmentCleanupMessages.AnyAsync(
+            message => message.StoredFileName == storedFileName));
+        Assert.False(await verificationContext.ProjectTaskAttachmentCleanupMessages.AnyAsync(
+            message => message.StoredFileName == new string('x', 101)));
+    }
+
+    private static ProjectInvitation CreatePendingInvitation(
+        Guid projectId,
+        Guid ownerId,
+        Guid recipientId)
+        => new()
+        {
+            ProjectId = projectId,
+            InvitedUserId = recipientId,
+            InvitedByUserId = ownerId,
+            Role = ProjectMemberRole.Member,
+            TokenHash = HashToken(Guid.NewGuid().ToString("N")),
+            ExpiresAt = DateTime.UtcNow.AddDays(7)
+        };
+
+    private static async Task<bool> TrySaveChangesAsync(ApplicationDbContext dbContext)
+    {
+        try
+        {
+            await dbContext.SaveChangesAsync();
+            return true;
+        }
+        catch (DbUpdateException)
+        {
+            return false;
+        }
+    }
+
+    private sealed class FailingCleanupQueue : IProjectTaskAttachmentCleanupQueue
+    {
+        private readonly IProjectTaskAttachmentCleanupQueue _inner;
+
+        public FailingCleanupQueue(IProjectTaskAttachmentCleanupQueue inner)
+        {
+            _inner = inner;
+        }
+
+        public Task<IReadOnlyList<string>> PrepareTaskDeletionAsync(
+            Guid projectTaskId,
+            CancellationToken cancellationToken = default)
+            => _inner.PrepareTaskDeletionAsync(projectTaskId, cancellationToken);
+
+        public void Enqueue(string storedFileName)
+            => _inner.Enqueue(new string('x', 101));
+    }
+
+    private sealed class InvalidAssignmentNotificationWriter : IProjectTaskAssignmentNotificationWriter
+    {
+        private readonly ApplicationDbContext _dbContext;
+
+        public InvalidAssignmentNotificationWriter(ApplicationDbContext dbContext)
+        {
+            _dbContext = dbContext;
+        }
+
+        public Task AddTaskAssignedNotificationAsync(
+            Guid assigneeUserId,
+            Guid projectId,
+            Guid projectTaskId,
+            string taskTitle,
+            CancellationToken cancellationToken = default)
+        {
+            _dbContext.Notifications.Add(new Notification
+            {
+                Id = Guid.NewGuid(),
+                UserId = Guid.NewGuid(),
+                Type = NotificationType.TaskAssigned,
+                Title = "Invalid test notification",
+                Message = "This notification intentionally violates the user foreign key.",
+                ResourceType = "ProjectTask",
+                ResourceId = projectTaskId,
+                ProjectId = projectId,
+                CreatedAt = DateTime.UtcNow
+            });
+
+            return Task.CompletedTask;
+        }
     }
 
     private async Task SeedUserAsync()
@@ -516,27 +953,60 @@ public sealed class PostgreSqlIntegrationTests
     private static string HashToken(string token)
         => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
 
-    private sealed class FailingNotificationService : INotificationService
+    private sealed class InvalidProjectInvitationNotificationWriter : IProjectInvitationNotificationWriter
     {
-        public Task<ApiResponse<NotificationPageDto>> GetUserNotificationsAsync(Guid userId, int pageNumber, int pageSize, bool unreadOnly, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
+        private readonly ApplicationDbContext _dbContext;
 
-        public Task<ApiResponse<int>> GetUnreadCountAsync(Guid userId, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
+        public InvalidProjectInvitationNotificationWriter(ApplicationDbContext dbContext)
+        {
+            _dbContext = dbContext;
+        }
 
-        public Task<ApiResponse<NotificationDto>> MarkAsReadAsync(Guid userId, Guid notificationId, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
+        public Task AddInvitationCreatedNotificationAsync(
+            Guid recipientUserId,
+            Guid projectId,
+            Guid invitationId,
+            string projectName,
+            string inviterDisplayName,
+            CancellationToken cancellationToken = default)
+            => AddInvalidNotificationAsync(projectId, invitationId);
 
-        public Task<ApiResponse<int>> MarkAllAsReadAsync(Guid userId, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
+        public Task AddInvitationResponseNotificationAsync(
+            Guid ownerUserId,
+            Guid projectId,
+            Guid invitationId,
+            string projectName,
+            string recipientDisplayName,
+            ProjectInvitationStatus status,
+            CancellationToken cancellationToken = default)
+            => AddInvalidNotificationAsync(projectId, invitationId);
 
-        public Task<ApiResponse<NotificationEmailPreferenceDto>> GetEmailPreferenceAsync(Guid userId, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
+        private Task AddInvalidNotificationAsync(Guid projectId, Guid invitationId)
+        {
+            _dbContext.Notifications.Add(new Notification
+            {
+                Id = Guid.NewGuid(),
+                UserId = Guid.NewGuid(),
+                Type = NotificationType.ProjectInvitation,
+                Title = "Invalid test notification",
+                Message = "This notification intentionally violates the user foreign key.",
+                ResourceType = "ProjectInvitation",
+                ResourceId = invitationId,
+                ProjectId = projectId,
+                CreatedAt = DateTime.UtcNow
+            });
 
-        public Task<ApiResponse<NotificationEmailPreferenceDto>> UpdateEmailPreferenceAsync(Guid userId, bool? isEmailEnabled, bool? isTaskDeadlineReminderEmailEnabled, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
+            return Task.CompletedTask;
+        }
+    }
 
-        public Task CreateAsync(Guid userId, NotificationType type, string title, string message, string? resourceType = null, Guid? resourceId = null, Guid? projectId = null, bool sendEmail = true, CancellationToken cancellationToken = default)
+    private sealed class FailingAddProjectMemberNotificationWriter : IAddProjectMemberNotificationWriter
+    {
+        public Task AddProjectMemberNotificationAsync(
+            Guid userId,
+            Guid projectId,
+            string projectName,
+            CancellationToken cancellationToken = default)
             => throw new InvalidOperationException("Notification persistence failed.");
     }
 }

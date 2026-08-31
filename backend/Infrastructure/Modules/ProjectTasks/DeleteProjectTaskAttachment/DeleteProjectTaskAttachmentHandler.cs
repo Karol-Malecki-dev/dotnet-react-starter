@@ -1,6 +1,5 @@
 using Application.Features.ProjectManagement.Tasks;
 using Application.Features.Projects;
-using Application.Modules.ProjectTasks.Attachments;
 using Application.Modules.ProjectTasks.DeleteProjectTaskAttachment;
 using Domain.Enums;
 
@@ -13,16 +12,13 @@ public sealed class DeleteProjectTaskAttachmentHandler : IDeleteProjectTaskAttac
 {
     private readonly IProjectTaskAccess _projectTaskAccess;
     private readonly IDeleteProjectTaskAttachmentStore _attachmentStore;
-    private readonly IProjectTaskAttachmentStorage _storage;
 
     public DeleteProjectTaskAttachmentHandler(
         IProjectTaskAccess projectTaskAccess,
-        IDeleteProjectTaskAttachmentStore attachmentStore,
-        IProjectTaskAttachmentStorage storage)
+        IDeleteProjectTaskAttachmentStore attachmentStore)
     {
         _projectTaskAccess = projectTaskAccess;
         _attachmentStore = attachmentStore;
-        _storage = storage;
     }
 
     public async Task<ProjectOperationResult<bool>> HandleAsync(
@@ -75,7 +71,6 @@ public sealed class DeleteProjectTaskAttachmentHandler : IDeleteProjectTaskAttac
             command.ProjectId,
             command.UserId,
             cancellationToken);
-        await _storage.DeleteAsync(attachment.StoredFileName, cancellationToken);
 
         return ProjectOperationResult<bool>.Success(true, "Project task attachment deleted");
     }

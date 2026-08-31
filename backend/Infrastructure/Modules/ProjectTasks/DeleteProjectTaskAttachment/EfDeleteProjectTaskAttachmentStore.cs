@@ -1,4 +1,5 @@
 using Application.Modules.ProjectTasks.DeleteProjectTaskAttachment;
+using Application.Modules.ProjectTasks.Attachments;
 using Domain.Entities;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -11,10 +12,14 @@ namespace Infrastructure.Modules.ProjectTasks.DeleteProjectTaskAttachment;
 public sealed class EfDeleteProjectTaskAttachmentStore : IDeleteProjectTaskAttachmentStore
 {
     private readonly ApplicationDbContext _dbContext;
+    private readonly IProjectTaskAttachmentCleanupQueue _cleanupQueue;
 
-    public EfDeleteProjectTaskAttachmentStore(ApplicationDbContext dbContext)
+    public EfDeleteProjectTaskAttachmentStore(
+        ApplicationDbContext dbContext,
+        IProjectTaskAttachmentCleanupQueue cleanupQueue)
     {
         _dbContext = dbContext;
+        _cleanupQueue = cleanupQueue;
     }
 
     public Task<ProjectTaskAttachment?> GetAsync(
@@ -42,6 +47,7 @@ public sealed class EfDeleteProjectTaskAttachmentStore : IDeleteProjectTaskAttac
             Type = "task.attachment-removed",
             Description = $"removed the attachment '{attachment.OriginalFileName}'."
         });
+        _cleanupQueue.Enqueue(attachment.StoredFileName);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 }
