@@ -10,5 +10,8 @@ public enum NotificationType
     TaskOverdue = 6,
     ProjectMemberRemoved = 7,
     ProjectMemberRoleChanged = 8,
-    TaskStatusChanged = 9
+    TaskStatusChanged = 9,
+    TaskCommented = 10,
+    TaskAttachmentAdded = 11,
+    TaskAttachmentRemoved = 12
 }

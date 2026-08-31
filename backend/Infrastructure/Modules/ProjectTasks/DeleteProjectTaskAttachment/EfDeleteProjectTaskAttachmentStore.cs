@@ -1,5 +1,6 @@
 using Application.Modules.ProjectTasks.DeleteProjectTaskAttachment;
 using Application.Modules.ProjectTasks.Attachments;
+using Application.Interfaces;
 using Domain.Entities;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -13,13 +14,16 @@ public sealed class EfDeleteProjectTaskAttachmentStore : IDeleteProjectTaskAttac
 {
     private readonly ApplicationDbContext _dbContext;
     private readonly IProjectTaskAttachmentCleanupQueue _cleanupQueue;
+    private readonly ICollaborationNotificationWriter? _notificationWriter;
 
     public EfDeleteProjectTaskAttachmentStore(
         ApplicationDbContext dbContext,
-        IProjectTaskAttachmentCleanupQueue cleanupQueue)
+        IProjectTaskAttachmentCleanupQueue cleanupQueue,
+        ICollaborationNotificationWriter? notificationWriter = null)
     {
         _dbContext = dbContext;
         _cleanupQueue = cleanupQueue;
+        _notificationWriter = notificationWriter;
     }
 
     public Task<ProjectTaskAttachment?> GetAsync(
@@ -48,6 +52,23 @@ public sealed class EfDeleteProjectTaskAttachmentStore : IDeleteProjectTaskAttac
             Description = $"removed the attachment '{attachment.OriginalFileName}'."
         });
         _cleanupQueue.Enqueue(attachment.StoredFileName);
+        var assigneeId = await _dbContext.ProjectTasks
+            .Where(task => task.Id == attachment.ProjectTaskId)
+            .Select(task => task.AssignedUserId)
+            .SingleAsync(cancellationToken);
+        if (_notificationWriter is not null && assigneeId is { } recipientId && recipientId != userId)
+        {
+            await _notificationWriter.StageAsync(
+                recipientId,
+                Domain.Enums.NotificationType.TaskAttachmentRemoved,
+                "Task attachment removed",
+                $"'{attachment.OriginalFileName}' was removed from your assigned task.",
+                "projectTask",
+                attachment.ProjectTaskId,
+                projectId,
+                $"task:{attachment.ProjectTaskId}:attachment:{attachment.Id}:removed",
+                cancellationToken);
+        }
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 }
