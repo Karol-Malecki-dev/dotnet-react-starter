@@ -195,6 +195,11 @@ Rules:
 - keep an audit event and a user-facing security notification separate. A password or
   2FA change can produce both, but each has a different purpose and retention policy.
 
+For this starter, audit persistence is fail-open: a storage failure does not reject
+the authentication operation. The writer logs the failure and increments a metric for
+operational alerting. Regulated environments may select a fail-closed policy as a
+separate deployment decision.
+
 Required tests:
 
 - success and failure events contain no submitted credential;

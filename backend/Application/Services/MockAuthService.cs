@@ -56,6 +56,9 @@ namespace Application.Services
             return await Task.FromResult<User?>(null);
         }
 
+        public Task<LoginAuditContext?> GetLoginAuditContextAsync(string email, CancellationToken cancellationToken = default)
+            => Task.FromResult<LoginAuditContext?>(null);
+
         public async Task<User?> RegisterAsync(string email, string password, string displayName, CancellationToken cancellationToken = default)
         {
             _logger.LogInformation("📝 Mock registration: {Email}", email);

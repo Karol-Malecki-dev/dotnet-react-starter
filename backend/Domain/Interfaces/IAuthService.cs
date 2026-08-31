@@ -4,6 +4,8 @@ using Domain.ValueObjects;
 
 namespace Domain.Interfaces
 {
+    public sealed record LoginAuditContext(Guid UserId, bool IsLocked);
+
     /// <summary>
     /// Provides authentication, account verification, password management,
     /// and email-based two-factor authentication operations.
@@ -20,6 +22,8 @@ namespace Domain.Interfaces
         /// <param name="password">Plain-text password used for verification. It is never persisted as plain text.</param>
         /// <returns>The authenticated user, or <see langword="null"/> when the account is missing, inactive, or the password is invalid.</returns>
         Task<User?> AuthenticateAsync(string email, string password, CancellationToken cancellationToken = default);
+
+        Task<LoginAuditContext?> GetLoginAuditContextAsync(string email, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Creates a new user account with a hashed password.

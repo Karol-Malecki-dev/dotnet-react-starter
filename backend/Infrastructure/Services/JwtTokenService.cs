@@ -69,6 +69,22 @@ namespace Infrastructure.Services
             return tokenPair.Tokens;
         }
 
+        public async Task<RefreshTokenReplayInfo?> GetRefreshTokenReplayInfoAsync(string refreshToken, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(refreshToken))
+            {
+                return null;
+            }
+
+            var token = await _dbContext.RefreshTokens
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.TokenHash == HashToken(refreshToken), cancellationToken);
+
+            return token?.RevocationReason == RevocationReason.TokenRotated && token.ReplacedByTokenHash is not null
+                ? new RefreshTokenReplayInfo(token.UserId)
+                : null;
+        }
+
         public async Task<JwtTokens?> RefreshTokensAsync(string refreshToken, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(refreshToken))
