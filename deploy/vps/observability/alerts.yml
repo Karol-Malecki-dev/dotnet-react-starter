@@ -1,0 +1,47 @@
+groups:
+  - name: dotnet-react-starter
+    rules:
+      - alert: ApplicationUnavailable
+        expr: probe_success{job="application-health",instance="http://backend:5000/health/live"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: The API process is unavailable
+          description: The liveness endpoint has failed for more than two minutes.
+
+      - alert: ApplicationNotReady
+        expr: probe_success{job="application-health",instance="http://backend:5000/health/ready"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: The API is not ready
+          description: A database, object storage, or malware scanner dependency is unavailable.
+
+      - alert: BackgroundWorkersUnhealthy
+        expr: probe_success{job="application-health",instance="http://backend:5000/health/workers"} == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: A background worker is unhealthy
+          description: At least one critical worker has not completed a successful cycle.
+
+      - alert: HostDiskSpaceLow
+        expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}) < 0.15
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: VPS disk space is below 15 percent
+          description: Free disk space must be recovered before database or backup writes fail.
+
+      - alert: HostMemoryLow
+        expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: VPS available memory is below 10 percent
+          description: Sustained memory pressure can terminate containers or delay health checks.
