@@ -42,6 +42,33 @@ from the same maintenance window.
 A database-only or binary-only copy is not a complete backup. Restore drills must be
 performed periodically in the selected production platform.
 
+For the Docker Compose topology, create a coordinated backup from the repository root:
+
+```powershell
+.\scripts\Backup-ComposeData.ps1
+```
+
+The script records which application services were running, stops frontend/backend
+writes, creates a custom-format PostgreSQL dump, copies the complete attachment volume,
+and writes a SHA-256 manifest. It then restarts only the application services that were
+running before the backup. Use `-OutputDirectory` to select a protected destination;
+the default under `artifacts/backups` is suitable only for local drills.
+
+Restore into an isolated Compose environment first:
+
+```powershell
+.\scripts\Restore-ComposeBackup.ps1 -BackupDirectory <backup-path> -Force
+```
+
+Restore verifies every manifest checksum before stopping services. `-Force` and the
+PowerShell high-impact confirmation are both required because the current database and
+attachment volume are replaced. After restart, run migrations, attachment
+reconciliation, and the release gate before promoting the restored environment.
+
+These scripts automate the repository's Compose topology. Managed PostgreSQL and object
+storage deployments must use provider snapshots with equivalent write quiescence,
+checksums, retention, encryption, and restore testing.
+
 ## Malware scanning boundary
 
 Production upload acceptance requires an implementation of a malware-scanning port
