@@ -283,6 +283,15 @@ namespace API.Services
                     : serviceProvider.GetRequiredService<LoggingNotificationEmailSender>();
             });
             services.AddHostedService<NotificationEmailOutboxWorker>();
+            services.AddScoped<Application.Modules.Notifications.ListNotifications.IListNotificationsStore, Infrastructure.Modules.Notifications.ListNotifications.EfListNotificationsStore>();
+            services.AddScoped<Application.Modules.Notifications.ListNotifications.IListNotificationsHandler, Infrastructure.Modules.Notifications.ListNotifications.ListNotificationsHandler>();
+            services.AddScoped<Application.Modules.Notifications.GetUnreadCount.IGetUnreadCountStore, Infrastructure.Modules.Notifications.GetUnreadCount.EfGetUnreadCountStore>();
+            services.AddScoped<Application.Modules.Notifications.GetUnreadCount.IGetUnreadCountHandler, Infrastructure.Modules.Notifications.GetUnreadCount.GetUnreadCountHandler>();
+            services.AddScoped<Application.Modules.Notifications.GetEmailPreference.IGetEmailPreferenceStore, Infrastructure.Modules.Notifications.GetEmailPreference.EfGetEmailPreferenceStore>();
+            services.AddScoped<Application.Modules.Notifications.GetEmailPreference.IGetEmailPreferenceHandler, Infrastructure.Modules.Notifications.GetEmailPreference.GetEmailPreferenceHandler>();
+            services.AddScoped<Application.Modules.Notifications.Commands.IMarkNotificationAsReadHandler, Infrastructure.Modules.Notifications.Commands.MarkNotificationAsReadHandler>();
+            services.AddScoped<Application.Modules.Notifications.Commands.IMarkAllNotificationsAsReadHandler, Infrastructure.Modules.Notifications.Commands.MarkAllNotificationsAsReadHandler>();
+            services.AddScoped<Application.Modules.Notifications.Commands.IUpdateNotificationEmailPreferenceHandler, Infrastructure.Modules.Notifications.Commands.UpdateNotificationEmailPreferenceHandler>();
             services.AddScoped<IAdminService, DatabaseAdminService>();
             services.AddProjectTasksModule();
             services.AddProjectsModule();
