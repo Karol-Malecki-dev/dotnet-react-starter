@@ -85,6 +85,18 @@ public sealed class CreateProjectTaskAttachmentHandler : ICreateProjectTaskAttac
 
         var originalFileName = NormalizeFileName(command.OriginalFileName);
         var extension = Path.GetExtension(originalFileName).ToLowerInvariant();
+        var contentValidationError = await ProjectTaskAttachmentContentInspector.InspectAsync(
+            command.Content,
+            extension,
+            command.SizeBytes,
+            cancellationToken);
+        if (contentValidationError is not null)
+        {
+            return ProjectOperationResult<ProjectTaskAttachmentView>.Failure(
+                ProjectOperationStatus.ValidationError,
+                contentValidationError);
+        }
+
         var storedFileName = $"{Guid.NewGuid():N}{extension}";
         var normalizedCommand = command with
         {

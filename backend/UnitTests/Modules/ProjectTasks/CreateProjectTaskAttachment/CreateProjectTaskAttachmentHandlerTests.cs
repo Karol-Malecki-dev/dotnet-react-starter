@@ -6,6 +6,7 @@ using Domain.Entities;
 using Domain.Enums;
 using Infrastructure.Modules.ProjectTasks.CreateProjectTaskAttachment;
 using Moq;
+using System.IO.Compression;
 
 namespace UnitTests.Modules.ProjectTasks.CreateProjectTaskAttachment;
 
@@ -51,6 +52,114 @@ public sealed class CreateProjectTaskAttachmentHandlerTests
                 It.IsAny<string>(),
                 It.IsAny<CancellationToken>()),
             Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_rejects_file_when_content_does_not_match_declared_pdf_format()
+    {
+        var content = new MemoryStream("MZ executable payload"u8.ToArray());
+        var command = CreateCommand() with
+        {
+            OriginalFileName = "report.pdf",
+            ContentType = "application/pdf",
+            SizeBytes = content.Length,
+            Content = content
+        };
+        ConfigureAccess(command, ProjectMemberRole.Owner);
+
+        var result = await CreateHandler().HandleAsync(command);
+
+        Assert.Equal(ProjectOperationStatus.ValidationError, result.Status);
+        _storage.Verify(
+            storage => storage.SaveAsync(
+                It.IsAny<Stream>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_rejects_file_when_declared_size_does_not_match_content()
+    {
+        var command = CreateCommand() with { SizeBytes = 1 };
+        ConfigureAccess(command, ProjectMemberRole.Owner);
+
+        var result = await CreateHandler().HandleAsync(command);
+
+        Assert.Equal(ProjectOperationStatus.ValidationError, result.Status);
+        _storage.Verify(
+            storage => storage.SaveAsync(
+                It.IsAny<Stream>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_rejects_binary_content_declared_as_text()
+    {
+        var content = new MemoryStream([0x00, 0x01, 0x02, 0x03]);
+        var command = CreateCommand() with
+        {
+            SizeBytes = content.Length,
+            Content = content
+        };
+        ConfigureAccess(command, ProjectMemberRole.Owner);
+
+        var result = await CreateHandler().HandleAsync(command);
+
+        Assert.Equal(ProjectOperationStatus.ValidationError, result.Status);
+        _storage.Verify(
+            storage => storage.SaveAsync(
+                It.IsAny<Stream>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Theory]
+    [MemberData(nameof(AllowedFileContents))]
+    public async Task Handle_accepts_content_matching_declared_format(
+        string fileName,
+        string contentType,
+        byte[] bytes)
+    {
+        var content = new MemoryStream(bytes);
+        var command = CreateCommand() with
+        {
+            OriginalFileName = fileName,
+            ContentType = contentType,
+            SizeBytes = content.Length,
+            Content = content
+        };
+        ConfigureAccess(command, ProjectMemberRole.Owner);
+        var expected = new ProjectTaskAttachmentView(
+            Guid.NewGuid(),
+            command.TaskId,
+            command.UserId,
+            "Owner",
+            fileName,
+            contentType,
+            command.SizeBytes,
+            DateTime.UtcNow);
+        _storage
+            .Setup(storage => storage.SaveAsync(
+                content,
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .Callback(() => Assert.Equal(0, content.Position))
+            .Returns(Task.CompletedTask);
+        _attachmentStore
+            .Setup(store => store.CreateAsync(
+                It.IsAny<CreateProjectTaskAttachmentCommand>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
+
+        var result = await CreateHandler().HandleAsync(command);
+
+        Assert.True(result.IsSuccess);
+        Assert.Same(expected, result.Value);
     }
 
     [Fact]
@@ -161,12 +270,40 @@ public sealed class CreateProjectTaskAttachmentHandlerTests
     }
 
     private static CreateProjectTaskAttachmentCommand CreateCommand()
-        => new(
+    {
+        var content = new MemoryStream("test file\n"u8.ToArray());
+        return new CreateProjectTaskAttachmentCommand(
             Guid.NewGuid(),
             Guid.NewGuid(),
             Guid.NewGuid(),
             "notes.txt",
             "text/plain",
-            10,
-            new MemoryStream(new byte[10]));
+            content.Length,
+            content);
+    }
+
+    public static TheoryData<string, string, byte[]> AllowedFileContents()
+        => new()
+        {
+            { "document.pdf", "application/pdf", "%PDF-1.7\n"u8.ToArray() },
+            { "image.png", "image/png", [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A] },
+            { "image.jpg", "image/jpeg", [0xFF, 0xD8, 0xFF, 0xE0] },
+            { "image.jpeg", "image/jpeg", [0xFF, 0xD8, 0xFF, 0xE1] },
+            { "document.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", CreateOpenXmlPackage("word/document.xml") },
+            { "workbook.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", CreateOpenXmlPackage("xl/workbook.xml") },
+            { "notes.txt", "text/plain", "plain text\n"u8.ToArray() }
+        };
+
+    private static byte[] CreateOpenXmlPackage(string documentEntryName)
+    {
+        using var content = new MemoryStream();
+        using (var archive = new ZipArchive(content, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            archive.CreateEntry("[Content_Types].xml");
+            archive.CreateEntry("_rels/.rels");
+            archive.CreateEntry(documentEntryName);
+        }
+
+        return content.ToArray();
+    }
 }

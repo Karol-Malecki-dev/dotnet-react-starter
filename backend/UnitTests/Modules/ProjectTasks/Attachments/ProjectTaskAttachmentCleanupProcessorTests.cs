@@ -125,7 +125,7 @@ public sealed class ProjectTaskAttachmentCleanupProcessorTests
     private static ProjectTaskAttachmentCleanupMessage CreateMessage()
         => new()
         {
-            StoredFileName = $"attachment-{Guid.NewGuid():N}.bin",
+            StoredFileName = $"{Guid.NewGuid():N}.txt",
             NextAttemptAt = DateTime.UtcNow.AddMinutes(-1)
         };
 }

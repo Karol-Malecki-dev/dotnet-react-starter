@@ -5,6 +5,17 @@ namespace Infrastructure.Services;
 
 public sealed class LocalProjectTaskAttachmentStorage : IProjectTaskAttachmentStorage
 {
+    private static readonly HashSet<string> AllowedExtensions = new(StringComparer.Ordinal)
+    {
+        ".pdf",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".docx",
+        ".xlsx",
+        ".txt"
+    };
+
     private readonly string _rootPath;
 
     public LocalProjectTaskAttachmentStorage(IHostEnvironment environment)
@@ -56,7 +67,12 @@ public sealed class LocalProjectTaskAttachmentStorage : IProjectTaskAttachmentSt
 
     private string GetPath(string storedFileName)
     {
-        if (string.IsNullOrWhiteSpace(storedFileName) || Path.GetFileName(storedFileName) != storedFileName)
+        var extension = Path.GetExtension(storedFileName);
+        var identifier = Path.GetFileNameWithoutExtension(storedFileName);
+        if (string.IsNullOrWhiteSpace(storedFileName)
+            || Path.GetFileName(storedFileName) != storedFileName
+            || !Guid.TryParseExact(identifier, "N", out _)
+            || !AllowedExtensions.Contains(extension))
         {
             throw new ArgumentException("Invalid stored file name", nameof(storedFileName));
         }
