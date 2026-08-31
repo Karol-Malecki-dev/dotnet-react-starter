@@ -123,3 +123,38 @@ test('invite a viewer and enforce read-only project permissions', async ({ brows
     await viewerContext.close();
   }
 });
+
+test('reject a stale project edit from a concurrent browser context', async ({ browser, context, page, request }, testInfo) => {
+  await registerAndSignIn(page, request);
+  const suffix = Date.now().toString();
+  const projectName = `Concurrent project ${suffix}`;
+
+  await page.getByRole('link', { name: 'Projects' }).first().click();
+  await page.getByLabel('Name').fill(projectName);
+  await page.getByRole('button', { name: 'Create project' }).click();
+
+  const staleContext = await browser.newContext({
+    baseURL: testInfo.project.use.baseURL as string,
+    storageState: await context.storageState(),
+  });
+  const stalePage = await staleContext.newPage();
+
+  try {
+    await stalePage.goto('/projects');
+    await stalePage.getByRole('button', { name: new RegExp(projectName) }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
+    await stalePage.getByRole('button', { name: 'Edit', exact: true }).click();
+
+    const currentForm = page.getByRole('button', { name: 'Save changes' }).locator('xpath=ancestor::form');
+    const staleForm = stalePage.getByRole('button', { name: 'Save changes' }).locator('xpath=ancestor::form');
+    await currentForm.getByLabel('Description').fill('Saved by the first browser context');
+    await staleForm.getByLabel('Description').fill('Stale overwrite attempt');
+    await currentForm.getByRole('button', { name: 'Save changes' }).click();
+    await expect(page.getByText('Saved by the first browser context')).toBeVisible();
+
+    await staleForm.getByRole('button', { name: 'Save changes' }).click();
+    await expect(stalePage.getByRole('alert')).toContainText('Project was modified concurrently; refresh and retry');
+  } finally {
+    await staleContext.close();
+  }
+});
