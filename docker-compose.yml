@@ -53,6 +53,10 @@ services:
       - DataProtection__KeyRingPath=${DATA_PROTECTION_KEY_RING_PATH:-/home/app/.aspnet/DataProtection-Keys}
       - DataProtection__ApplicationName=${DATA_PROTECTION_APPLICATION_NAME:-DotnetReactStarter}
       - Attachments__RootPath=${ATTACHMENTS_ROOT_PATH:-/app/data/task-attachments}
+      - Attachments__RequireMalwareScan=${ATTACHMENTS_REQUIRE_MALWARE_SCAN:-false}
+      - Attachments__MalwareScannerHost=${ATTACHMENTS_MALWARE_SCANNER_HOST:-}
+      - Attachments__MalwareScannerPort=${ATTACHMENTS_MALWARE_SCANNER_PORT:-3310}
+      - Attachments__MalwareScannerTimeoutSeconds=${ATTACHMENTS_MALWARE_SCANNER_TIMEOUT_SECONDS:-30}
       - ForwardedHeaders__Enabled=${FORWARDED_HEADERS_ENABLED:-true}
       - ForwardedHeaders__KnownNetworks__0=${FORWARDED_HEADERS_KNOWN_NETWORK_0:-172.28.0.0/16}
       - ForwardedHeaders__ForwardLimit=${FORWARDED_HEADERS_FORWARD_LIMIT:-1}

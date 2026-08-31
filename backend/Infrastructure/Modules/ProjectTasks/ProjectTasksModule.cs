@@ -69,7 +69,14 @@ public static class ProjectTasksModule
         services.AddScoped<IDownloadProjectTaskAttachmentStore, EfDownloadProjectTaskAttachmentStore>();
         services.AddScoped<IDeleteProjectTaskAttachmentStore, EfDeleteProjectTaskAttachmentStore>();
         services.AddSingleton<IProjectTaskAttachmentStorage, LocalProjectTaskAttachmentStorage>();
-        services.AddSingleton<IProjectTaskAttachmentMalwareScanner, UnavailableProjectTaskAttachmentMalwareScanner>();
+        services.AddSingleton<IProjectTaskAttachmentMalwareScanner>(serviceProvider =>
+        {
+            var settings = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<Shared.Settings.AttachmentSettings>>().Value;
+            return string.IsNullOrWhiteSpace(settings.MalwareScannerHost)
+                ? new UnavailableProjectTaskAttachmentMalwareScanner()
+                : serviceProvider.GetRequiredService<ClamAvProjectTaskAttachmentMalwareScanner>();
+        });
+        services.AddSingleton<ClamAvProjectTaskAttachmentMalwareScanner>();
         services.AddScoped<ICreateProjectTaskHandler, CreateProjectTaskHandler>();
         services.AddScoped<ICreateProjectTaskAttachmentHandler, CreateProjectTaskAttachmentHandler>();
         services.AddScoped<ICreateProjectTaskCommentHandler, CreateProjectTaskCommentHandler>();

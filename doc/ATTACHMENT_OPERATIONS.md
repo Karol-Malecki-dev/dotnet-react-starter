@@ -62,15 +62,30 @@ Recommended provider choices:
 - S3-compatible object storage with an event-driven scanner;
 - ClamAV for self-hosted deployments.
 
-The production adapter must quarantine new objects before they become downloadable,
-persist a safe scan status, handle timeout/failure as non-clean, and expose scan backlog
-and failure metrics. Scanner credentials and storage keys must remain outside the
-repository.
+The repository includes a ClamAV TCP `INSTREAM` adapter. Configure it with:
 
-The provider adapter, quarantine lifecycle, persisted scan status, and platform metrics
-cannot be certified by this repository until a production storage/scanner provider is
-selected. They remain mandatory deployment work rather than capabilities supplied by
-the fallback implementation.
+| Setting | Environment variable | Production requirement |
+|---|---|---|
+| `Attachments:RequireMalwareScan` | `ATTACHMENTS_REQUIRE_MALWARE_SCAN` | `true` |
+| `Attachments:MalwareScannerHost` | `ATTACHMENTS_MALWARE_SCANNER_HOST` | Reachable ClamAV host |
+| `Attachments:MalwareScannerPort` | `ATTACHMENTS_MALWARE_SCANNER_PORT` | Valid TCP port; default `3310` |
+| `Attachments:MalwareScannerTimeoutSeconds` | `ATTACHMENTS_MALWARE_SCANNER_TIMEOUT_SECONDS` | Positive timeout; default `30` |
+
+This adapter scans synchronously before storage. Therefore unscanned content is held
+only in the request stream and never receives attachment metadata or a downloadable
+storage key. `FOUND`, timeout, connection failure, malformed response, and ClamAV
+`ERROR` responses all fail closed. The readiness endpoint also requires a clean scan
+of a harmless probe whenever malware scanning is required.
+
+Asynchronous provider adapters must quarantine new objects before they become
+downloadable, persist a safe scan status, handle timeout/failure as non-clean, and
+expose scan backlog and failure metrics. Scanner credentials and storage keys must
+remain outside the repository. The synchronous ClamAV adapter does not need a persisted
+quarantine state because content is scanned before it is stored.
+
+The target ClamAV daemon, signature-update policy, durable storage platform, backup
+mechanism, and monitoring backend remain deployment-owned. Their platform-specific
+availability and restore drills cannot be certified by repository tests.
 
 ## Alerts
 

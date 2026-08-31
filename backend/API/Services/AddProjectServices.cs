@@ -74,7 +74,8 @@ namespace API.Services
             services.AddHealthChecks()
                 .AddCheck<DatabaseHealthCheck>("database", tags: ["ready", "database"])
                 .AddCheck<BackgroundWorkerHealthCheck>("background-workers", tags: ["workers"])
-                .AddCheck<AttachmentStorageHealthCheck>("attachment-storage", tags: ["ready", "storage"]);
+                .AddCheck<AttachmentStorageHealthCheck>("attachment-storage", tags: ["ready", "storage"])
+                .AddCheck<AttachmentMalwareScannerHealthCheck>("attachment-malware-scanner", tags: ["ready", "storage"]);
             services.AddHttpContextAccessor();
             services.AddSwaggerGen();
             services.AddAuthorization();
@@ -182,6 +183,12 @@ namespace API.Services
                     "Attachment maximum bytes per task must be at least the maximum file size.")
                 .Validate(settings => !isProduction || settings.RequireMalwareScan,
                     "Attachment malware scanning must be required in production.")
+                .Validate(settings => !isProduction || !string.IsNullOrWhiteSpace(settings.MalwareScannerHost),
+                    "An attachment malware scanner host is required in production.")
+                .Validate(settings => settings.MalwareScannerPort is > 0 and <= 65535,
+                    "Attachment malware scanner port must be between 1 and 65535.")
+                .Validate(settings => settings.MalwareScannerTimeoutSeconds > 0,
+                    "Attachment malware scanner timeout must be greater than 0 seconds.")
                 .ValidateOnStart();
 
             services.AddOptions<EmailDeliverySettings>()

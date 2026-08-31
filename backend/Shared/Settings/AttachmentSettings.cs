@@ -17,4 +17,13 @@ public sealed class AttachmentSettings
 
     /// <summary>Whether uploads must receive a clean result from the configured malware scanner.</summary>
     public bool RequireMalwareScan { get; set; }
+
+    /// <summary>ClamAV daemon host. Empty keeps the fail-closed unavailable adapter.</summary>
+    public string MalwareScannerHost { get; set; } = string.Empty;
+
+    /// <summary>ClamAV daemon TCP port.</summary>
+    public int MalwareScannerPort { get; set; } = 3310;
+
+    /// <summary>Maximum time allowed for one ClamAV scan.</summary>
+    public int MalwareScannerTimeoutSeconds { get; set; } = 30;
 }
