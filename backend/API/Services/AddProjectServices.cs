@@ -169,12 +169,30 @@ namespace API.Services
 
             services.AddOptions<AttachmentSettings>()
                 .Bind(configuration.GetSection("Attachments"))
+                .Validate(settings => string.Equals(settings.StorageProvider, "Local", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(settings.StorageProvider, "S3", StringComparison.OrdinalIgnoreCase),
+                    "Attachment storage provider must be Local or S3.")
                 .Validate(settings => !isProduction
+                    || !string.Equals(settings.StorageProvider, "Local", StringComparison.OrdinalIgnoreCase)
                     || (!string.IsNullOrWhiteSpace(settings.RootPath) && Path.IsPathRooted(settings.RootPath)),
                     "An absolute attachment storage root is required in production.")
-                .Validate(settings => string.IsNullOrWhiteSpace(settings.RootPath)
+                .Validate(settings => !string.Equals(settings.StorageProvider, "Local", StringComparison.OrdinalIgnoreCase)
+                    || string.IsNullOrWhiteSpace(settings.RootPath)
                     || Path.IsPathRooted(settings.RootPath),
                     "Attachment storage root must be absolute when configured.")
+                .Validate(settings => !string.Equals(settings.StorageProvider, "S3", StringComparison.OrdinalIgnoreCase)
+                    || !string.IsNullOrWhiteSpace(settings.S3BucketName),
+                    "An S3 bucket name is required when S3 attachment storage is selected.")
+                .Validate(settings => !string.Equals(settings.StorageProvider, "S3", StringComparison.OrdinalIgnoreCase)
+                    || !string.IsNullOrWhiteSpace(settings.S3ServiceUrl)
+                    || !string.IsNullOrWhiteSpace(settings.S3Region),
+                    "An S3 region is required when no custom S3 service URL is configured.")
+                .Validate(settings => string.IsNullOrWhiteSpace(settings.S3ServiceUrl)
+                    || Uri.TryCreate(settings.S3ServiceUrl, UriKind.Absolute, out var endpoint)
+                    && endpoint.Scheme is "http" or "https",
+                    "The S3 service URL must be an absolute HTTP or HTTPS URL.")
+                .Validate(settings => string.IsNullOrWhiteSpace(settings.S3AccessKey) == string.IsNullOrWhiteSpace(settings.S3SecretKey),
+                    "S3 access and secret keys must either both be configured or both be omitted.")
                 .Validate(settings => settings.MaxFileSizeBytes > 0,
                     "Attachment maximum file size must be greater than 0.")
                 .Validate(settings => settings.MaxCountPerTask > 0,

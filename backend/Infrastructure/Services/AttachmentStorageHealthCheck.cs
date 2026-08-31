@@ -1,45 +1,36 @@
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Options;
-using Shared.Settings;
+using Application.Modules.ProjectTasks.Attachments;
 
 namespace Infrastructure.Services;
 
-/// <summary>Checks that the configured local attachment storage is available and writable.</summary>
+/// <summary>Checks that the configured attachment storage is available and writable.</summary>
 public sealed class AttachmentStorageHealthCheck : IHealthCheck
 {
-    private readonly IHostEnvironment _environment;
-    private readonly AttachmentSettings _settings;
+    private readonly IProjectTaskAttachmentStorage _storage;
 
     public AttachmentStorageHealthCheck(
-        IHostEnvironment environment,
-        IOptions<AttachmentSettings> settings)
+        IProjectTaskAttachmentStorage storage)
     {
-        _environment = environment;
-        _settings = settings.Value;
+        _storage = storage;
     }
 
-    public Task<HealthCheckResult> CheckHealthAsync(
+    public async Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
         CancellationToken cancellationToken = default)
     {
-        var rootPath = string.IsNullOrWhiteSpace(_settings.RootPath)
-            ? Path.Combine(_environment.ContentRootPath, "uploads", "task-attachments")
-            : _settings.RootPath;
-
+        var probeKey = $"{Guid.NewGuid():N}.txt";
         try
         {
-            Directory.CreateDirectory(rootPath);
-            var probePath = Path.Combine(rootPath, $".health-{Guid.NewGuid():N}");
-            File.WriteAllText(probePath, "ready");
-            File.Delete(probePath);
-            return Task.FromResult(HealthCheckResult.Healthy());
+            await using var content = new MemoryStream("ready"u8.ToArray());
+            await _storage.SaveAsync(content, probeKey, cancellationToken);
+            await _storage.DeleteAsync(probeKey, cancellationToken);
+            return HealthCheckResult.Healthy();
         }
         catch (Exception exception)
         {
-            return Task.FromResult(HealthCheckResult.Unhealthy(
+            return HealthCheckResult.Unhealthy(
                 "Attachment storage is unavailable.",
-                exception));
+                exception);
         }
     }
 }

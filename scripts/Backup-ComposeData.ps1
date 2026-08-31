@@ -33,7 +33,9 @@ try {
 
     New-Item -ItemType Directory -Path $destination -Force | Out-Null
     $attachmentDestination = Join-Path $destination 'attachments'
+    $dataProtectionDestination = Join-Path $destination 'data-protection-keys'
     New-Item -ItemType Directory -Path $attachmentDestination -Force | Out-Null
+    New-Item -ItemType Directory -Path $dataProtectionDestination -Force | Out-Null
 
     Invoke-DockerCompose @('stop', 'frontend', 'backend')
     Invoke-DockerCompose @(
@@ -44,11 +46,17 @@ try {
     )
     Invoke-DockerCompose @('cp', "db:$databaseContainerPath", (Join-Path $destination 'database.dump'))
     Invoke-DockerCompose @('exec', '-T', 'db', 'rm', '-f', $databaseContainerPath)
-    Invoke-DockerCompose @('cp', 'backend:/app/data/task-attachments/.', $attachmentDestination)
+    Invoke-DockerCompose @('cp', 'backend:/home/app/.aspnet/DataProtection-Keys/.', $dataProtectionDestination)
+    Invoke-DockerCompose @(
+        'run', '--rm', '--no-deps', '--volume', "${attachmentDestination}:/backup",
+        '--entrypoint', '/bin/sh', 'minio-init', '-c',
+        'mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" && mc mirror "local/$MINIO_BUCKET" /backup'
+    )
 
     $files = @(Get-ChildItem -Path $destination -File -Recurse | ForEach-Object {
+        $relativePath = $_.FullName.Substring($destination.TrimEnd('\').Length).TrimStart('\').Replace('\', '/')
         [ordered]@{
-            Path = [System.IO.Path]::GetRelativePath($destination, $_.FullName).Replace('\', '/')
+            Path = $relativePath
             SizeBytes = $_.Length
             Sha256 = (Get-FileHash -Path $_.FullName -Algorithm SHA256).Hash
         }
@@ -56,6 +64,8 @@ try {
     $manifest = [ordered]@{
         CreatedAtUtc = [DateTime]::UtcNow.ToString('O')
         DatabaseName = $DatabaseName
+        AttachmentProvider = 'MinIO'
+        IncludesDataProtectionKeys = $true
         ComposeProject = Split-Path $repositoryRoot -Leaf
         Files = $files
     }

@@ -15,6 +15,7 @@ $source = (Resolve-Path $BackupDirectory).Path
 $manifestPath = Join-Path $source 'manifest.json'
 $databaseDumpPath = Join-Path $source 'database.dump'
 $attachmentSource = Join-Path $source 'attachments'
+$dataProtectionSource = Join-Path $source 'data-protection-keys'
 $databaseContainerPath = "/tmp/dotnet-react-restore-$([Guid]::NewGuid().ToString('N')).dump"
 
 function Invoke-DockerCompose {
@@ -27,13 +28,13 @@ function Invoke-DockerCompose {
 }
 
 if (-not $Force.IsPresent) {
-    throw 'Restore replaces the current database and attachments. Re-run with -Force after verifying the backup target.'
+    throw 'Restore replaces the current database, attachment objects, and Data Protection keys. Re-run with -Force after verifying the backup target.'
 }
 
-$requiredPaths = @($manifestPath, $databaseDumpPath, $attachmentSource)
+$requiredPaths = @($manifestPath, $databaseDumpPath, $attachmentSource, $dataProtectionSource)
 foreach ($requiredPath in $requiredPaths) {
     if (-not (Test-Path $requiredPath)) {
-        throw 'The backup must contain manifest.json, database.dump, and the attachments directory.'
+        throw 'The backup must contain manifest.json, database.dump, attachments, and data-protection-keys.'
     }
 }
 
@@ -49,7 +50,7 @@ foreach ($file in $manifest.Files) {
     }
 }
 
-if (-not $PSCmdlet.ShouldProcess($repositoryRoot, "Restore database '$DatabaseName' and attachment binaries")) {
+if (-not $PSCmdlet.ShouldProcess($repositoryRoot, "Restore database '$DatabaseName', attachment objects, and Data Protection keys")) {
     return
 }
 
@@ -72,9 +73,14 @@ try {
     Invoke-DockerCompose @('exec', '-T', 'db', 'rm', '-f', $databaseContainerPath)
     Invoke-DockerCompose @(
         'run', '--rm', '--no-deps', '--entrypoint', 'sh', 'backend',
-        '-c', 'find /app/data/task-attachments -mindepth 1 -maxdepth 1 -exec rm -rf {} +'
+        '-c', 'find /home/app/.aspnet/DataProtection-Keys -mindepth 1 -maxdepth 1 -exec rm -rf {} +'
     )
-    Invoke-DockerCompose @('cp', "$attachmentSource/.", 'backend:/app/data/task-attachments')
+    Invoke-DockerCompose @('cp', "$dataProtectionSource/.", 'backend:/home/app/.aspnet/DataProtection-Keys')
+    Invoke-DockerCompose @(
+        'run', '--rm', '--no-deps', '--volume', "${attachmentSource}:/backup:ro",
+        '--entrypoint', '/bin/sh', 'minio-init', '-c',
+        'mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" && mc rm --recursive --force "local/$MINIO_BUCKET" && mc mirror /backup "local/$MINIO_BUCKET"'
+    )
     Write-Output "Restore completed from $source"
 }
 finally {

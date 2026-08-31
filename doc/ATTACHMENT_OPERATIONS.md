@@ -3,9 +3,29 @@
 ## Scope
 
 Attachment metadata is stored in PostgreSQL and binary content is stored through
-`IProjectTaskAttachmentStorage`. The Docker Compose deployment persists binaries in the
-`attachment-files` volume. Production deployments must replace or durably mount that
-storage; ephemeral container filesystems are unsupported.
+`IProjectTaskAttachmentStorage`. Direct API development uses the `Local` adapter by
+default. Docker Compose uses the `S3` adapter against a private MinIO bucket persisted
+in the `minio-data` volume. Ephemeral container filesystems are unsupported.
+
+Production configuration supports AWS S3 and compatible private providers:
+
+| Setting | Environment variable | Requirement |
+|---|---|---|
+| `Attachments:StorageProvider` | `ATTACHMENTS_STORAGE_PROVIDER` | `S3` for object storage |
+| `Attachments:S3BucketName` | `ATTACHMENTS_S3_BUCKET_NAME` | Existing private bucket |
+| `Attachments:S3Region` | `ATTACHMENTS_S3_REGION` | AWS region, or signing region for a compatible provider |
+| `Attachments:S3ServiceUrl` | `ATTACHMENTS_S3_SERVICE_URL` | Empty for AWS; HTTPS endpoint for a compatible provider |
+| `Attachments:S3ForcePathStyle` | `ATTACHMENTS_S3_FORCE_PATH_STYLE` | Usually `false` for AWS and `true` for MinIO |
+| `Attachments:S3AccessKey` | `ATTACHMENTS_S3_ACCESS_KEY` | Optional; secure configuration only |
+| `Attachments:S3SecretKey` | `ATTACHMENTS_S3_SECRET_KEY` | Optional; secure configuration only |
+
+For AWS, omit both explicit key settings and use the standard SDK credential chain,
+preferably an ECS task role, EC2 instance profile, or web-identity role. Never place
+credentials in `appsettings.json` or source control. Explicit keys exist for local and
+self-hosted S3-compatible deployments and must be supplied through secrets management.
+The bucket must block public access; the adapter does not request object ACLs and is
+compatible with S3 Bucket owner enforced mode. Generated opaque keys and the API remain
+the authorization boundary for downloads.
 
 ## Retention
 
@@ -28,16 +48,17 @@ inventory adapter.
 
 ## Backup and restore
 
-A valid backup contains one PostgreSQL snapshot and one attachment-storage snapshot
-from the same maintenance window.
+A valid backup contains one PostgreSQL snapshot, one attachment-storage snapshot, and
+the ASP.NET Core Data Protection key ring from the same maintenance window.
 
 1. Stop writes or place the application in maintenance mode.
 2. Back up PostgreSQL with the platform-supported `pg_dump` or snapshot mechanism.
-3. Snapshot or copy the complete attachment storage root while preserving object names.
-4. Record application version, migration version, UTC timestamp and checksums.
-5. Restore PostgreSQL and attachment objects into an isolated environment.
-6. Start the application, run migrations, then run reconciliation.
-7. Verify upload, download and delete before promoting the restored environment.
+3. Export or snapshot the complete private bucket while preserving object keys.
+4. Back up the Data Protection key ring from durable secret storage.
+5. Record application version, migration version, UTC timestamp and checksums.
+6. Restore PostgreSQL, attachment objects, and keys into an isolated environment.
+7. Start the application, run migrations, then run reconciliation.
+8. Verify upload, download and delete before promoting the restored environment.
 
 A database-only or binary-only copy is not a complete backup. Restore drills must be
 performed periodically in the selected production platform.
@@ -49,10 +70,11 @@ For the Docker Compose topology, create a coordinated backup from the repository
 ```
 
 The script records which application services were running, stops frontend/backend
-writes, creates a custom-format PostgreSQL dump, copies the complete attachment volume,
-and writes a SHA-256 manifest. It then restarts only the application services that were
-running before the backup. Use `-OutputDirectory` to select a protected destination;
-the default under `artifacts/backups` is suitable only for local drills.
+writes, creates a custom-format PostgreSQL dump, exports the complete MinIO bucket with
+`mc mirror`, copies the Data Protection key ring, and writes a SHA-256 manifest. It then
+restarts only the application services that were running before the backup. Use
+`-OutputDirectory` to select a protected destination; the default under
+`artifacts/backups` is suitable only for local drills.
 
 Restore into an isolated Compose environment first:
 
@@ -61,13 +83,19 @@ Restore into an isolated Compose environment first:
 ```
 
 Restore verifies every manifest checksum before stopping services. `-Force` and the
-PowerShell high-impact confirmation are both required because the current database and
-attachment volume are replaced. After restart, run migrations, attachment
+PowerShell high-impact confirmation are both required because the current database,
+bucket objects, and Data Protection keys are replaced. After restart, run attachment
 reconciliation, and the release gate before promoting the restored environment.
 
 These scripts automate the repository's Compose topology. Managed PostgreSQL and object
 storage deployments must use provider snapshots with equivalent write quiescence,
 checksums, retention, encryption, and restore testing.
+
+For AWS S3, enable bucket versioning, default encryption, public-access blocking,
+access logging, and lifecycle rules that retain noncurrent versions long enough to meet
+the recovery objective. Replication is not a backup unless deletion and compromised
+credentials are isolated at the destination. Test a point-in-time database restore
+together with the corresponding object versions and Data Protection key ring.
 
 ## Malware scanning boundary
 
