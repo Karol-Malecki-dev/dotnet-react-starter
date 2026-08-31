@@ -192,8 +192,10 @@ namespace Application.Services
                 ? new AuthenticatorLoginChallengeInfo(Guid.NewGuid(), DateTime.UtcNow.AddMinutes(5))
                 : null);
 
-        public Task<User?> VerifyAuthenticatorLoginChallengeAsync(Guid challengeId, string code, CancellationToken cancellationToken = default)
-            => Task.FromResult<User?>(challengeId != Guid.Empty && code == "123456" ? TestUser : null);
+        public Task<TwoFactorVerificationResult?> VerifyAuthenticatorLoginChallengeAsync(Guid challengeId, string code, CancellationToken cancellationToken = default)
+            => Task.FromResult<TwoFactorVerificationResult?>(challengeId != Guid.Empty && code == "123456"
+                ? new TwoFactorVerificationResult(TestUser, UsedRecoveryCode: false)
+                : null);
 
         public Task<bool> DisableAuthenticatorAsync(Guid userId, string currentPassword, string code, CancellationToken cancellationToken = default)
             => Task.FromResult(userId == TestUser.Id && currentPassword == "password123" && code == "123456");

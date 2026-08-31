@@ -629,7 +629,7 @@ public class DatabaseAuthService : IAuthService
     }
 
     /// <inheritdoc />
-    public async Task<User?> VerifyAuthenticatorLoginChallengeAsync(Guid challengeId, string code, CancellationToken cancellationToken = default)
+    public async Task<TwoFactorVerificationResult?> VerifyAuthenticatorLoginChallengeAsync(Guid challengeId, string code, CancellationToken cancellationToken = default)
     {
         var now = DateTime.UtcNow;
         var challenge = await _dbContext.AuthenticatorLoginChallenges.FirstOrDefaultAsync(candidate => candidate.Id == challengeId, cancellationToken);
@@ -644,7 +644,9 @@ public class DatabaseAuthService : IAuthService
             return null;
         }
 
-        var isValid = VerifyAuthenticatorCode(user.ProtectedAuthenticatorSecret, code) || await ConsumeRecoveryCodeAsync(user.Id, code, now, cancellationToken);
+        var authenticatorCodeValid = VerifyAuthenticatorCode(user.ProtectedAuthenticatorSecret, code);
+        var recoveryCodeUsed = !authenticatorCodeValid && await ConsumeRecoveryCodeAsync(user.Id, code, now, cancellationToken);
+        var isValid = authenticatorCodeValid || recoveryCodeUsed;
         if (!isValid)
         {
             return null;
@@ -652,7 +654,7 @@ public class DatabaseAuthService : IAuthService
 
         challenge.ConsumedAt = now;
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return user;
+        return new TwoFactorVerificationResult(user, recoveryCodeUsed);
     }
 
     /// <inheritdoc />
