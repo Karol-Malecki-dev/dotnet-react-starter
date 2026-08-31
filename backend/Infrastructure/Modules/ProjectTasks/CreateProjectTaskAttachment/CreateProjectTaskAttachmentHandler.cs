@@ -120,13 +120,13 @@ public sealed class CreateProjectTaskAttachmentHandler : ICreateProjectTaskAttac
                 "Project task attachment created",
                 201);
         }
-            catch (ProjectTaskAttachmentQuotaExceededException exception)
-            {
+        catch (ProjectTaskAttachmentQuotaExceededException exception)
+        {
             await _storage.DeleteAsync(storedFileName, CancellationToken.None);
-                return ProjectOperationResult<ProjectTaskAttachmentView>.Failure(
+            return ProjectOperationResult<ProjectTaskAttachmentView>.Failure(
                 ProjectOperationStatus.Conflict,
                 exception.Message);
-            }
+        }
         catch
         {
             await _storage.DeleteAsync(storedFileName, CancellationToken.None);

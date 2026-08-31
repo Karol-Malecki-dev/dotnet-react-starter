@@ -243,6 +243,40 @@ public sealed class CreateProjectTaskAttachmentHandlerTests
             Times.Once);
     }
 
+    [Fact]
+    public async Task Handle_removes_binary_when_attachment_quota_is_exceeded()
+    {
+        var command = CreateCommand();
+        ConfigureAccess(command, ProjectMemberRole.Owner);
+        _storage
+            .Setup(storage => storage.SaveAsync(
+                command.Content,
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _attachmentStore
+            .Setup(store => store.CreateAsync(
+                It.IsAny<CreateProjectTaskAttachmentCommand>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new ProjectTaskAttachmentQuotaExceededException("Attachment quota exceeded."));
+        _storage
+            .Setup(storage => storage.DeleteAsync(
+                It.IsAny<string>(),
+                CancellationToken.None))
+            .Returns(Task.CompletedTask);
+
+        var result = await CreateHandler().HandleAsync(command);
+
+        Assert.Equal(ProjectOperationStatus.Conflict, result.Status);
+        Assert.Equal("Attachment quota exceeded.", result.Message);
+        _storage.Verify(
+            storage => storage.DeleteAsync(
+                It.Is<string>(fileName => fileName.EndsWith(".txt", StringComparison.Ordinal)),
+                CancellationToken.None),
+            Times.Once);
+    }
+
     private CreateProjectTaskAttachmentHandler CreateHandler()
         => new(
             _access.Object,

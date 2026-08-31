@@ -838,6 +838,61 @@ public sealed class PostgreSqlIntegrationTests
         Assert.Equal(1, await verificationContext.ProjectTaskAttachments.CountAsync(attachment => attachment.ProjectTaskId == task.Id));
     }
 
+    [Fact]
+    public async Task PostgreSql_concurrent_attachment_uploads_allow_only_one_when_byte_quota_would_be_exceeded()
+    {
+        var ownerId = Guid.NewGuid();
+        await SeedProjectOwnerAsync(ownerId);
+        var project = Project.Create(ownerId, "Concurrent byte quota project");
+        var task = ProjectTask.Create(
+            project.Id,
+            "Concurrent byte quota task",
+            null,
+            ProjectTaskPriority.Normal,
+            null,
+            null,
+            ownerId);
+
+        await using (var setupScope = _factory.Services.CreateAsyncScope())
+        {
+            var setupContext = setupScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            setupContext.Projects.Add(project);
+            setupContext.ProjectTasks.Add(task);
+            await setupContext.SaveChangesAsync();
+        }
+
+        var settings = Options.Create(new AttachmentSettings
+        {
+            MaxFileSizeBytes = 10,
+            MaxCountPerTask = 20,
+            MaxBytesPerTask = 5
+        });
+
+        await using var firstScope = _factory.Services.CreateAsyncScope();
+        await using var secondScope = _factory.Services.CreateAsyncScope();
+        var firstStore = new EfCreateProjectTaskAttachmentStore(
+            firstScope.ServiceProvider.GetRequiredService<ApplicationDbContext>(),
+            settings);
+        var secondStore = new EfCreateProjectTaskAttachmentStore(
+            secondScope.ServiceProvider.GetRequiredService<ApplicationDbContext>(),
+            settings);
+
+        var results = await Task.WhenAll(
+            CaptureAttachmentQuotaResultAsync(firstStore, CreateAttachmentCommand(ownerId, project.Id, task.Id, 4)),
+            CaptureAttachmentQuotaResultAsync(secondStore, CreateAttachmentCommand(ownerId, project.Id, task.Id, 4)));
+
+        Assert.Single(results, result => result is null);
+        Assert.Single(results, result => result is ProjectTaskAttachmentQuotaExceededException);
+
+        await using var verificationScope = _factory.Services.CreateAsyncScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var attachments = await verificationContext.ProjectTaskAttachments
+            .Where(attachment => attachment.ProjectTaskId == task.Id)
+            .ToListAsync();
+        Assert.Single(attachments);
+        Assert.Equal(4, attachments[0].SizeBytes);
+    }
+
     private static CreateProjectTaskAttachmentCommand CreateAttachmentCommand(
         Guid userId,
         Guid projectId,
