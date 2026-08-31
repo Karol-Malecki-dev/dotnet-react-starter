@@ -28,6 +28,19 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 9.0.x
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install browser test dependencies
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
           cache: true
           cache-dependency-path: backend/**/*.csproj
 
@@ -105,6 +118,13 @@ jobs:
         env:
           SMOKE_API_URL: http://localhost:5000
           SMOKE_FRONTEND_URL: http://localhost:3000
+
+      - name: Run browser E2E tests
+        working-directory: frontend
+        run: npm run test:e2e
+        env:
+          E2E_FRONTEND_URL: http://localhost:3000
+          MAILPIT_API_URL: http://localhost:8025
 
       - name: Collect container logs
         if: failure()
