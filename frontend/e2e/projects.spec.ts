@@ -62,3 +62,64 @@ test('create a project and complete the task collaboration workflow', async ({ p
   await attachment.getByRole('button', { name: 'Delete' }).click();
   await expect(attachment).toHaveCount(0);
 });
+
+test('invite a viewer and enforce read-only project permissions', async ({ browser, page, request }, testInfo) => {
+  const suffix = Date.now().toString();
+  const viewerEmail = `project-viewer-${suffix}@example.test`;
+  const ownerEmail = `project-owner-${suffix}@example.test`;
+  const password = 'E2e.Password.123!';
+  const projectName = `Viewer project ${suffix}`;
+  const taskTitle = `Owner task ${suffix}`;
+  const viewerContext = await browser.newContext({ baseURL: testInfo.project.use.baseURL as string });
+  const viewerPage = await viewerContext.newPage();
+
+  try {
+    const viewerRegisterPage = new RegisterPage(viewerPage);
+    await viewerRegisterPage.open();
+    await viewerRegisterPage.register(viewerEmail, password);
+    const viewerConfirmation = await waitForMailpitMessage(request, viewerEmail, 'Confirm');
+    await new ConfirmEmailPage(viewerPage).open(extractConfirmationLink(viewerConfirmation));
+    const viewerLoginPage = new LoginPage(viewerPage);
+    await viewerLoginPage.open();
+    await viewerLoginPage.login(viewerEmail, password);
+    const viewerTwoFactor = await waitForMailpitMessage(request, viewerEmail, 'verification');
+    await new TwoFactorPage(viewerPage).verify(extractTwoFactorCode(viewerTwoFactor));
+
+    const ownerRegisterPage = new RegisterPage(page);
+    await ownerRegisterPage.open();
+    await ownerRegisterPage.register(ownerEmail, password);
+    const ownerConfirmation = await waitForMailpitMessage(request, ownerEmail, 'Confirm');
+    await new ConfirmEmailPage(page).open(extractConfirmationLink(ownerConfirmation));
+    const ownerLoginPage = new LoginPage(page);
+    await ownerLoginPage.open();
+    await ownerLoginPage.login(ownerEmail, password);
+    const ownerTwoFactor = await waitForMailpitMessage(request, ownerEmail, 'verification');
+    await new TwoFactorPage(page).verify(extractTwoFactorCode(ownerTwoFactor));
+
+    await page.getByRole('link', { name: 'Projects' }).first().click();
+    await page.getByLabel('Name').fill(projectName);
+    await page.getByRole('button', { name: 'Create project' }).click();
+    await page.getByLabel('Task title').fill(taskTitle);
+    await page.getByRole('button', { name: 'Add task' }).click();
+    await page.getByLabel('Account email').fill(viewerEmail);
+    await page.getByLabel('Role', { exact: true }).selectOption({ label: 'Viewer' });
+    await page.getByRole('button', { name: 'Create invitation' }).click();
+    const invitationLink = await page.getByLabel('Invitation link').inputValue();
+
+    await viewerPage.goto(invitationLink);
+    await viewerPage.getByRole('button', { name: 'Accept invitation' }).click();
+    await expect(viewerPage.getByText('You joined the project.')).toBeVisible();
+    await viewerPage.getByRole('link', { name: 'Projects' }).first().click();
+    await viewerPage.getByRole('button', { name: new RegExp(projectName) }).click();
+
+    await expect(viewerPage.getByRole('heading', { name: 'Add task' })).toHaveCount(0);
+    const viewerTask = viewerPage.locator('.task-item').filter({ hasText: taskTitle });
+    await expect(viewerTask.getByLabel(`Status for ${taskTitle}`)).toBeDisabled();
+    await viewerTask.getByRole('button', { name: 'Discussion' }).click();
+    await expect(viewerPage.getByText('Viewers can read comments but cannot add them.')).toBeVisible();
+    await viewerTask.getByRole('button', { name: 'Attachments' }).click();
+    await expect(viewerPage.getByText('Viewers can download attachments but cannot upload them.')).toBeVisible();
+  } finally {
+    await viewerContext.close();
+  }
+});
