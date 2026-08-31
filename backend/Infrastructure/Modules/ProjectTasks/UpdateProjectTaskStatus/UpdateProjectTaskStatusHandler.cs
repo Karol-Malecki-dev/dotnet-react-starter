@@ -1,6 +1,7 @@
 using Application.Features.ProjectManagement.Tasks;
 using Application.Features.Projects;
 using Application.Modules.ProjectTasks.UpdateProjectTaskStatus;
+using Application.Interfaces;
 using Domain.Entities;
 using Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -17,13 +18,16 @@ public sealed class UpdateProjectTaskStatusHandler : IUpdateProjectTaskStatusHan
 
     private readonly IProjectTaskAccess _projectTaskAccess;
     private readonly IProjectTaskCommandStore _commandStore;
+    private readonly ICollaborationNotificationWriter? _notificationWriter;
 
     public UpdateProjectTaskStatusHandler(
         IProjectTaskAccess projectTaskAccess,
-        IProjectTaskCommandStore commandStore)
+        IProjectTaskCommandStore commandStore,
+        ICollaborationNotificationWriter? notificationWriter = null)
     {
         _projectTaskAccess = projectTaskAccess;
         _commandStore = commandStore;
+        _notificationWriter = notificationWriter;
     }
 
     public async Task<ProjectOperationResult<ProjectTaskView>> HandleAsync(
@@ -69,6 +73,20 @@ public sealed class UpdateProjectTaskStatusHandler : IUpdateProjectTaskStatusHan
                 Description = $"changed the status of '{task.Title}' to {task.Status}.",
                 ProjectTaskId = task.Id
             });
+
+            if (_notificationWriter is not null && task.AssignedUserId is { } assigneeId && assigneeId != command.UserId)
+            {
+                await _notificationWriter.StageAsync(
+                    assigneeId,
+                    NotificationType.TaskStatusChanged,
+                    "Task status changed",
+                    $"'{task.Title}' changed to {task.Status}.",
+                    "projectTask",
+                    task.Id,
+                    task.ProjectId,
+                    $"task:{task.Id}:status:{task.Status}:version:{task.ConcurrencyStamp}",
+                    cancellationToken);
+            }
         }
 
         try

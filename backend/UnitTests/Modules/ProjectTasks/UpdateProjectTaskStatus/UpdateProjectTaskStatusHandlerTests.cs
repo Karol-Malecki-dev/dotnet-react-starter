@@ -1,6 +1,7 @@
 using Application.Features.ProjectManagement.Tasks;
 using Application.Features.Projects;
 using Application.Modules.ProjectTasks.UpdateProjectTaskStatus;
+using Application.Interfaces;
 using Domain.Entities;
 using Domain.Enums;
 using Infrastructure.Modules.ProjectTasks.UpdateProjectTaskStatus;
@@ -13,6 +14,7 @@ public sealed class UpdateProjectTaskStatusHandlerTests
 {
     private readonly Mock<IProjectTaskAccess> _access = new();
     private readonly Mock<IProjectTaskCommandStore> _commandStore = new();
+    private readonly Mock<ICollaborationNotificationWriter> _notificationWriter = new();
 
     [Fact]
     public async Task Handle_returns_not_found_without_loading_task_when_user_has_no_project_access()
@@ -114,6 +116,43 @@ public sealed class UpdateProjectTaskStatusHandlerTests
     }
 
     [Fact]
+    public async Task Handle_stages_notification_for_another_assignee_after_status_change()
+    {
+        var projectId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var assigneeId = Guid.NewGuid();
+        var task = ProjectTask.Create(
+            projectId,
+            "Assigned task",
+            null,
+            ProjectTaskPriority.Normal,
+            null,
+            assigneeId,
+            actorId);
+        var command = new UpdateProjectTaskStatusCommand(
+            actorId,
+            projectId,
+            task.Id,
+            ProjectTaskStatus.Done,
+            task.ConcurrencyStamp);
+        ConfigureTaskAccess(command, task, ProjectMemberRole.Owner);
+
+        var result = await CreateHandler().HandleAsync(command);
+
+        Assert.True(result.IsSuccess);
+        _notificationWriter.Verify(writer => writer.StageAsync(
+            assigneeId,
+            NotificationType.TaskStatusChanged,
+            It.IsAny<string>(),
+            It.Is<string>(message => message.Contains("Done", StringComparison.Ordinal)),
+            "projectTask",
+            task.Id,
+            projectId,
+            It.Is<string>(key => key.Contains($"task:{task.Id}:status:Done", StringComparison.Ordinal)),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task Handle_saves_without_activity_when_status_does_not_change()
     {
         var (command, task) = CreateScenario();
@@ -143,7 +182,7 @@ public sealed class UpdateProjectTaskStatusHandlerTests
     }
 
     private UpdateProjectTaskStatusHandler CreateHandler()
-        => new(_access.Object, _commandStore.Object);
+        => new(_access.Object, _commandStore.Object, _notificationWriter.Object);
 
     private void ConfigureTaskAccess(
         UpdateProjectTaskStatusCommand command,

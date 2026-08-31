@@ -293,6 +293,7 @@ namespace API.Services
             services.AddScoped<IAuthService, DatabaseAuthService>();
             services.AddScoped<IUserService, DatabaseUserService>();
             services.AddScoped<INotificationWriter, DatabaseNotificationWriter>();
+            services.AddScoped<ICollaborationNotificationWriter, CollaborationNotificationWriter>();
             services.AddScoped<LoggingNotificationEmailSender>();
             services.AddSingleton<BackgroundWorkerHealthState>();
             services.AddScoped<MailKitNotificationEmailSender>();

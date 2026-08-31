@@ -1,7 +1,9 @@
 using Application.Features.Projects;
 using Application.Modules.Projects.RemoveProjectMember;
 using Application.Modules.ProjectTasks.Assignments;
+using Application.Interfaces;
 using Domain.Entities;
+using Domain.Enums;
 
 namespace Infrastructure.Modules.Projects.RemoveProjectMember;
 
@@ -12,13 +14,16 @@ public sealed class RemoveProjectMemberHandler : IRemoveProjectMemberHandler
 {
     private readonly IRemoveProjectMemberStore _store;
     private readonly IProjectTaskMemberAssignmentWriter _taskAssignmentWriter;
+    private readonly ICollaborationNotificationWriter? _notificationWriter;
 
     public RemoveProjectMemberHandler(
         IRemoveProjectMemberStore store,
-        IProjectTaskMemberAssignmentWriter taskAssignmentWriter)
+        IProjectTaskMemberAssignmentWriter taskAssignmentWriter,
+        ICollaborationNotificationWriter? notificationWriter = null)
     {
         _store = store;
         _taskAssignmentWriter = taskAssignmentWriter;
+        _notificationWriter = notificationWriter;
     }
 
     public async Task<ProjectOperationResult<bool>> HandleAsync(
@@ -66,6 +71,20 @@ public sealed class RemoveProjectMemberHandler : IRemoveProjectMemberHandler
             Type = "member.removed",
             Description = "removed a project member."
         });
+
+        if (_notificationWriter is not null)
+        {
+            await _notificationWriter.StageAsync(
+                command.UserId,
+                NotificationType.ProjectMemberRemoved,
+                "Removed from project",
+                $"You were removed from '{project.Name}'.",
+                "project",
+                project.Id,
+                project.Id,
+                $"project:{project.Id}:member:{command.UserId}:removed",
+                cancellationToken);
+        }
 
         await _store.SaveChangesAsync(cancellationToken);
 
