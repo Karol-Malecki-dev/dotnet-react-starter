@@ -233,4 +233,56 @@ jobs:
         run: |
           set -euo pipefail
           ssh "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "cd '${DEPLOY_PATH}' && chmod +x deploy.sh rollback.sh backup.sh restore.sh && ./deploy.sh '${IMAGE_TAG}' '${DEPLOY_ENV_FILE}' 'https://${STAGING_DOMAIN}'"
+            "cd '${DEPLOY_PATH}' && chmod +x deploy.sh rollback.sh backup.sh restore.sh && ./deploy.sh '${IMAGE_TAG}' '${DEPLOY_ENV_FILE}' 'https://${STAGING_DOMAIN}' 'staging'"
+
+      - name: Set up Node.js for staging smoke
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install browser test dependencies
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run public staging browser smoke
+        working-directory: frontend
+        env:
+          E2E_FRONTEND_URL: https://${{ vars.STAGING_DOMAIN }}
+          E2E_MAILPIT_URL: http://127.0.0.1:8025
+          DEPLOY_HOST: ${{ vars.STAGING_SSH_HOST }}
+          DEPLOY_USER: ${{ vars.STAGING_SSH_USER }}
+        run: |
+          set -euo pipefail
+          tunnel_pid=""
+
+          cleanup() {
+            if [[ -n "$tunnel_pid" ]]; then
+              kill "$tunnel_pid" 2>/dev/null || true
+              wait "$tunnel_pid" 2>/dev/null || true
+            fi
+          }
+          trap cleanup EXIT
+
+          ssh -o ExitOnForwardFailure=yes -o LogLevel=ERROR -N \
+            -L 8025:127.0.0.1:8025 "${DEPLOY_USER}@${DEPLOY_HOST}" &
+          tunnel_pid=$!
+
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error --max-time 5 \
+              "${E2E_MAILPIT_URL}/api/v1/messages" >/dev/null; then
+              break
+            fi
+
+            if [[ "$attempt" -eq 30 ]]; then
+              echo 'Mailpit SSH tunnel did not become ready.' >&2
+              exit 1
+            fi
+
+            sleep 2
+          done
+
+          npm run test:e2e

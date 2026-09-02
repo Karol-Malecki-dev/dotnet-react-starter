@@ -47,6 +47,19 @@ services:
       - no-new-privileges:true
     logging: *default-logging
 
+  mailpit:
+    image: axllent/mailpit:v1.27
+    profiles:
+      - staging
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${MAILPIT_HTTP_PORT:-8025}:8025"
+    networks:
+      - internal
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+
   minio-init:
     image: minio/mc:RELEASE.2025-04-16T18-13-26Z
     restart: "no"
@@ -122,7 +135,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:5000
-      AllowedHosts: ${APP_DOMAIN:?Set APP_DOMAIN}
+      AllowedHosts: ${APP_DOMAIN:?Set APP_DOMAIN};backend
       ConnectionStrings__DefaultConnection: Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
       Database__ApplyMigrationsOnStartup: "false"
       Jwt__Secret: ${JWT_SECRET:?Set JWT_SECRET}
@@ -137,6 +150,8 @@ services:
       ForwardedHeaders__ForwardLimit: "1"
       Cors__AllowCredentials: "true"
       Cors__AllowedOrigins__0: https://${APP_DOMAIN}
+      Cors__AllowedOrigins__1: https://${APP_DOMAIN}
+      Cors__AllowedOrigins__2: https://${APP_DOMAIN}
       EmailConfirmation__PublicOrigin: https://${APP_DOMAIN}
       EmailDelivery__Enabled: "true"
       EmailDelivery__Host: ${SMTP_HOST:?Set SMTP_HOST}
@@ -210,9 +225,9 @@ services:
       APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN}
       TLS_EMAIL: ${TLS_EMAIL:?Set TLS_EMAIL}
     ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
+      - "${PUBLIC_HTTP_PORT:-80}:80"
+      - "${PUBLIC_HTTPS_PORT:-443}:443"
+      - "${PUBLIC_HTTPS_PORT:-443}:443/udp"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
@@ -244,6 +259,26 @@ services:
       - no-new-privileges:true
     logging: *default-logging
 
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --config.expand-env
+      - --storage.path=/alertmanager
+    environment:
+      ALERTMANAGER_WEBHOOK_URL: ${ALERTMANAGER_WEBHOOK_URL:?Set ALERTMANAGER_WEBHOOK_URL}
+    ports:
+      - "127.0.0.1:9093:9093"
+    volumes:
+      - ./observability/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    networks:
+      - internal
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+
   node-exporter:
     image: prom/node-exporter:v1.9.1
     restart: unless-stopped
@@ -256,7 +291,7 @@ services:
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
-      - /:/rootfs:ro,rslave
+      - /:/rootfs:ro
     networks:
       - internal
     read_only: true
@@ -281,6 +316,8 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+      alertmanager:
+        condition: service_started
       blackbox-exporter:
         condition: service_started
       node-exporter:
@@ -331,3 +368,4 @@ volumes:
   caddy-config:
   prometheus-data:
   grafana-data:
+  alertmanager-data:

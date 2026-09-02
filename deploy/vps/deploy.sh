@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-if [[ $# -ne 3 ]]; then
-  echo "Usage: $0 <image-tag> <production-env-file> <public-base-url>" >&2
+if [[ $# -lt 3 || $# -gt 4 ]]; then
+  echo "Usage: $0 <image-tag> <production-env-file> <public-base-url> [compose-profile]" >&2
   exit 64
 fi
 
 image_tag="$1"
 environment_file="$2"
 public_base_url="${3%/}"
+compose_profile="${4:-}"
 script_directory="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 compose_file="${script_directory}/compose.production.yml"
+staging_compose_file="${script_directory}/compose.staging.yml"
 state_file="${script_directory}/.deployed-image-tag"
 previous_state_file="${script_directory}/.previous-image-tag"
 lock_file="${script_directory}/.deployment.lock"
@@ -32,7 +34,15 @@ if ! flock -n 9; then
 fi
 
 compose() {
-  docker compose --env-file "$environment_file" -f "$compose_file" "$@"
+  local compose_arguments=(--env-file "$environment_file" -f "$compose_file")
+  if [[ -n "$compose_profile" ]]; then
+    compose_arguments+=(--profile "$compose_profile")
+  fi
+  if [[ "$compose_profile" == "staging" ]]; then
+    compose_arguments+=(-f "$staging_compose_file")
+  fi
+
+  docker compose "${compose_arguments[@]}" "$@"
 }
 
 wait_for_readiness() {

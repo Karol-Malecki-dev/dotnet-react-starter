@@ -90,6 +90,9 @@ jobs:
       - name: Validate production Compose model
         run: docker compose --env-file deploy/vps/.env.production.example -f deploy/vps/compose.production.yml config --quiet
 
+      - name: Validate staging Compose model
+         run: docker compose --profile staging --env-file deploy/vps/.env.production.example -f deploy/vps/compose.production.yml -f deploy/vps/compose.staging.yml config --quiet
+
       - name: Validate deployment scripts
         run: |
           bash -n deploy/vps/deploy.sh
@@ -111,8 +114,17 @@ jobs:
           docker run --rm --entrypoint promtool \
             -v "${PWD}/deploy/vps/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro" \
             -v "${PWD}/deploy/vps/observability/alerts.yml:/etc/prometheus/alerts.yml:ro" \
-            prom/prometheus:v3.5.0 \
-            check config /etc/prometheus/prometheus.yml
+             prom/prometheus:v3.5.0 \
+             check config /etc/prometheus/prometheus.yml
+
+      - name: Validate Alertmanager configuration
+        run: |
+          sed 's|\${ALERTMANAGER_WEBHOOK_URL}|https://alerts.example.invalid/dotnet-react-starter|g' \
+            deploy/vps/observability/alertmanager.yml > "${RUNNER_TEMP}/alertmanager.yml"
+          docker run --rm --entrypoint amtool \
+            -v "${RUNNER_TEMP}/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro" \
+            prom/alertmanager:v0.28.1 \
+            check-config /etc/alertmanager/alertmanager.yml
 
   docker-smoke:
     name: Docker Compose smoke tests
@@ -158,7 +170,7 @@ jobs:
         run: npm run test:e2e
         env:
           E2E_FRONTEND_URL: http://localhost:3000
-          MAILPIT_API_URL: http://localhost:8025
+          E2E_MAILPIT_URL: http://localhost:8025
 
       - name: Collect container logs
         if: failure()
