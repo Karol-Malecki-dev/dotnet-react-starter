@@ -11,8 +11,7 @@ namespace IntegrationTests;
 
 public sealed class PostgreSqlWebApplicationFactory : CustomWebApplicationFactory, IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _database = new PostgreSqlBuilder()
-        .WithImage("postgres:16-alpine")
+    private readonly PostgreSqlContainer _database = new PostgreSqlBuilder("postgres:16-alpine")
         .WithDatabase("starter_tests")
         .WithUsername("postgres")
         .WithPassword("postgres")
