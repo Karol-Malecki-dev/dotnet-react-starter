@@ -17,7 +17,8 @@ does not change the application contracts.
 - ClamAV scans every attachment before it becomes available.
 - A one-shot migration container completes before the API starts.
 - Data Protection keys persist across application replacements.
-- Prometheus, blackbox exporter, and node-exporter provide health and host metrics.
+- Prometheus, Alertmanager, blackbox exporter, and node-exporter provide health, alert delivery,
+  and host metrics.
 - Grafana and Prometheus bind only to VPS loopback.
 
 The deployment definition is `deploy/vps/compose.production.yml`.
@@ -29,6 +30,7 @@ Use a currently supported Ubuntu LTS release with:
 - at least 2 vCPU, 8 GB RAM, and sufficient SSD space for the database, ClamAV signatures,
   object storage, metrics, and two backup generations;
 - Docker Engine and the Docker Compose plugin from Docker's official repository;
+- `gnupg` for encrypted backup archives;
 - a dedicated `dotnet-react` deployment account;
 - inbound ports `80/tcp` and `443/tcp+udp`;
 - SSH restricted to the operator's source network;
@@ -48,6 +50,18 @@ Recommended host paths:
 The environment file must be owned by `root:dotnet-react`, mode `0640`, and created from
 `deploy/vps/.env.production.example`. Never copy the completed file into the repository,
 container image, CI log, or support ticket.
+
+Install a separate encryption key readable by the backup service account:
+
+```bash
+sudo install -o root -g dotnet-react -m 0640 \
+  /secure-source/dotnet-react-backup-encryption.key \
+  /etc/dotnet-react-starter/backup-encryption.key
+```
+
+Keep the key outside the backup destination and maintain an independent recovery copy. The
+encrypted backup is not useful without this key, while the key alone does not contain application
+data.
 
 ## GitHub staging environment
 
@@ -73,16 +87,34 @@ Environment secrets:
 
 Do not use `ssh-keyscan` during deployment. Host identity must already be pinned.
 
+The protected staging environment uses the `staging` Compose profile. Its deployment environment
+file must route SMTP to the profile's private Mailpit service:
+
+```text
+SMTP_HOST=mailpit
+SMTP_PORT=1025
+SMTP_USE_STARTTLS=false
+```
+
+Mailpit's HTTP API is bound to VPS loopback only. CD reaches it through an SSH tunnel while the
+browser suite uses the public HTTPS domain. Production deployments must omit the `staging` profile
+and use a real external SMTP provider.
+
+Set `ALERTMANAGER_WEBHOOK_URL` in the protected environment file to the operator notification
+endpoint. Do not put a webhook token or provider credential in the repository.
+
 ## First deployment
 
 1. Merge a commit that passed all CI checks into `main`.
 2. Wait for CD to publish backend and frontend images tagged with the full commit SHA.
 3. Run `CD - Publish and deploy` manually from `main` with `deploy_staging=true`.
-4. Approve the protected `staging` environment.
+4. Approve the protected `staging` environment. The deployment starts the `staging` Compose
+  profile so browser tests can inspect email without sending messages to real recipients.
 5. Confirm `https://<domain>/health/ready` returns HTTP 200.
-6. Open the application and complete registration, email confirmation, login, project, task,
-   comment, and attachment smoke workflows.
-7. Verify that the Grafana dashboard receives health and host metrics.
+6. CD opens a pinned SSH tunnel to Mailpit and runs the registration, email confirmation, login,
+  2FA, project, task, comment, and attachment browser smoke workflows through public HTTPS.
+7. Verify that the Grafana dashboard receives health and host metrics and send a test
+  Alertmanager notification.
 
 The deployment script serializes deploys with `flock`. It records the active and previous image
 tags and automatically rolls back the application when Compose or public readiness fails.
@@ -129,17 +161,18 @@ sudo systemctl enable --now dotnet-react-backup.timer
 
 The daily snapshot contains:
 
-- a PostgreSQL custom-format dump;
+- a GPG-encrypted archive containing a PostgreSQL custom-format dump;
 - an object-level MinIO export;
 - the Data Protection key ring;
 - image metadata;
-- a SHA-256 manifest.
+- a SHA-256 manifest verified before encryption.
 
 The script briefly stops Caddy, frontend, and backend to prevent cross-store writes during the
 snapshot. PostgreSQL, MinIO, monitoring, and ClamAV remain running.
 
-Copy snapshots to encrypted off-host storage. A backup existing only on the application VPS is
-not disaster recovery.
+Copy the resulting `*.tar.gz.gpg` snapshots to encrypted off-host storage. The local GPG layer
+protects the artifact before transfer; off-host storage still needs independent access control,
+retention and encryption. A backup existing only on the application VPS is not disaster recovery.
 
 ## Restore drill
 
@@ -150,19 +183,29 @@ VPS, never for the first time during a production incident.
 cd /opt/dotnet-react-starter
 ./restore.sh \
   /etc/dotnet-react-starter/production.env \
-  /var/backups/dotnet-react-starter/2026-08-31T020000Z \
-  --force
+  /var/backups/dotnet-react-starter/2026-08-31T020000Z.tar.gz.gpg \
+  --force \
+  https://staging.example.com \
+  /etc/dotnet-react-starter/backup-encryption.key \
+  staging
 ```
 
-After restore:
+The script verifies the encrypted archive and its internal SHA-256 manifest, restores all three
+data stores, runs the controlled migration container for the current image, and requires public
+`/health/live`, `/health/ready`, and `/health/workers` checks to pass before returning success.
+
+After the automated validation:
 
 1. verify `/health/ready` and `/health/workers`;
 2. authenticate using a session created before the snapshot;
 3. download an attachment created before the snapshot;
 4. create and delete a new attachment;
-5. record restore duration and snapshot identifier.
+5. run attachment reconciliation and investigate any drift;
+6. record restore duration and snapshot identifier.
 
-Run a restore drill at least quarterly and before changing the database or storage topology.
+Run a restore drill at least quarterly and before changing the database or storage topology. The
+restore script performs migration and public health validation, but the operator must still run
+the authenticated attachment reconciliation and record the result.
 
 ## Monitoring
 
@@ -174,11 +217,13 @@ ssh -L 3001:127.0.0.1:3001 -L 9090:127.0.0.1:9090 dotnet-react@HOST
 
 - Grafana: `http://localhost:3001`
 - Prometheus alerts: `http://localhost:9090/alerts`
+- Alertmanager: `http://localhost:9093`
 
 Configured alerts cover:
 
 - process liveness;
 - database, object storage, and ClamAV readiness;
+- object storage, ClamAV, and recorded SMTP delivery failures;
 - background worker health;
 - low disk space;
 - low available memory.
@@ -253,7 +298,8 @@ key ring invalidates protected tokens and is not a normal rotation procedure.
 - Staging approval is recorded.
 - Migration review confirms backward compatibility.
 - Public TLS, HSTS, cookies, CORS, and email links use the target domain.
-- Readiness, worker health, dashboard, and all five alert rules are operational.
+- Readiness, worker health, dashboard, all configured alert rules, and the Alertmanager delivery
+  route are operational.
 - Off-host backup completed and a restore drill has a recorded result.
 - Browser smoke workflows pass after deployment.
 - Previous image tag is available for rollback.

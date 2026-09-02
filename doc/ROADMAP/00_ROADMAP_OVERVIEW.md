@@ -56,7 +56,7 @@ Najważniejsze braki nie polegają obecnie na braku kolejnych endpointów. Dotyc
 
 ## Status realizacji roadmapy
 
-Stan na: **2026-08-31**.
+Stan na: **2026-09-02**.
 
 Procent opisuje realizację głównych obszarów danego etapu, a nie liczbę linii kodu. `100%` oznacza spełniony obszar wraz z testem, dokumentacją albo zaakceptowaną decyzją. `50%` oznacza istniejący fundament bez pełnego Definition of Done, a `0%` oznacza brak rozpoczętej realizacji. Postęp bazowej roadmapy jest średnią arytmetyczną etapów V1-V7 i nie jest miarą gotowości produkcyjnej. V8 jest późniejszym etapem platformizacji i nie jest wliczany do postępu bazowej aplikacji.
 
@@ -65,13 +65,13 @@ Procent opisuje realizację głównych obszarów danego etapu, a nie liczbę lin
 | V1 | 100% | Ukończony | Fundament aplikacji, testy i lokalny workflow są dostępne. |
 | V2 | 96% | Ukończony dla bieżącego zakresu | Hardening auth, API, async i konfiguracji jest zwalidowany; pozostały drobne follow-upy porządkowe. |
 | V3 | 50% | W toku | `Project` i `ProjectMember` mają wyraźniejszą granicę agregatu, `ProjectTask` został rozstrzygnięty jako osobny agregat, akceptacja zaproszeń ma transakcję i concurrency z testami PostgreSQL, dashboard używa agregacji SQL, zakresów dat i potwierdzonego indeksu PostgreSQL, `User` korzysta z przetestowanych value objectów oraz enkapsulowanych metod domenowych, a backendowy pilot `ProjectTasks` obejmuje CRUD, komentarze, załączniki i worker przypomnień jako osobne vertical slices przy zachowaniu istniejących tabel i kontraktów; rozpoczęto też pierwszy slice modułu `Projects` (`GetProjectDetails`), a pozostały migracja kolejnych przypadków, frontendowe granice, guardrails i benchmarki. |
-| V4 | 28% | Fundamenty | Istnieją workflowy, załączniki, activity i quick search; brak pełnego audytu, search workspace i browser E2E. |
-| V5 | 41% | W toku | Działają Docker, CI, obrazy i lokalny Compose; brak realnego staging/production, backupu i rollbacku. |
+| V4 | 28% | Fundamenty | Istnieją workflowy, załączniki, activity, quick search i lokalne browser E2E; brak pełnego audytu oraz search workspace, a stagingowa walidacja E2E należy do V5. |
+| V5 | 80% | W toku | Implementacja deploymentu VPS, migracji, szyfrowanego backupu, rollbacku, monitoringu i protected staging smoke jest gotowa; formalny gate czeka na realny staging, off-host backup, restore drill i rollback evidence. |
 | V6 | 13% | Planowany | Istnieją podstawy EF, PostgreSQL i workerów; brak baseline'ów, load testów i pomiarów. |
 | V7 | 0% | Opcjonalny | Brak kierunku wymagającego obecnie implementacji. |
 | V8 | 0% | Odroczony | Najpierw kilka modułów i slice'ów musi potwierdzić stabilny standard oraz realny koszt ponownego użycia. |
 
-**Postęp bazowej roadmapy V1-V7: 47%**.
+**Postęp bazowej roadmapy V1-V7: 52%**.
 
 ## Priorytety
 

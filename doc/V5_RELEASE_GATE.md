@@ -15,7 +15,7 @@ CI additionally validates:
 - production Docker Compose interpolation;
 - Bash deployment, rollback, backup, and restore syntax;
 - Caddy TLS/proxy configuration;
-- Prometheus scrape configuration and alert rules;
+- Prometheus scrape and alert rules plus Alertmanager routing configuration;
 - backend and frontend image builds;
 - HIGH and CRITICAL image vulnerabilities before publication.
 
@@ -30,7 +30,7 @@ Required evidence:
 - automatic TLS certificate is valid for the configured domain;
 - registration, email confirmation, login, project, task, comment, and attachment workflows pass;
 - Grafana receives application and host data;
-- five Prometheus alert rules are loaded;
+- all configured Prometheus alert rules are loaded and Alertmanager delivers a test notification;
 - a backup is copied off host;
 - the same backup is restored on staging or an isolated clone;
 - manual rollback restores the previous image and passes readiness.

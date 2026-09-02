@@ -14,7 +14,7 @@ V1 is complete as the junior baseline and V2 is complete for the current securit
 
 ## Current progress
 
-As of **2026-08-30**. Percentages follow the calculation documented in the canonical [roadmap overview](../doc/ROADMAP/00_ROADMAP_OVERVIEW.md).
+As of **2026-09-02**. Percentages follow the calculation documented in the canonical [roadmap overview](../doc/ROADMAP/00_ROADMAP_OVERVIEW.md).
 
 | Stage | Progress | Status |
 |---|---:|---|
@@ -22,7 +22,7 @@ As of **2026-08-30**. Percentages follow the calculation documented in the canon
 | V2 | 96% | Complete for the current scope; minor follow-ups remain. |
 | V3 | 40% | Project and ProjectTask aggregate boundaries are documented and tested; project, invitation and task concurrency plus invitation and member transaction workflows have PostgreSQL coverage; dashboard date predicates and index usage are covered; `User.Email` and `User.DisplayName` use tested domain value objects, while `User` mutations are encapsulated behind a factory and explicit domain methods without changing the existing schema or API contracts; the first `CreateProjectTask` vertical slice now has a focused handler, endpoint, validator and module registration; implementation is not complete. |
 | V4 | 28% | Foundations present; implementation not complete. |
-| V5 | 41% | Local Docker/CI foundations; no real target hosting yet. |
+| V5 | 80% | VPS deployment, controlled migrations, encrypted backup/restore, rollback, monitoring and protected staging smoke are implemented; real staging evidence is still pending. |
 | V6 | 13% | Initial foundations; measurement work not started. |
 | V7 | 0% | Optional and intentionally not started. |
 

@@ -13,7 +13,7 @@ Uruchamia się dla:
 - pushy do branchy `feature/**`;
 - ręcznego uruchomienia z zakładki Actions.
 
-CI składa się z trzech jobów:
+CI składa się z czterech jobów:
 
 1. **Backend build and tests**
    - instaluje .NET 9;
@@ -23,7 +23,7 @@ CI składa się z trzech jobów:
    - zapisuje pliki `.trx` jako artefakt.
 
 2. **Frontend build and tests**
-   - instaluje Node.js 20;
+   - instaluje Node.js 22;
    - wykonuje `npm ci`, czyli instalację dokładnie według lockfile;
    - uruchamia `npm run test:once`;
    - uruchamia `npm run build`.
@@ -48,9 +48,11 @@ ghcr.io/<owner>/dotnet-react-starter-backend:<commit-sha>
 ghcr.io/<owner>/dotnet-react-starter-frontend:<commit-sha>
 ```
 
-Dodatkowo każdy udany push do `main` aktualizuje tag `latest`.
-
-CD **nie wdraża jeszcze aplikacji na konkretny hosting**. To celowe: sposób uruchomienia zależy od wybranej platformy, na przykład Azure Container Apps, App Service, VPS albo Kubernetes. Obraz z tagiem SHA jest niezmienny i może zostać użyty jako wersja do wdrożenia.
+Ręczne uruchomienie z `main` może wdrożyć obraz o pełnym SHA do chronionego środowiska `staging`.
+CD przesyła definicję VPS, uruchamia kontrolowane migracje przez `deploy.sh`, włącza stagingowy
+profil Mailpit, a następnie wykonuje browser smoke przez publiczny HTTPS. Mailpit pozostaje dostępny
+wyłącznie na loopback VPS i jest osiągany przez przypięty tunel SSH. Produkcja nie jest wdrażana
+automatycznie.
 
 ## Bezpieczeństwo
 
@@ -63,10 +65,10 @@ CD **nie wdraża jeszcze aplikacji na konkretny hosting**. To celowe: sposób ur
 ## Jak czytać pipeline
 
 - **CI** odpowiada na pytanie: „Czy zmiana działa i nie psuje projektu?”
-- **CD** odpowiada na pytanie: „Czy gotowy artefakt został opublikowany i może być wdrożony?”
+- **CD** odpowiada na pytanie: „Czy gotowy artefakt został opublikowany i przeszedł kontrolowany staging deployment oraz smoke?”
 - Build obrazu Docker nie oznacza jeszcze wdrożenia na produkcję.
 - Tag SHA pozwala wskazać dokładny kod, który został zbudowany.
-- Tag `latest` jest wygodny do testów, ale w produkcji lepiej wdrażać konkretny tag SHA.
+- W produkcji należy wdrażać konkretny tag SHA, a nie ruchomy tag.
 
 ## Lokalna odpowiednik pipeline'u
 
@@ -91,13 +93,13 @@ Docker smoke test:
 ./scripts/Invoke-E2ETests.ps1
 ```
 
-## Następny etap CD
+## Staging deployment
 
-Po wybraniu hostingu można dodać osobny job wdrożeniowy, który:
+Po skonfigurowaniu chronionego środowiska `staging` job wdrożeniowy:
 
 1. pobiera obraz oznaczony konkretnym SHA;
-2. używa sekretów środowiska staging lub production;
+2. używa sekretów środowiska staging i przypiętego klucza hosta SSH;
 3. wykonuje migracje bazy zgodnie z ustaloną strategią;
-4. wdraża aplikację;
-5. sprawdza health endpoint;
-6. zatrzymuje wdrożenie przy nieudanym smoke teście.
+4. wdraża aplikację na VPS;
+5. sprawdza health endpointy i uruchamia Playwright przez publiczny HTTPS;
+6. zatrzymuje workflow przy nieudanym smoke teście.

@@ -6,19 +6,22 @@ V5 ma przeprowadzić aplikację z lokalnego Docker Compose i CI do jednego realn
 
 ## Status realizacji
 
-Stan na: **2026-08-29**.
+Stan na: **2026-09-02**.
 
 | Obszar | Postęp | Status i dowód |
 |---|---:|---|
-| 1. Środowiska i konfiguracja | 40% | Local, Integration i konfiguracja przez środowisko są opisane; nie ma jeszcze realnego staging/production. |
-| 2. Obrazy i registry | 50% | Obrazy są multi-stage, runtime backendu działa jako non-root, a CI publikuje obrazy; brakuje skanowania i pełnej polityki artefaktów. |
-| 3. Migracje bazy | 30% | Migracje i startup migration działają lokalnie; brakuje osobnego kontrolowanego joba, testu upgrade/rollback i planu naprawy. |
-| 4. Reverse proxy i TLS | 50% | Nginx, forwarded headers i lokalne cookie są sprawdzone; docelowe HTTPS, nagłówki bezpieczeństwa i limity proxy zależą od hostingu. |
-| 5. Baza, storage i backup | 20% | Compose ma trwałe wolumeny lokalne; brak próbnego backupu, restore i produkcyjnego storage załączników. |
-| 6. CI/CD | 60% | CI buduje i testuje backend/frontend/Compose, a CD publikuje obrazy GHCR; brak wdrożenia na konkretną platformę. |
-| 7. Monitoring i procedury | 35% | Logi, correlation ID i health checks działają; brak alertów, dashboardów, runbooka i przetestowanego rollbacku. |
+| 1. Środowiska i konfiguracja | 75% | Produkcyjny Compose, zewnętrzna konfiguracja, staging profile i protected GitHub Environment są opisane; realny staging nadal wymaga konfiguracji i dowodu uruchomienia. |
+| 2. Obrazy i registry | 85% | Obrazy są multi-stage, runtime backendu działa jako non-root, CD publikuje pełne SHA i skanuje obrazy; pozostaje wykonanie pipeline'u dla finalnego commita. |
+| 3. Migracje bazy | 80% | Osobny migration container jest wymagany przed API, a restore uruchamia kontrolowane migracje; brakuje dowodu migracji na stagingu i scenariusza awarii na VPS. |
+| 4. Reverse proxy i TLS | 80% | Caddy, forwarded headers, cookies, nagłówki bezpieczeństwa i limity proxy są skonfigurowane; docelowy certyfikat i domena wymagają walidacji środowiskowej. |
+| 5. Baza, storage i backup | 75% | Trwały PostgreSQL/MinIO, skoordynowany i szyfrowany backup oraz restore są zaimplementowane; brakuje off-host copy i zapisanego restore drillu. |
+| 6. CI/CD | 85% | CI waliduje kod i konfigurację, a CD publikuje SHA, wdraża protected staging, uruchamia migracje i pełne publiczne browser smoke; brak wykonanego cyklu na realnym hoście. |
+| 7. Monitoring i procedury | 80% | Health checks, dashboard, Prometheus, Alertmanager, alerty, rollback i runbook są skonfigurowane; brak obserwacji realnych danych i testowej notyfikacji. |
 
-**Postęp V5: 41%**.
+**Postęp implementacji V5: 80%**.
+
+**Formalny release gate: pending** do czasu udanego deploymentu na staging, publicznego smoke,
+kopii off-host, restore drillu i ręcznego rollbacku z zapisanym wynikiem.
 
 Wynik nie oznacza gotowości produkcyjnej. Największy brak V5 to wybrane, realne środowisko wdrożeniowe z backupem, monitoringiem i rollbackiem.
 
@@ -142,7 +145,9 @@ opcjonalne endpointy albo workery należy:
 - konfiguracja modułów jest walidowana podczas startu, a opcjonalne workery mają jawny wpływ na health checks;
 - runtime flags nie zmieniają historii migracji ani nie usuwają schematu danych;
 - istnieje rollback oraz runbook;
-- po deployu wykonywany jest smoke test.
+- po deployu wykonywany jest publiczny smoke test obejmujący email/2FA i krytyczny workflow biznesowy;
+- Alertmanager dostarcza testową notyfikację do operatora;
+- backup jest szyfrowany przed opuszczeniem hosta, a restore wykonuje migracje i health checks.
 
 ## Poza zakresem V5
 

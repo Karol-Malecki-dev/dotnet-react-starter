@@ -158,7 +158,11 @@ VITE_API_URL=http://localhost:5000
 
 The frontend shell now waits for both auth and runtime config before rendering protected UI. When `GlobalSearchEnabled` is on, `Ctrl+K` opens the quick search bar in the navbar.
 
-The default Docker Compose configuration is intended for local development and smoke testing. The CD workflow publishes container images to GHCR but does not deploy them to a hosting platform. Production secrets, migrations, monitoring, rollback, and hosting configuration remain environment-specific.
+The default Docker Compose configuration is intended for local development and smoke testing. The CD
+workflow publishes immutable SHA-tagged images and can deploy them to the protected VPS staging
+environment, where it runs public HTTPS browser smoke with the staging Mailpit profile. Production
+promotion remains manual and requires the V5 release gate, including backup, restore and rollback
+evidence.
 
 The backend persists Data Protection keys in the `data-protection-keys` Compose volume.
 Keep that volume when restarting the stack; removing it invalidates the key ring used to
@@ -172,6 +176,8 @@ The API exposes health endpoints for deployment probes and monitoring:
 - `GET /health/live` reports that the API process is alive.
 - `GET /health/ready` verifies that the configured database accepts connections.
 - `GET /health/workers` reports the latest processing state of background workers.
+- `GET /health/storage`, `/health/malware-scanner`, and `/health/email` expose dedicated dependency
+	and delivery health for monitoring.
 
 Every response includes `X-Correlation-ID`. Clients can provide this header to trace a request through structured API logs; otherwise the API generates a request identifier.
 
