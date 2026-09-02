@@ -62,6 +62,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 ["Jwt:AccessTokenExpiresInMinutes"] = "15",
                 ["Jwt:RefreshTokenExpiresInDays"] = "7",
                 ["Jwt:RefreshTokenCookieSecurePolicy"] = "SameAsRequest",
+                ["Cors:AllowedOrigins:0"] = "http://localhost:3000",
                 ["EmailConfirmation:PublicOrigin"] = "http://localhost:3000",
                 ["EmailConfirmation:ConfirmationPath"] = "/confirm-email",
                 ["EmailConfirmation:TokenExpiresInHours"] = "24",
