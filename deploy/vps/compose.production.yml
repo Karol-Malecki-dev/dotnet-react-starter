@@ -150,8 +150,6 @@ services:
       ForwardedHeaders__ForwardLimit: "1"
       Cors__AllowCredentials: "true"
       Cors__AllowedOrigins__0: https://${APP_DOMAIN}
-      Cors__AllowedOrigins__1: https://${APP_DOMAIN}
-      Cors__AllowedOrigins__2: https://${APP_DOMAIN}
       EmailConfirmation__PublicOrigin: https://${APP_DOMAIN}
       EmailDelivery__Enabled: "true"
       EmailDelivery__Host: ${SMTP_HOST:?Set SMTP_HOST}

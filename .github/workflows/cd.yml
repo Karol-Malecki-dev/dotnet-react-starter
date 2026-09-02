@@ -196,6 +196,19 @@ jobs:
           printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
           chmod 600 "$HOME/.ssh/id_ed25519" "$HOME/.ssh/known_hosts"
 
+      - name: Verify staging environment file
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ vars.STAGING_SSH_HOST }}
+          DEPLOY_USER: ${{ vars.STAGING_SSH_USER }}
+          DEPLOY_ENV_FILE: ${{ vars.STAGING_ENV_FILE }}
+        run: |
+          set -euo pipefail
+          if ! ssh "${DEPLOY_USER}@${DEPLOY_HOST}" "test -f '${DEPLOY_ENV_FILE}'"; then
+            echo "Staging environment file was not found or is not readable: ${DEPLOY_ENV_FILE}" >&2
+            exit 1
+          fi
+
       - name: Upload deployment definition
         shell: bash
         env:

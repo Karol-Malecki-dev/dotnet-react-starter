@@ -26,7 +26,7 @@ As of **2026-09-02**. Percentages follow the calculation documented in the canon
 | V6 | 13% | Initial foundations; measurement work not started. |
 | V7 | 0% | Optional and intentionally not started. |
 
-**Overall roadmap progress: 45%**.
+**Overall roadmap progress: 51%**.
 
 ## Stage index
 

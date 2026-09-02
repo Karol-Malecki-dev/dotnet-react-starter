@@ -91,7 +91,7 @@ jobs:
         run: docker compose --env-file deploy/vps/.env.production.example -f deploy/vps/compose.production.yml config --quiet
 
       - name: Validate staging Compose model
-         run: docker compose --profile staging --env-file deploy/vps/.env.production.example -f deploy/vps/compose.production.yml -f deploy/vps/compose.staging.yml config --quiet
+        run: docker compose --profile staging --env-file deploy/vps/.env.production.example -f deploy/vps/compose.production.yml -f deploy/vps/compose.staging.yml config --quiet
 
       - name: Validate deployment scripts
         run: |
@@ -114,8 +114,8 @@ jobs:
           docker run --rm --entrypoint promtool \
             -v "${PWD}/deploy/vps/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro" \
             -v "${PWD}/deploy/vps/observability/alerts.yml:/etc/prometheus/alerts.yml:ro" \
-             prom/prometheus:v3.5.0 \
-             check config /etc/prometheus/prometheus.yml
+            prom/prometheus:v3.5.0 \
+            check config /etc/prometheus/prometheus.yml
 
       - name: Validate Alertmanager configuration
         run: |
