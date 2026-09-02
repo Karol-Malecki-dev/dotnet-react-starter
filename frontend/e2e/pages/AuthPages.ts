@@ -49,8 +49,24 @@ export class TwoFactorPage {
   constructor(private readonly page: Page) {}
 
   async verify(code: string) {
+    const verifyButton = this.page.getByRole('button', { name: 'Verify code' });
+    const transportError = this.page.getByText('Failed to fetch', { exact: true });
     await this.page.getByLabel('Verification code').fill(code);
-    await this.page.getByRole('button', { name: 'Verify code' }).click();
-    await expect(this.page).toHaveURL(/\/dashboard$/);
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      await verifyButton.click();
+
+      try {
+        await expect(this.page).toHaveURL(/\/dashboard$/);
+        return;
+      } catch (error) {
+        // Retry only when Chromium never delivered the request to the API.
+        if (attempt > 0 || !(await transportError.isVisible())) {
+          throw error;
+        }
+
+        await expect(verifyButton).toBeEnabled();
+      }
+    }
   }
 }

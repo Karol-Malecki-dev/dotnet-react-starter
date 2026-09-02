@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: V5 operations
+    orgId: 1
+    folder: Dotnet React Starter
+    type: file
+    disableDeletion: true
+    editable: false
+    options:
+      path: /var/lib/grafana/dashboards

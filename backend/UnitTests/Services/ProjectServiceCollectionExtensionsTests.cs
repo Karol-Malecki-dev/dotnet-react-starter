@@ -90,6 +90,92 @@ public class ProjectServiceCollectionExtensionsTests
         }
     }
 
+    [Fact]
+    public void Production_configuration_rejects_automatic_database_migrations()
+    {
+        using var provider = BuildProvider(
+            new Dictionary<string, string?>
+            {
+                ["Database:ApplyMigrationsOnStartup"] = "true"
+            },
+            Environments.Production);
+
+        Assert.Throws<OptionsValidationException>(
+            () => provider.GetRequiredService<IOptions<DatabaseSettings>>().Value);
+    }
+
+    [Fact]
+    public void Production_configuration_accepts_dedicated_database_migration_job()
+    {
+        using var provider = BuildProvider(
+            new Dictionary<string, string?>
+            {
+                ["Database:ApplyMigrationsOnStartup"] = "false"
+            },
+            Environments.Production);
+
+        var settings = provider.GetRequiredService<IOptions<DatabaseSettings>>().Value;
+
+        Assert.False(settings.ApplyMigrationsOnStartup);
+    }
+
+    [Fact]
+    public void Production_configuration_rejects_insecure_public_origin()
+    {
+        using var provider = BuildProvider(
+            new Dictionary<string, string?>
+            {
+                ["Cors:AllowedOrigins:0"] = "http://example.com"
+            },
+            Environments.Production);
+
+        Assert.Throws<OptionsValidationException>(
+            () => provider.GetRequiredService<IOptions<CorsSettings>>().Value);
+    }
+
+    [Fact]
+    public void Production_configuration_requires_forwarded_headers()
+    {
+        using var provider = BuildProvider(
+            new Dictionary<string, string?>
+            {
+                ["ForwardedHeaders:Enabled"] = "false"
+            },
+            Environments.Production);
+
+        Assert.Throws<OptionsValidationException>(
+            () => provider.GetRequiredService<IOptions<ForwardedHeadersSettings>>().Value);
+    }
+
+    [Fact]
+    public void Production_configuration_requires_email_delivery()
+    {
+        using var provider = BuildProvider(
+            new Dictionary<string, string?>
+            {
+                ["EmailDelivery:Enabled"] = "false"
+            },
+            Environments.Production);
+
+        Assert.Throws<OptionsValidationException>(
+            () => provider.GetRequiredService<IOptions<EmailDeliverySettings>>().Value);
+    }
+
+    [Fact]
+    public void Production_configuration_requires_s3_attachment_storage()
+    {
+        using var provider = BuildProvider(
+            new Dictionary<string, string?>
+            {
+                ["Attachments:StorageProvider"] = "Local",
+                ["Attachments:RootPath"] = Path.GetTempPath()
+            },
+            Environments.Production);
+
+        Assert.Throws<OptionsValidationException>(
+            () => provider.GetRequiredService<IOptions<AttachmentSettings>>().Value);
+    }
+
     private static ServiceProvider BuildProvider(
         IReadOnlyDictionary<string, string?> overrides,
         string environmentName)
@@ -111,6 +197,7 @@ public class ProjectServiceCollectionExtensionsTests
             ["Cors:AllowedOrigins:0"] = "http://localhost:3000",
             ["DataProtection:ApplicationName"] = "UnitTests",
             ["DataProtection:KeyRingPath"] = Path.Combine(Path.GetTempPath(), "dotnet-react-unit-test-keys"),
+            ["Database:ApplyMigrationsOnStartup"] = "true",
             ["ForwardedHeaders:Enabled"] = "false",
             ["ForwardedHeaders:KnownNetworks:0"] = "172.28.0.0/16",
             ["ForwardedHeaders:ForwardLimit"] = "1",

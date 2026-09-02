@@ -49,7 +49,7 @@ namespace API.Services
             services.AddApiPipelineServices();
             services.AddApplicationOptions(configuration, isProduction);
             services.AddDataProtectionInfrastructure(configuration);
-            services.AddForwardedHeadersInfrastructure(configuration);
+            services.AddForwardedHeadersInfrastructure(configuration, isProduction);
             services.AddPersistence(configuration);
             services.AddAuthenticationInfrastructure();
             services.AddApplicationServices();
@@ -74,8 +74,9 @@ namespace API.Services
             services.AddHealthChecks()
                 .AddCheck<DatabaseHealthCheck>("database", tags: ["ready", "database"])
                 .AddCheck<BackgroundWorkerHealthCheck>("background-workers", tags: ["workers"])
-                .AddCheck<AttachmentStorageHealthCheck>("attachment-storage", tags: ["ready", "storage"])
-                .AddCheck<AttachmentMalwareScannerHealthCheck>("attachment-malware-scanner", tags: ["ready", "storage"]);
+                .AddCheck<AttachmentStorageHealthCheck>("attachment-storage", tags: ["ready", "storage", "object-storage"])
+                .AddCheck<AttachmentMalwareScannerHealthCheck>("attachment-malware-scanner", tags: ["ready", "storage", "malware-scanner"])
+                .AddCheck<EmailDeliveryHealthCheck>("email-delivery", tags: ["email"]);
             services.AddHttpContextAccessor();
             services.AddSwaggerGen();
             services.AddAuthorization();
@@ -123,6 +124,8 @@ namespace API.Services
                     "All CORS allowed origins must be absolute HTTP or HTTPS origins without paths or credentials.")
                 .Validate(settings => !settings.AllowCredentials || settings.AllowedOrigins.All(origin => origin != "*"),
                     "Wildcard CORS origins cannot be used when credentials are enabled.")
+                .Validate(settings => !isProduction || settings.AllowedOrigins.All(IsHttpsOrigin),
+                    "Production CORS origins must use HTTPS.")
                 .ValidateOnStart();
 
             services.AddOptions<DataProtectionSettings>()
@@ -135,10 +138,18 @@ namespace API.Services
                     "Data Protection key ring path is required in production.")
                 .ValidateOnStart();
 
+            services.AddOptions<DatabaseSettings>()
+                .Bind(configuration.GetSection("Database"))
+                .Validate(settings => !isProduction || !settings.ApplyMigrationsOnStartup,
+                    "Automatic database migrations must be disabled in production. Run the API image with --migrate-only before starting the application.")
+                .ValidateOnStart();
+
             services.AddOptions<EmailConfirmationSettings>()
                 .Bind(configuration.GetSection("EmailConfirmation"))
                 .Validate(settings => Uri.TryCreate(settings.PublicOrigin, UriKind.Absolute, out _),
                     "Email confirmation public origin must be an absolute URL.")
+                .Validate(settings => !isProduction || IsHttpsOrigin(settings.PublicOrigin),
+                    "Email confirmation public origin must use HTTPS in production.")
                 .Validate(settings => settings.TokenExpiresInHours > 0,
                     "Email confirmation token lifetime must be greater than 0 hours.")
                 .Validate(settings => !string.IsNullOrWhiteSpace(settings.ConfirmationPath),
@@ -172,6 +183,9 @@ namespace API.Services
                 .Validate(settings => string.Equals(settings.StorageProvider, "Local", StringComparison.OrdinalIgnoreCase)
                     || string.Equals(settings.StorageProvider, "S3", StringComparison.OrdinalIgnoreCase),
                     "Attachment storage provider must be Local or S3.")
+                .Validate(settings => !isProduction
+                    || string.Equals(settings.StorageProvider, "S3", StringComparison.OrdinalIgnoreCase),
+                    "Production attachment storage must use the S3 provider.")
                 .Validate(settings => !isProduction
                     || !string.Equals(settings.StorageProvider, "Local", StringComparison.OrdinalIgnoreCase)
                     || (!string.IsNullOrWhiteSpace(settings.RootPath) && Path.IsPathRooted(settings.RootPath)),
@@ -211,6 +225,8 @@ namespace API.Services
 
             services.AddOptions<EmailDeliverySettings>()
                 .Bind(configuration.GetSection("EmailDelivery"))
+                .Validate(settings => !isProduction || settings.Enabled,
+                    "Email delivery must be enabled in production.")
                 .Validate(settings => !settings.Enabled || !string.IsNullOrWhiteSpace(settings.Host),
                     "Email delivery host is required when email delivery is enabled.")
                 .Validate(settings => !settings.Enabled || settings.Port > 0,
@@ -243,10 +259,13 @@ namespace API.Services
 
         private static IServiceCollection AddForwardedHeadersInfrastructure(
             this IServiceCollection services,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            bool isProduction)
         {
             services.AddOptions<ForwardedHeadersSettings>()
                 .Bind(configuration.GetSection("ForwardedHeaders"))
+                .Validate(settings => !isProduction || settings.Enabled,
+                    "Forwarded headers must be enabled in production.")
                 .Validate(settings => settings.ForwardLimit > 0,
                     "Forwarded headers forward limit must be greater than 0.")
                 .Validate(settings => settings.KnownProxies.All(IsValidIpAddress),
@@ -323,6 +342,7 @@ namespace API.Services
             services.AddScoped<ICollaborationNotificationWriter, CollaborationNotificationWriter>();
             services.AddScoped<LoggingNotificationEmailSender>();
             services.AddSingleton<BackgroundWorkerHealthState>();
+            services.AddSingleton<EmailDeliveryHealthState>();
             services.AddScoped<MailKitNotificationEmailSender>();
             services.AddScoped<INotificationEmailSender>(serviceProvider =>
             {
@@ -459,6 +479,15 @@ namespace API.Services
                 && string.IsNullOrEmpty(uri.Fragment)
                 && uri.AbsolutePath == "/";
         }
+
+        private static bool IsHttpsOrigin(string origin)
+            => Uri.TryCreate(origin, UriKind.Absolute, out var uri)
+                && uri.Scheme == Uri.UriSchemeHttps
+                && !string.IsNullOrWhiteSpace(uri.Host)
+                && string.IsNullOrEmpty(uri.UserInfo)
+                && string.IsNullOrEmpty(uri.Query)
+                && string.IsNullOrEmpty(uri.Fragment)
+                && uri.AbsolutePath == "/";
 
         private static bool IsValidIpAddress(string value)
             => IPAddress.TryParse(value, out _);

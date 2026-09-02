@@ -21,6 +21,9 @@
 /frontend/.env.production
 /backend/API/appsettings.Local.json
 /backend/API/uploads/
+/deploy/vps/.deployed-image-tag
+/deploy/vps/.previous-image-tag
+/deploy/vps/.deployment.lock
 
 # Mono auto generated files
 mono_crash.*

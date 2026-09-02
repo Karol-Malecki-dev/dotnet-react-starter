@@ -167,11 +167,14 @@ E2E w tym repozytorium są testami smoke uruchomionego stacku. Sprawdzają podst
 
 GitHub Actions obejmuje build, testy jednostkowe i integracyjne backendu, testy i build frontendu, Docker Compose smoke tests oraz publikowanie obrazów backendu i frontendu do GitHub Container Registry.
 
-Workflow CD publikuje obrazy z tagiem SHA oraz `latest`. Nie wykonuje jeszcze wdrożenia na konkretną platformę hostingową. Konfiguracja produkcyjnych sekretów, migracji, hostingu, monitoringu i rollbacku pozostaje decyzją środowiska docelowego. Szczegóły znajdują się w [doc/CI_CD.md](doc/CI_CD.md).
+Workflow CD publikuje niezmienne obrazy z pełnym tagiem SHA i może wdrożyć je do chronionego
+środowiska staging na VPS, gdzie uruchamia publiczne browser smoke przez HTTPS z profilowym
+Mailpit. Promocja na produkcję pozostaje ręczna i wymaga spełnienia bramy V5, w tym dowodu backupu,
+restore i rollbacku. Szczegóły znajdują się w [doc/CI_CD.md](doc/CI_CD.md).
 
 ## Znane ograniczenia
 
-- frontend korzysta z Vite i Vitest; pozostałe podatności React Routera wymagają osobnej decyzji dotyczącej migracji do wersji 7;
+- frontend korzysta z Vite i Vitest; audyt zależności z 2026-09-02 nie wykazał znanych podatności npm;
 - Docker Compose jest przede wszystkim lokalnym środowiskiem uruchomieniowym i testowym;
 - domyślne hasła oraz sekrety Compose nie nadają się do środowiska produkcyjnego;
 - publikacja obrazu do GHCR nie jest równoznaczna z deploymentem;

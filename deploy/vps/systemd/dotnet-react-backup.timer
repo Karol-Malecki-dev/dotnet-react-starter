@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the Dotnet React Starter backup every day
+
+[Timer]
+OnCalendar=*-*-* 02:15:00 UTC
+RandomizedDelaySec=15m
+Persistent=true
+Unit=dotnet-react-backup.service
+
+[Install]
+WantedBy=timers.target

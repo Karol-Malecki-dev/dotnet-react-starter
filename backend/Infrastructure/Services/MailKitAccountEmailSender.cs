@@ -15,13 +15,16 @@ namespace Infrastructure.Services;
 public class MailKitAccountEmailSender : IAccountEmailSender
 {
     private readonly EmailDeliverySettings _settings;
+    private readonly EmailDeliveryHealthState _healthState;
     private readonly ILogger<MailKitAccountEmailSender> _logger;
 
     public MailKitAccountEmailSender(
         IOptions<EmailDeliverySettings> settings,
+        EmailDeliveryHealthState healthState,
         ILogger<MailKitAccountEmailSender> logger)
     {
         _settings = settings.Value;
+        _healthState = healthState;
         _logger = logger;
     }
 
@@ -83,22 +86,30 @@ public class MailKitAccountEmailSender : IAccountEmailSender
             TextBody = textBody
         }.ToMessageBody();
 
-        using var client = new SmtpClient();
-        var socketOptions = _settings.UseStartTls
-            ? SecureSocketOptions.StartTls
-            : SecureSocketOptions.Auto;
-
-        await client.ConnectAsync(_settings.Host, _settings.Port, socketOptions, cancellationToken);
-
-        if (!string.IsNullOrWhiteSpace(_settings.Username))
+        try
         {
-            await client.AuthenticateAsync(_settings.Username, _settings.Password ?? string.Empty, cancellationToken);
+            using var client = new SmtpClient();
+            var socketOptions = _settings.UseStartTls
+                ? SecureSocketOptions.StartTls
+                : SecureSocketOptions.Auto;
+
+            await client.ConnectAsync(_settings.Host, _settings.Port, socketOptions, cancellationToken);
+
+            if (!string.IsNullOrWhiteSpace(_settings.Username))
+            {
+                await client.AuthenticateAsync(_settings.Username, _settings.Password ?? string.Empty, cancellationToken);
+            }
+
+            await client.SendAsync(message, cancellationToken);
+            await client.DisconnectAsync(true, cancellationToken);
+            _healthState.ReportSuccess();
+            _logger.LogInformation("Sent account email '{Subject}' to {Email}", subject, email);
         }
-
-        await client.SendAsync(message, cancellationToken);
-        await client.DisconnectAsync(true, cancellationToken);
-
-        _logger.LogInformation("Sent account email '{Subject}' to {Email}", subject, email);
+        catch
+        {
+            _healthState.ReportFailure();
+            throw;
+        }
     }
 
     private static string Escape(string value)

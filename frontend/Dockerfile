@@ -1,5 +1,5 @@
 # Stage 1: Builder - Budowanie aplikacji React
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 # Ustawiamy folder roboczy
 WORKDIR /app
@@ -23,7 +23,7 @@ RUN npm run build
 
 
 # Stage 2: Runtime - Serwowanie aplikacji za pomocą Nginx
-FROM nginx:alpine
+FROM nginx:1.28-alpine
 
 # Kopiujemy konfigurację nginx (będzie w docker/nginx.conf)
 COPY docker/nginx.conf /etc/nginx/nginx.conf
