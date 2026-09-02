@@ -174,7 +174,7 @@ restore i rollbacku. Szczegóły znajdują się w [doc/CI_CD.md](doc/CI_CD.md).
 
 ## Znane ograniczenia
 
-- frontend korzysta z Vite i Vitest; pozostałe podatności React Routera wymagają osobnej decyzji dotyczącej migracji do wersji 7;
+- frontend korzysta z Vite i Vitest; audyt zależności z 2026-09-02 nie wykazał znanych podatności npm;
 - Docker Compose jest przede wszystkim lokalnym środowiskiem uruchomieniowym i testowym;
 - domyślne hasła oraz sekrety Compose nie nadają się do środowiska produkcyjnego;
 - publikacja obrazu do GHCR nie jest równoznaczna z deploymentem;

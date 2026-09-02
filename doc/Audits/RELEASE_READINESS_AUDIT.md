@@ -12,17 +12,18 @@ test or a certification of production security.
 
 | Area | Verification | Result | Status |
 |---|---|---:|---|
-| Backend unit tests | `dotnet test backend/UnitTests/UnitTests.csproj` | 331/331 passed | Verified on 2026-09-02 |
+| Backend unit tests | `dotnet test backend/UnitTests/UnitTests.csproj` | 333/333 passed | Verified on 2026-09-02 |
 | Backend integration tests | `dotnet test backend/IntegrationTests/IntegrationTests.csproj --filter "FullyQualifiedName!~PostgreSqlIntegrationTests"` | 103/103 passed | Verified on 2026-09-02 |
-| PostgreSQL Testcontainers tests | `dotnet test ... --filter "FullyQualifiedName~PostgreSqlIntegrationTests"` | Blocked by unavailable Docker daemon | Environment limitation on 2026-09-02 |
+| PostgreSQL Testcontainers tests | `dotnet test ... --filter "FullyQualifiedName~PostgreSqlIntegrationTests"` | 18/18 passed | Verified with `postgres:16-alpine` on 2026-09-02 |
+| Complete .NET test gate | `scripts/Invoke-E2ETests.ps1` | 457/457 passed | Verified on 2026-09-02 |
 | Frontend tests | `npm run test:once` in `frontend/` | 78/78 passed | Verified on 2026-09-02 |
 | Frontend production build | `npm run build` in `frontend/` | Passed | Verified on 2026-09-02 |
-| Frontend Docker image | CD `docker/build-push-action` | Defined, not executed locally | Requires Docker daemon or CI run |
-| Docker Compose E2E/smoke tests | `scripts/Invoke-E2ETests.ps1` | Blocked by unavailable Docker daemon | Environment limitation on 2026-09-02 |
+| Backend and frontend Docker images | `scripts/Invoke-E2ETests.ps1` | Built successfully | Verified locally on 2026-09-02 |
+| Docker Compose E2E/smoke tests | `scripts/Invoke-E2ETests.ps1` | 4/4 Playwright smoke tests passed | Verified locally on 2026-09-02 |
 
-The current frontend tests and production build were verified on 2026-09-02. The frontend image build,
-Docker Compose E2E suite, and PostgreSQL Testcontainers tests still require the Docker daemon in CI or
-another Docker-enabled environment.
+The Docker-enabled local gate completed on 2026-09-02. It built both application images and verified
+the complete .NET, frontend, PostgreSQL Testcontainers, Docker Compose, and Playwright smoke suites.
+Target-environment acceptance remains a separate staging gate.
 
 ## Observability Verification
 
@@ -47,11 +48,10 @@ The worker state is process-local and intentionally does not replace centralized
 
 ## Dependency Security
 
-The frontend dependency graph was reduced from the original CRA result of 44 reported vulnerabilities to 9 total reported vulnerabilities after the migration.
-
-The production-only audit reports 2 moderate vulnerabilities in `react-router` through `react-router-dom`. npm proposes a breaking upgrade to React Router v7. The upgrade was not forced because it requires an application compatibility review and new regression testing.
-
-The remaining audit findings are documented risk items, not evidence that `npm audit fix --force` should be used. No forced dependency upgrade was applied.
+On 2026-09-02, a clean frontend install reported 0 known npm vulnerabilities. The .NET direct and
+transitive package audit also reported 0 known vulnerable packages after upgrading Swashbuckle and
+Testcontainers and removing the obsolete ASP.NET Core abstractions package. No forced dependency
+upgrade was used.
 
 ## Release Limitations
 
@@ -62,9 +62,8 @@ environment-specific or intentionally outside repository-only verification:
 - Production secrets, database migrations, CORS, cookies, TLS, monitoring, rollback, and hosting configuration still require validation on the target environment.
 - Prometheus and Alertmanager configuration, dedicated dependency probes, and dashboard provisioning are present, but real metric ingestion and notification delivery still require a staging run.
 - Encrypted backup and destructive restore automation is present, but no off-host copy or restore drill has been recorded yet.
-- Docker image builds, Trivy scans, Docker Compose smoke, and PostgreSQL Testcontainers require a working Docker daemon and were not executable in the current local environment.
+- Local Docker image builds, Docker Compose smoke, and PostgreSQL Testcontainers passed; the CI Trivy image scan must still pass for the exact published SHA images.
 - Docker Compose defaults are intended for local development and smoke testing, not as production secrets.
-- The React Router vulnerabilities require a separate, controlled React Router v7 migration decision.
 
 ## Release Gate
 
