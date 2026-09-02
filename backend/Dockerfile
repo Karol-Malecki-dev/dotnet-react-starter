@@ -4,17 +4,19 @@ FROM mcr.microsoft.com/dotnet/sdk:9.0 AS builder
 # Ustawiamy folder roboczy w kontenerze
 WORKDIR /app
 
-# Kopiujemy cały kod backendu do kontenera
+# Copy project files first so dependency restore remains cacheable across source-only changes.
+COPY API/API.csproj API/
+COPY Application/Application.csproj Application/
+COPY Domain/Domain.csproj Domain/
+COPY Infrastructure/Infrastructure.csproj Infrastructure/
+COPY Shared/Shared.csproj Shared/
+
+RUN dotnet restore API/API.csproj
+
 COPY . .
 
-# Przywracamy zależności NuGet (packages)
-RUN dotnet restore
-
-# Budujemy aplikację w trybie Release (zoptymalizowany)
-RUN dotnet build -c Release --no-restore
-
-# Publikujemy tylko projekt API, aby katalog runtime zawierał spójne zależności aplikacji.
-RUN dotnet publish API/API.csproj -c Release -o /app/publish --no-build
+# Publish only the deployable API and its project references.
+RUN dotnet publish API/API.csproj -c Release -o /app/publish --no-restore
 
 
 # Stage 2: Runtime - Uruchomienie aplikacji
