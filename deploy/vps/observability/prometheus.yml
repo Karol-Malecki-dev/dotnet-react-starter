@@ -2,6 +2,12 @@ global:
   scrape_interval: 30s
   evaluation_interval: 30s
 
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
 rule_files:
   - /etc/prometheus/alerts.yml
 
@@ -26,6 +32,9 @@ scrape_configs:
           - http://backend:5000/health/live
           - http://backend:5000/health/ready
           - http://backend:5000/health/workers
+          - http://backend:5000/health/storage
+          - http://backend:5000/health/malware-scanner
+          - http://backend:5000/health/email
     relabel_configs:
       - source_labels:
           - __address__

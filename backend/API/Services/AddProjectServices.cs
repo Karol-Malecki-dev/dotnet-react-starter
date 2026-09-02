@@ -74,8 +74,9 @@ namespace API.Services
             services.AddHealthChecks()
                 .AddCheck<DatabaseHealthCheck>("database", tags: ["ready", "database"])
                 .AddCheck<BackgroundWorkerHealthCheck>("background-workers", tags: ["workers"])
-                .AddCheck<AttachmentStorageHealthCheck>("attachment-storage", tags: ["ready", "storage"])
-                .AddCheck<AttachmentMalwareScannerHealthCheck>("attachment-malware-scanner", tags: ["ready", "storage"]);
+                .AddCheck<AttachmentStorageHealthCheck>("attachment-storage", tags: ["ready", "storage", "object-storage"])
+                .AddCheck<AttachmentMalwareScannerHealthCheck>("attachment-malware-scanner", tags: ["ready", "storage", "malware-scanner"])
+                .AddCheck<EmailDeliveryHealthCheck>("email-delivery", tags: ["email"]);
             services.AddHttpContextAccessor();
             services.AddSwaggerGen();
             services.AddAuthorization();
@@ -341,6 +342,7 @@ namespace API.Services
             services.AddScoped<ICollaborationNotificationWriter, CollaborationNotificationWriter>();
             services.AddScoped<LoggingNotificationEmailSender>();
             services.AddSingleton<BackgroundWorkerHealthState>();
+            services.AddSingleton<EmailDeliveryHealthState>();
             services.AddScoped<MailKitNotificationEmailSender>();
             services.AddScoped<INotificationEmailSender>(serviceProvider =>
             {

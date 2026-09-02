@@ -11,13 +11,16 @@ namespace Infrastructure.Services;
 public sealed class MailKitNotificationEmailSender : INotificationEmailSender
 {
     private readonly EmailDeliverySettings _settings;
+    private readonly EmailDeliveryHealthState _healthState;
     private readonly ILogger<MailKitNotificationEmailSender> _logger;
 
     public MailKitNotificationEmailSender(
         IOptions<EmailDeliverySettings> settings,
+        EmailDeliveryHealthState healthState,
         ILogger<MailKitNotificationEmailSender> logger)
     {
         _settings = settings.Value;
+        _healthState = healthState;
         _logger = logger;
     }
 
@@ -33,17 +36,26 @@ public sealed class MailKitNotificationEmailSender : INotificationEmailSender
             TextBody = $"Hello {displayName},\n\n{message}"
         }.ToMessageBody();
 
-        using var client = new SmtpClient();
-        var socketOptions = _settings.UseStartTls ? SecureSocketOptions.StartTls : SecureSocketOptions.Auto;
-        await client.ConnectAsync(_settings.Host, _settings.Port, socketOptions, cancellationToken);
-        if (!string.IsNullOrWhiteSpace(_settings.Username))
+        try
         {
-            await client.AuthenticateAsync(_settings.Username, _settings.Password ?? string.Empty, cancellationToken);
-        }
+            using var client = new SmtpClient();
+            var socketOptions = _settings.UseStartTls ? SecureSocketOptions.StartTls : SecureSocketOptions.Auto;
+            await client.ConnectAsync(_settings.Host, _settings.Port, socketOptions, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(_settings.Username))
+            {
+                await client.AuthenticateAsync(_settings.Username, _settings.Password ?? string.Empty, cancellationToken);
+            }
 
-        await client.SendAsync(mimeMessage, cancellationToken);
-        await client.DisconnectAsync(true, cancellationToken);
-        _logger.LogInformation("Sent notification email '{Title}' to {Email}", title, email);
+            await client.SendAsync(mimeMessage, cancellationToken);
+            await client.DisconnectAsync(true, cancellationToken);
+            _healthState.ReportSuccess();
+            _logger.LogInformation("Sent notification email '{Title}' to {Email}", title, email);
+        }
+        catch
+        {
+            _healthState.ReportFailure();
+            throw;
+        }
     }
 
     private static string Escape(string value) => System.Net.WebUtility.HtmlEncode(value);

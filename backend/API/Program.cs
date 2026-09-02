@@ -85,6 +85,18 @@ try
     {
         Predicate = healthCheck => healthCheck.Tags.Contains("workers")
     });
+    app.MapHealthChecks("/health/storage", new HealthCheckOptions
+    {
+        Predicate = healthCheck => healthCheck.Tags.Contains("object-storage")
+    });
+    app.MapHealthChecks("/health/malware-scanner", new HealthCheckOptions
+    {
+        Predicate = healthCheck => healthCheck.Tags.Contains("malware-scanner")
+    });
+    app.MapHealthChecks("/health/email", new HealthCheckOptions
+    {
+        Predicate = healthCheck => healthCheck.Tags.Contains("email")
+    });
     app.MapControllers();
 
     Log.Information("🌐 Application listening on configured ports");

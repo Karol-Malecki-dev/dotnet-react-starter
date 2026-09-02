@@ -28,6 +28,33 @@ groups:
           summary: A background worker is unhealthy
           description: At least one critical worker has not completed a successful cycle.
 
+      - alert: ObjectStorageUnavailable
+        expr: probe_success{job="application-health",instance="http://backend:5000/health/storage"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Attachment object storage is unavailable
+          description: MinIO storage health has failed for more than five minutes.
+
+      - alert: MalwareScannerUnavailable
+        expr: probe_success{job="application-health",instance="http://backend:5000/health/malware-scanner"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Attachment malware scanner is unavailable
+          description: ClamAV-backed attachment scanning has failed for more than five minutes.
+
+      - alert: EmailDeliveryFailed
+        expr: probe_success{job="application-health",instance="http://backend:5000/health/email"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Email delivery has failed
+          description: The application recorded a failed SMTP delivery attempt.
+
       - alert: HostDiskSpaceLow
         expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}) < 0.15
         for: 15m
