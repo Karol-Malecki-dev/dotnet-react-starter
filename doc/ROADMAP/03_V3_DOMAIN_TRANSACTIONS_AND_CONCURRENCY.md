@@ -31,6 +31,24 @@ Stan na: **2026-08-31**.
 
 Procent obejmuje istniejące fundamenty, nie samą liczbę klas lub endpointów. V3 nie jest jeszcze etapem ukończonym.
 
+## Kolejność domknięcia V3
+
+Pilotaż VSA nie wymaga kolejnej masowej migracji. Dalsza praca powinna:
+
+1. użyć `Projects/GetProjectDetails` jako wzorca query i
+   `ProjectTasks/CreateProjectTask` jako wzorca command;
+2. zmierzyć koszt utworzenia kolejnych rzeczywistych slice'ów przed rozpoczęciem
+   scaffolding;
+3. domykać starsze modele, porty i mapping tylko przy zmianie konkretnego use case'a;
+4. przenieść `Identity` do struktury modułowej wyłącznie inkrementalnie, gdy dotknie go
+   zaakceptowany feature albo hardening;
+5. utrzymać testy DI, unikalności tras i zakazu bezpośredniego `DbContext` jako
+   obowiązkowy guardrail.
+
+Golden path implementacyjny opisuje
+[`../ADDING_FEATURES.md`](../ADDING_FEATURES.md), a kolejność funkcji
+[`../PRODUCT_EVOLUTION/DEVELOPMENT_PLAN.md`](../PRODUCT_EVOLUTION/DEVELOPMENT_PLAN.md).
+
 ## Zakres implementacyjny
 
 ### 1. Granica agregatu projektu
@@ -224,13 +242,17 @@ Concurrency i transakcje należy testować na PostgreSQL, ponieważ zachowanie I
 
 - pełna migracja wszystkich encji do rozbudowanego DDD;
 - Event Sourcing;
-- MediatR użyty tylko dla ukrycia prostego wywołania;
+- MediatR użyty wyłącznie do ukrycia prostego wywołania, bez pipeline behavior,
+  guardrails i planu migracji;
 - mikroserwisy;
 - osobna baza dla każdego modułu;
 - abstrakcja repository bez konkretnej potrzeby;
 - pełna migracja wszystkich funkcji do vertical slices;
 - osobny projekt `.csproj`, pakiet NuGet lub generator dla każdego modułu;
 - pełna reorganizacja frontendu przed ustabilizowaniem kontraktów pilota.
+
+Późniejsza, zaakceptowana adopcja MediatR nie należy do pilota V3 i jest opisana w
+[`14_ADR_INCREMENTAL_MEDIATR_ADOPTION.md`](14_ADR_INCREMENTAL_MEDIATR_ADOPTION.md).
 
 ## Pytania kontrolne
 

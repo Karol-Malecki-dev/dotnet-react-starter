@@ -253,14 +253,23 @@ For local Docker runs, transactional emails are delivered to Mailpit. Open http:
 - [doc/EMAIL_2FA_FLOWS.md](doc/EMAIL_2FA_FLOWS.md)
 - [doc/CI_CD.md](doc/CI_CD.md)
 - [docker/DOCKER_COMPOSE.md](docker/DOCKER_COMPOSE.md)
+- [doc/ADDING_FEATURES.md](doc/ADDING_FEATURES.md)
+- [doc/AI_ASSISTED_DEVELOPMENT_WORKFLOW.md](doc/AI_ASSISTED_DEVELOPMENT_WORKFLOW.md)
 - [doc/ROADMAP/00_ROADMAP_OVERVIEW.md](doc/ROADMAP/00_ROADMAP_OVERVIEW.md)
+- [doc/ROADMAP/14_ADR_INCREMENTAL_MEDIATR_ADOPTION.md](doc/ROADMAP/14_ADR_INCREMENTAL_MEDIATR_ADOPTION.md)
+- [doc/PRODUCT_EVOLUTION/DEVELOPMENT_PLAN.md](doc/PRODUCT_EVOLUTION/DEVELOPMENT_PLAN.md)
 - [backend/DEVELOPMENT_ROADMAP.md](backend/DEVELOPMENT_ROADMAP.md)
 
 ## Suggested Next Steps
 
-- Execute V2: stabilization and security hardening
-- Add the focused tests and ADRs required by the roadmap before starting new infrastructure work
-- Choose a hosting target after the auth and data consistency foundations are stable
+- Use the VSA golden path and close the backend/frontend Notifications contract.
+- Implement the accepted MediatR pilot for one query, one command and safe request
+  telemetry before migrating further slices.
+- Document and test the current `Owner`/`Member`/`Viewer` permission matrix before
+  adding broader workflows.
+- Collect V5 staging, off-host backup, restore, rollback and alert evidence in
+  parallel with local feature work.
+- Measure repeated slice setup cost before adding a generator or project template.
 
 ## License
 

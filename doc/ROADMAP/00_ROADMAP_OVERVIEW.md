@@ -26,7 +26,7 @@ Wersje `V1`, `V2` itd. nie są terminami kalendarzowymi ani obowiązkowymi relea
 | V4 | Kompletność produktu i pełniejsze przepływy użytkownika. |
 | V5 | Deployment, operacje i utrzymanie środowiska. |
 | V6 | Pomiar wydajności, niezawodność i zachowanie pod obciążeniem. |
-| V7 | Opcjonalna ewolucja zależna od rzeczywistych potrzeb produktu. |
+| V7 | Kontrolowana ewolucja architektury; MediatR jest zaplanowany, pozostałe kierunki zależą od potrzeb produktu. |
 | V8 | Platformizacja sprawdzonych modułów i przygotowanie startera do wielokrotnego użycia. |
 
 Etap można uznać za ukończony dopiero wtedy, gdy istnieją kod, testy, dokumentacja i możliwość wyjaśnienia najważniejszych kompromisów.
@@ -44,19 +44,19 @@ Starter jest obecnie **mocną bazą juniorową z wieloma elementami junior+**. Z
 - testy jednostkowe, integracyjne, PostgreSQL Testcontainers i smoke tests;
 - Docker Compose oraz CI.
 
-Najważniejsze braki nie polegają obecnie na braku kolejnych endpointów. Dotyczą zachowania systemu przy:
+Najważniejsze braki nie polegają obecnie na braku kolejnych endpointów. Dotyczą:
 
-- dezaktywacji konta i zmianie roli;
-- równoległym refreshu lub zapisie;
-- częściowej awarii operacji wieloetapowej;
-- restarcie kontenera i wielu instancjach;
-- niepoprawnej konfiguracji proxy, cookie lub kluczy Data Protection;
-- dużej liczbie danych;
-- niespójnym kontrakcie błędów.
+- jednego prostego golden path dla kompletnego command/query slice'a;
+- spójności kontraktów Notifications między backendem i frontendem;
+- wdrożenia zaakceptowanego standardu MediatR bez utraty granic modułów;
+- jawnej, testowalnej macierzy uprawnień przed dodaniem kolejnych workflowów;
+- zachowania klienta po reconnect, retry i konflikcie;
+- pomiarów wydajności oraz kosztu ręcznego tworzenia slice'ów;
+- runtime evidence dla stagingu, backupu, restore, rollbacku i alertów.
 
 ## Status realizacji roadmapy
 
-Stan na: **2026-09-02**.
+Stan na: **2026-09-21**.
 
 Procent opisuje realizację głównych obszarów danego etapu, a nie liczbę linii kodu. `100%` oznacza spełniony obszar wraz z testem, dokumentacją albo zaakceptowaną decyzją. `50%` oznacza istniejący fundament bez pełnego Definition of Done, a `0%` oznacza brak rozpoczętej realizacji. Postęp bazowej roadmapy jest średnią arytmetyczną etapów V1-V7 i nie jest miarą gotowości produkcyjnej. V8 jest późniejszym etapem platformizacji i nie jest wliczany do postępu bazowej aplikacji.
 
@@ -64,14 +64,29 @@ Procent opisuje realizację głównych obszarów danego etapu, a nie liczbę lin
 |---|---:|---|---|
 | V1 | 100% | Ukończony | Fundament aplikacji, testy i lokalny workflow są dostępne. |
 | V2 | 96% | Ukończony dla bieżącego zakresu | Hardening auth, API, async i konfiguracji jest zwalidowany; pozostały drobne follow-upy porządkowe. |
-| V3 | 50% | W toku | `Project` i `ProjectMember` mają wyraźniejszą granicę agregatu, `ProjectTask` został rozstrzygnięty jako osobny agregat, akceptacja zaproszeń ma transakcję i concurrency z testami PostgreSQL, dashboard używa agregacji SQL, zakresów dat i potwierdzonego indeksu PostgreSQL, `User` korzysta z przetestowanych value objectów oraz enkapsulowanych metod domenowych, a backendowy pilot `ProjectTasks` obejmuje CRUD, komentarze, załączniki i worker przypomnień jako osobne vertical slices przy zachowaniu istniejących tabel i kontraktów; rozpoczęto też pierwszy slice modułu `Projects` (`GetProjectDetails`), a pozostały migracja kolejnych przypadków, frontendowe granice, guardrails i benchmarki. |
-| V4 | 28% | Fundamenty | Istnieją workflowy, załączniki, activity, quick search i lokalne browser E2E; brak pełnego audytu oraz search workspace, a stagingowa walidacja E2E należy do V5. |
+| V3 | 65% | W toku; pilot VSA ukończony | `Projects`, `ProjectTasks` i `Notifications` potwierdzają backendowy standard slice'a, jawne porty, modułowe DI i guardrails. Pozostałe prace V3 dotyczą granic domenowych, starszych modeli i domknięcia kontraktów, nie masowej migracji folderów. |
+| V4 | 78% | Domykanie kontraktów i dowodów | Account security audit, autoryzowany workspace search, produkcyjny lifecycle załączników oraz bazowa macierz browser E2E są zaimplementowane. Najbliższa luka to pełny kontrakt Notifications po obu stronach API oraz domknięcie pozostałych scenariuszy. |
 | V5 | 80% | W toku | Implementacja deploymentu VPS, migracji, szyfrowanego backupu, rollbacku, monitoringu i protected staging smoke jest gotowa; formalny gate czeka na realny staging, off-host backup, restore drill i rollback evidence. |
 | V6 | 13% | Planowany | Istnieją podstawy EF, PostgreSQL i workerów; brak baseline'ów, load testów i pomiarów. |
-| V7 | 0% | Opcjonalny | Brak kierunku wymagającego obecnie implementacji. |
-| V8 | 0% | Odroczony | Najpierw kilka modułów i slice'ów musi potwierdzić stabilny standard oraz realny koszt ponownego użycia. |
+| V7 | 0% | MediatR zaplanowany; pozostałe kierunki opcjonalne | Inkrementalna adopcja MediatR ma zaakceptowany ADR i dwa slice'y pilotażowe; implementacja jeszcze się nie rozpoczęła. |
+| V8 | 0% | Odroczony; fundamenty częściowo gotowe | Trzy moduły i pierwsze guardrails istnieją, ale generator, wybór modułów i strategia aktualizacji wymagają najpierw pomiaru kolejnych ręcznych slice'ów. |
 
-**Postęp bazowej roadmapy V1-V7: 52%**.
+**Postęp bazowej roadmapy V1-V7: 62%**.
+
+## Aktualna strategia wykonania
+
+Etapy pozostają mapą dojrzałości, ale praca przebiega w trzech torach:
+
+1. **Produkt i VSA:** najpierw prosty golden path i kontrakt Notifications, następnie
+   pilot MediatR, macierz uprawnień i kolejne pojedyncze workflowy.
+2. **Dowody V5:** staging, off-host backup, restore drill, rollback i alert test są
+   zbierane równolegle. Nie blokują lokalnego feature development, lecz blokują
+   deklarację production-ready.
+3. **V8:** automatyzacja zaczyna się od pomiaru kosztu ręcznego slice'a. Generator i
+   template projektu nie są warunkiem obecnych funkcji.
+
+Szczegółowa kolejność znajduje się w
+[`../PRODUCT_EVOLUTION/DEVELOPMENT_PLAN.md`](../PRODUCT_EVOLUTION/DEVELOPMENT_PLAN.md).
 
 ## Priorytety
 
@@ -112,7 +127,9 @@ Dokument: [02_V2_STABILIZATION_AND_SECURITY.md](02_V2_STABILIZATION_AND_SECURITY
 
 ### V3: Domena, granice modułów, vertical slice pilot, transakcje i concurrency
 
-Etap w toku. Odpowiada za dojrzalsze granice domeny, agregaty, pilotaż modułu biznesowego zawierającego vertical slices, transakcje, optimistic concurrency, konflikty `409` i bezpieczne operacje wielozapisowe.
+Etap w toku, ale backendowy pilot VSA został ukończony na trzech modułach. Pozostały
+zakres dotyczy dojrzalszych granic domeny, starszych modeli, transakcji, optimistic
+concurrency i spójności kontraktów, a nie mechanicznego przenoszenia kolejnych plików.
 
 Dokument: [03_V3_DOMAIN_TRANSACTIONS_AND_CONCURRENCY.md](03_V3_DOMAIN_TRANSACTIONS_AND_CONCURRENCY.md)
 
@@ -120,11 +137,16 @@ Decyzja dotycząca granicy `ProjectTask`: [10_ADR_PROJECT_TASK_AGGREGATE_BOUNDAR
 
 Decyzja dotycząca inkrementalnej modularizacji VSA: [11_ADR_INCREMENTAL_MODULAR_VSA.md](11_ADR_INCREMENTAL_MODULAR_VSA.md)
 
+Decyzja dotycząca inkrementalnej adopcji MediatR:
+[14_ADR_INCREMENTAL_MEDIATR_ADOPTION.md](14_ADR_INCREMENTAL_MEDIATR_ADOPTION.md)
+
 Standard modułów i slice'ów: [../MODULAR_VSA_MODULE_CHECKLIST.md](../MODULAR_VSA_MODULE_CHECKLIST.md)
 
 ### V4: Kompletność produktu
 
-Domyka brakujące workflowy użytkownika, audyt bezpieczeństwa, wyszukiwanie workspace, załączniki w ujęciu produkcyjnym i browser E2E.
+Domyka kontrakty i dowody dla istniejących workflowów użytkownika. Najbliższym
+inkrementem jest pełna spójność Notifications; nowe funkcje są dodawane pojedynczymi
+slice'ami, nie jako jeden szeroki pakiet V4.
 
 Dokument: [04_V4_PRODUCT_COMPLETENESS.md](04_V4_PRODUCT_COMPLETENESS.md)
 
@@ -140,9 +162,12 @@ Wprowadza pomiary, testy obciążeniowe, analizę `EXPLAIN`, idempotencję, rozp
 
 Dokument: [06_V6_PERFORMANCE_AND_RELIABILITY.md](06_V6_PERFORMANCE_AND_RELIABILITY.md)
 
-### V7: Opcjonalna ewolucja
+### V7: Kontrolowana i opcjonalna ewolucja
 
-Opisuje technologie i kierunki, które mogą mieć sens dopiero po pojawieniu się konkretnej potrzeby produktu lub infrastruktury.
+Obejmuje zaakceptowaną inkrementalną adopcję MediatR jako dispatchera command/query
+oraz pozostałe kierunki, które nadal wymagają konkretnej potrzeby produktu lub
+infrastruktury. MediatR nie zmienia granic modułów, nie zastępuje outboxa i nie
+uzasadnia masowego rewrite'u.
 
 Dokument: [07_V7_OPTIONAL_EVOLUTION.md](07_V7_OPTIONAL_EVOLUTION.md)
 

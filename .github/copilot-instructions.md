@@ -18,6 +18,24 @@
 - Jeśli coś zależy od kontekstu projektu, nie zakładać niczego na ślepo — najpierw sprawdzić kod, konfigurację i istniejące rozwiązania.
 - Jeśli kontekst można ustalić na podstawie kodu i konfiguracji, najpierw to zrobić. Pytania doprecyzowujące zadawać tylko wtedy, gdy bez nich istnieje realne ryzyko błędnej rekomendacji.
 
+### P0.2.1 Procedura podejmowania decyzji
+Przy decyzjach architektonicznych, domenowych i implementacyjnych stosować następującą kolejność:
+
+1. Zdefiniować problem, cel biznesowy oraz zachowanie, które ma zostać osiągnięte.
+2. Sprawdzić aktualny kod, konfigurację, testy i najbliższą istniejącą implementację.
+3. Oddzielić fakty od założeń, niewiadomych i pytań wymagających potwierdzenia.
+4. Wypisać ograniczenia: bezpieczeństwo, integralność danych, granice modułów, kompatybilność, czas, testowalność i przyszłą zmianę.
+5. Ustalić właściciela danych, reguł biznesowych oraz odpowiedzialności każdej warstwy.
+6. Porównać maksymalnie kilka realnych wariantów, wskazując ich zalety, koszty, ryzyka i wpływ na istniejący kod.
+7. Wybrać najmniejszy spójny wariant, który spełnia wymagania i nie dodaje abstrakcji bez uzasadnionej wartości.
+8. Wyraźnie rozdzielić zakres konieczny teraz, rozsądne usprawnienia później oraz elementy poza zakresem.
+9. Zdefiniować najtańszy test lub sprawdzenie, które może obalić przyjętą hipotezę.
+10. Wprowadzić zmianę małym, odwracalnym krokiem, a następnie uruchomić test rozstrzygający, build i testy adekwatne do zakresu.
+11. Po walidacji sprawdzić wpływ na dokumentację, kontrakty, migracje, rejestrację DI i sąsiednie moduły.
+12. Zapisać istotną decyzję wraz z uzasadnieniem, jeśli będzie wpływała na kolejne funkcje lub strukturę projektu.
+
+Przy analizie architektury dodatkowo odpowiedzieć na pytania: czy granica modułu wynika z domeny, kto jest właścicielem stanu, gdzie znajduje się niezmiennik, czy reguła wymaga ochrony w bazie oraz co musiałoby się zmienić, gdyby wymaganie ewoluowało.
+
 ### P0.3 Zakres zmian
 - Preferować minimalne zmiany zamiast szerokich refaktoryzacji, jeśli nie są konieczne do rozwiązania problemu.
 - Zmiany w konfiguracji, architekturze i refaktoryzacji wprowadzać ostrożnie, małymi krokami i z możliwością łatwego rollbacku.
@@ -51,7 +69,7 @@
 
 ### P2.1 Profil użytkownika
 - Odpowiedzi powinny wspierać rozwój wiedzy użytkownika w kierunku junior/mid developera w obszarach: ASP.NET, React, TypeScript, C#, PostgreSQL.
-- Użytkownik uczy się C# od około 1.5 roku, ASP.NET od około 6 miesięcy, łączy naukę z studiami i traktuje ten projekt jako pierwszy bardziej zaawansowany projekt z rozbudowaną architekturą.
+- Użytkownik uczy się C# od około 2 lat, ASP.NET od około 9-12 miesięcy, łączy naukę z studiami i traktuje ten projekt jako pierwszy bardziej zaawansowany projekt z rozbudowaną architekturą.
 - Użytkownik chce uczyć się prawidłowych wzorców, nazewnictwa i architektury, a nie tylko szybko dowozić funkcje.
 
 ### P2.2 Preferowany sposób odpowiedzi
@@ -78,3 +96,40 @@
 
 ### P2.7 Uwagi o błędach
 - Uwagi o błędach powinny odnosić się do aktualnego kodu i po poprawkach mają być ponownie zweryfikowane precyzyjnie.
+
+## P2.8 Współpraca z AI i nauka
+
+Pełny opis workflow znajduje się w [AI-assisted development workflow](../doc/AI_ASSISTED_DEVELOPMENT_WORKFLOW.md).
+Poniższe zasady są skróconą instrukcją operacyjną dla każdej rozmowy:
+
+- Domyślnie pracuj nad jednym spójnym vertical slice'em, nie nad całym modułem naraz.
+- Najpierw zbierz fakty z aktualnego kodu, konfiguracji, testów i najbliższego wzorca.
+- Jeśli użytkownik nie poprosił o implementację, użyj trybu `PLAN ONLY` i nie edytuj plików.
+- Przed implementacją ustal: problem, aktora, rezultat, niezmienniki, błędy, właściciela reguł, test rozstrzygający i zakres poza zadaniem.
+- Pokaż maksymalnie kilka realnych wariantów, ich koszty oraz rekomendowany najmniejszy wariant.
+- Po zatwierdzeniu implementuj małymi checkpointami; po każdym uruchom najwęższą sensowną walidację.
+- Nie usuwaj istniejących zmian użytkownika i nie wykonuj operacji Git bez wyraźnej prośby.
+- Po zmianie wyjaśnij odpowiedzialność warstw, ryzyka, wykonane testy i niewykonaną walidację.
+- Zakończ pytaniami `teach-back`, aby użytkownik samodzielnie wyjaśnił przepływ i failure paths.
+
+Współpraca ma przyspieszać pracę bez zastępowania nauki. Stosuj orientacyjnie
+`80% Delivery Mode` i `20% Training Mode`: AI może pisać boilerplate i powtarzalny
+kod, ale użytkownik powinien samodzielnie odtwarzać rdzeń reguł, testów i przepływu.
+
+Preferencje modelu użytkownika:
+
+- `GPT-5.6 Luna` jako domyślny model do lokalnych, prostych i powtarzalnych zadań;
+- `GPT-5.6 Sol` tylko do trudnej architektury, bezpieczeństwa, concurrency,
+	wieloplikowego debugowania i audytu decyzji;
+- duży kontekst, w tym limit `200K`, tylko gdy problem rzeczywiście obejmuje
+	dużą część repozytorium; jeden chat powinien zwykle dotyczyć jednego slice'a.
+
+Rozróżniaj tryby użytkownika: `PLAN ONLY`, `IMPLEMENT`, `REVIEW`, `DEBUG` i
+`TEACH-BACK`. Nie wykonuj edycji w trybie oceny lub samego planowania.
+
+### P2.9 Preferencje wizualnego wyjaśniania
+
+- Przy wyjaśnianiu architektury, przepływów danych, zależności i złożonych koncepcji częściej używaj diagramów Mermaid lub prostych schematów ASCII.
+- Diagram uzupełniaj krótkim opisem elementów oraz kierunku przepływu, aby wspierał organizację pojęć, a nie zastępował wyjaśnienie.
+- Stosuj diagram wtedy, gdy pomaga uporządkować odpowiedzialności warstw, granice modułów, zależności lub ścieżki sukcesu i błędów.
+- Przy prostych pytaniach nie dodawaj diagramu mechanicznie, jeśli nie wnosi wartości.

@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-08-30
+- Last reviewed: 2026-09-21
 - Scope: V3 migration toward a reusable modular starter
 
 ## Context
@@ -33,6 +34,13 @@ Use a hybrid modular monolith:
   added to a broad service when a focused handler can own it;
 - cross-module rules use explicit application ports or identifiers; direct
   `DbContext` access from API code is not allowed.
+- the canonical manual workflow is documented in `doc/ADDING_FEATURES.md`;
+- a slice contains only the application, HTTP, persistence and test elements needed
+  by that use case; structural symmetry is not a requirement;
+- manual registration through the module entry point remains explicit until measured
+  repetition justifies scaffolding;
+- generator and `dotnet new` work remain V8 concerns and must not block current
+  product slices.
 
 The first implementation is the `CreateProjectTask` slice:
 
@@ -84,11 +92,15 @@ This would add assembly, migration, deployment and transaction complexity withou
 current operational requirement. The modular monolith remains the simpler and more
 educational default.
 
-### MediatR or a generic message bus
+### MediatR during the initial VSA pilot
 
 The first slice needs a focused handler contract, not an additional dispatch
-abstraction. A broker or mediator can be evaluated only when a real integration or
-cross-process requirement exists.
+abstraction. MediatR was therefore deferred until module ownership, ports and
+transaction boundaries were proven independently of a library.
+
+That condition has now been met. Post-pilot command/query dispatch is governed by
+[`14_ADR_INCREMENTAL_MEDIATR_ADOPTION.md`](14_ADR_INCREMENTAL_MEDIATR_ADOPTION.md).
+A generic message bus and cross-process broker remain separate decisions.
 
 ## Consequences
 
@@ -109,6 +121,10 @@ cross-process requirement exists.
   isolated yet.
 - The frontend remains organized by its current feature/service structure until the
   backend slice contracts stabilize.
+- Navigating one use case across technical assemblies has a learning cost.
+- DI registration is explicit and repetitive. The accepted MediatR adoption will
+  centralize request dispatch while module entry points continue to own ports,
+  adapters, workers and options.
 
 ## Validation
 
@@ -135,12 +151,17 @@ workflows keep their transaction-owned notification writers.
 
 ## Follow-up
 
-- Apply the proven pattern to `Notifications` and later `Identity`, preserving the
-  one-use-case-at-a-time boundary.
+- Use `Projects`, `ProjectTasks` and `Notifications` as reference modules; migrate
+  `Identity` only when a real change touches a specific use case.
+- Measure the time, files and registration steps required by upcoming command and
+  query slices.
 - Move task-specific ports into the module namespace once no transitional consumer
   depends on the old location.
 - Keep the module registration, route uniqueness and dependency guardrails in CI.
+- Adopt MediatR incrementally according to
+  [`14_ADR_INCREMENTAL_MEDIATR_ADOPTION.md`](14_ADR_INCREMENTAL_MEDIATR_ADOPTION.md),
+  starting with one query and one command.
 - Migrate the frontend to feature-first organization only after the backend
   contracts remain stable.
-- Revisit separate projects, packages or a `dotnet new` template only after several
-  modules are complete and repeated setup cost is measured.
+- Revisit a small slice generator before a full `dotnet new` template, and only after
+  repeated setup cost is measured.

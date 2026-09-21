@@ -266,9 +266,15 @@ opisują rzeczywiste potrzeby funkcji: kontrolę dostępu, listowanie z filtrami
 zapis zmian zadania. Implementacje EF pozostają w `Infrastructure`, a kontrolery
 nie znają `ApplicationDbContext`.
 
-Rozdzielenie query i command nie oznacza wprowadzenia MediatR, RabbitMQ ani event
-busa. Jest to lokalny podział odpowiedzialności w ramach modularnego monolitu,
-który zachowuje istniejące endpointy, migracje i model relacyjny.
+Rozdzielenie query i command nie zależy od MediatR, RabbitMQ ani event busa. Obecny
+baseline używa jawnych interfejsów handlerów i dzięki temu potwierdził granice VSA
+niezależnie od biblioteki.
+
+MediatR jest zaakceptowanym kolejnym krokiem dla dispatchingu in-process. Zostanie
+wdrożony inkrementalnie przez `ISender` i `IRequestHandler`, bez zmiany istniejących
+endpointów, migracji, focused ports i modelu relacyjnego. `MediatR.INotification` nie
+zastępuje trwałych powiadomień ani outboxa. Szczegóły:
+[`ROADMAP/14_ADR_INCREMENTAL_MEDIATR_ADOPTION.md`](ROADMAP/14_ADR_INCREMENTAL_MEDIATR_ADOPTION.md).
 
 Rejestracja zależności tasków jest skupiona w `ProjectTasksModule.AddProjectTasksModule`.
 Composition root wywołuje jeden extension modułu, zamiast znać każdą implementację

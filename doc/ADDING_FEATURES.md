@@ -29,6 +29,61 @@ Najczęstsze przypadki:
 Nie zaczynaj od przypadkowego dopisywania kodu w widoku lub kontrolerze.
 Najpierw ustal źródło prawdy i granicę odpowiedzialności.
 
+## VSA Quick Start
+
+Dla nowego backendowego przypadku użycia wykonaj najpierw te kroki:
+
+1. Nazwij rezultat z perspektywy użytkownika, na przykład `GetProjectDetails` albo
+   `CreateProjectTask`.
+2. Wskaż moduł będący właścicielem reguły i danych.
+3. Określ, czy przypadek jest commandem, czy query.
+4. Wybierz najbliższy działający wzorzec:
+   - query: `Projects/GetProjectDetails`;
+   - command z regułami domenowymi i efektami ubocznymi:
+     `ProjectTasks/CreateProjectTask`.
+5. Zapisz najtańszy test, który może wykazać błąd decyzji.
+6. Dodaj tylko potrzebne elementy slice'a i zarejestruj je w entry poincie modułu.
+7. Przejdź przez [`MODULAR_VSA_MODULE_CHECKLIST.md`](MODULAR_VSA_MODULE_CHECKLIST.md).
+
+Minimalna mapa odpowiedzialności:
+
+| Projekt | Element | Kiedy jest potrzebny |
+| --- | --- | --- |
+| `Application` | command/query, handler contract, focused port | zawsze kontrakt handlera; port tylko dla zewnętrznej zależności |
+| `API` | request/response, validator, endpoint/controller | gdy slice jest publicznie dostępny przez HTTP |
+| `Infrastructure` | handler i adapter EF/integracji | handler wykonawczy oraz tylko potrzebne adaptery |
+| `UnitTests` | test handlera/validatora | dla reguł sukcesu i meaningful failure paths |
+| `IntegrationTests` | test trasy i persistence | dla publicznego kontraktu, autoryzacji i zapisu |
+| `frontend` | typy, API client, stan i UI | tylko gdy workflow jest dostępny w UI |
+
+Nie każdy slice potrzebuje osobnego store'a, migracji, eventu, workera, ekranu ani
+wszystkich katalogów. `N/A` jest poprawną decyzją, jeśli ma krótkie uzasadnienie.
+
+Jeśli zmiana wprowadza nową granicę, workflow albo trwały kontrakt, zacznij od
+[`PRODUCT_EVOLUTION/FEATURE_PROPOSAL_TEMPLATE.md`](PRODUCT_EVOLUTION/FEATURE_PROPOSAL_TEMPLATE.md).
+
+## MediatR Transition Policy
+
+MediatR jest zaakceptowanym docelowym dispatcherem backendowych command/query slices,
+ale migracja jest inkrementalna:
+
+1. pierwszy query pilot to `Projects/GetProjectDetails`;
+2. pierwszy command pilot to `ProjectTasks/CreateProjectTask`;
+3. pilot dodaje `ISender`, `IRequest<TResult>`, `IRequestHandler<TRequest, TResult>`
+   oraz bezpieczny telemetry pipeline behavior;
+4. po przejściu bramki nowe slice'y używają MediatR domyślnie;
+5. istniejące moduły migrują kolejno: `Notifications`, `Projects`, `ProjectTasks`;
+6. jeden slice nie może pozostawić dwóch aktywnych dispatch paths.
+
+Podczas przejścia wybierz styl używany przez najbliższy obowiązujący wzorzec. Nie
+migruj całego modułu przy okazji niepowiązanej poprawki. MediatR zmienia sposób
+wywołania handlera, ale nie właściciela reguły, focused ports, transakcję,
+autoryzację ani publiczny kontrakt.
+
+`MediatR.INotification` nie zastępuje trwałego `Notification`, email outboxa ani
+integration eventu. Szczegóły i bramki znajdują się w
+[`ROADMAP/14_ADR_INCREMENTAL_MEDIATR_ADOPTION.md`](ROADMAP/14_ADR_INCREMENTAL_MEDIATR_ADOPTION.md).
+
 ## Adding a New Frontend Feature
 
 Jeśli dodajesz nowy feature po stronie UI:
@@ -45,14 +100,23 @@ Jeśli dodajesz nowy feature po stronie UI:
 
 Jeśli dodajesz nowy feature po stronie backendu:
 
-1. Zacznij od domeny, jeśli pojawia się nowe pojęcie biznesowe.
-2. Dodaj DTO, interfejsy i walidację w `backend/Application/`.
-3. Dodaj implementację persistence lub integracji w `backend/Infrastructure/`.
-4. Dodaj lub rozszerz endpoint w `backend/API/Controllers/`.
-5. Jeśli feature należy do istniejącego modułu rozwijanego w stylu modularnego VSA,
-   zastosuj standard opisany poniżej i zarejestruj usługi przez rozszerzenie modułu.
-   Dla nieprzeniesionych obszarów przejściowych użyj obecnego composition root.
-6. Dodaj testy jednostkowe i integracyjne.
+1. Ustal jeden use case, jego aktora, właściciela modułu oraz wynik błędu.
+2. Zacznij od domeny tylko wtedy, gdy pojawia się albo zmienia niezmiennik biznesowy.
+3. Dodaj command/query i kontrakt handlera w
+   `backend/Application/Modules/<BusinessModule>/<UseCase>/`.
+4. Dodaj focused port wyłącznie dla potrzebnej operacji persistence lub integracji.
+5. Dodaj request/response, walidację i endpoint w
+   `backend/API/Modules/<BusinessModule>/<UseCase>/`.
+6. Dodaj handler i wymagany adapter w
+   `backend/Infrastructure/Modules/<BusinessModule>/<UseCase>/`.
+7. Zarejestruj zależności przez rozszerzenie właściwego modułu.
+8. Dodaj targeted unit test oraz integration test publicznego kontraktu.
+9. Zaktualizuj frontend i browser E2E, jeśli use case jest częścią krytycznego
+   workflowu użytkownika.
+
+Dla nieprzeniesionego obszaru przejściowego najpierw sprawdź najbliższy wzorzec. Nie
+przenoś całego modułu wyłącznie po to, aby dodać jeden feature, ale nie dodawaj nowej
+metody do szerokiego serwisu, jeśli granica modułu jest już potwierdzona.
 
 ## Adding a New Runtime Feature Flag
 
@@ -129,8 +193,8 @@ i handler nie znają `ApplicationDbContext`.
 
 Nie twórz generycznego `IRepository<T>` tylko po to, aby ukryć EF Core. Port powinien
 wynikać z przypadku użycia i przyjmować typy oraz operacje potrzebne konkretnej
-funkcji. Nie dodawaj MediatR, event busa ani brokera wiadomości bez wymagania
-wynikającego z rzeczywistego przypadku biznesowego.
+funkcji. MediatR wdrażaj wyłącznie zgodnie z zaakceptowanym planem; nie traktuj go
+jako event busa ani brokera wiadomości.
 
 ## Vertical Slice Standard
 
@@ -146,7 +210,7 @@ UnitTests/Modules/<BusinessModule>/<UseCase>/
 
 Każdy slice powinien mieć, zależnie od potrzeb:
 
-1. command lub query oraz mały port handlera w `Application`;
+1. command lub query oraz kontrakt dispatch/handlera w `Application`;
 2. handler koordynujący reguły przypadku użycia;
 3. request/response i validator przy adapterze HTTP;
 4. endpoint zachowujący istniejący kontrakt i statusy HTTP;
@@ -154,6 +218,11 @@ Każdy slice powinien mieć, zależnie od potrzeb:
 6. testy handlera oraz test integracyjny dla trasy;
 7. rejestrację w module, a nie bezpośredni wpis w composition root;
 8. krótką dokumentację decyzji, zależności i zachowania przy błędzie.
+
+Po aktywacji bramki MediatR command/query implementuje `IRequest<TResult>`, handler
+implementuje `IRequestHandler<TRequest, TResult>`, a adapter HTTP używa `ISender`.
+W pozostałych slice'ach przejściowych jawny interfejs handlera pozostaje poprawny do
+czasu ich zaplanowanej migracji.
 
 Po zakończeniu migracji CRUD `ProjectTasks` nie dodawaj nowych przypadków użycia do
 dużego serwisu. Każda nowa komenda lub kwerenda powinna mieć własny slice oraz
@@ -194,13 +263,14 @@ Praktyczne zasady:
 
 Najbezpieczniejsza kolejność przy większych zmianach:
 
-1. kontrakt i model danych
-2. backendowa implementacja
-3. frontendowy klient API
-4. frontendowy stan i hooki
-5. routing i UI
-6. testy
-7. dokumentacja
+1. problem, aktor, właściciel reguły i test rozstrzygający
+2. kontrakt, autoryzacja i model danych
+3. reguła domenowa oraz backendowy handler
+4. persistence, transakcja i integration test
+5. frontendowy klient API
+6. frontendowy stan, routing i UI
+7. browser E2E dla krytycznego workflowu
+8. dokumentacja i ADR, jeśli zmieniła się trwała decyzja
 
 ## Documentation Rule
 
@@ -228,7 +298,7 @@ User 1 ---- * Project 1 ---- * ProjectMember
 
 Diagram pokazuje relację danych, a nie własność agregatową. `ProjectTask` nie jest
 ładowany ani zmieniany przez `Project`; reguły wymagające danych z obu agregatów są
-koordynowane przez application service.
+koordynowane przez handler przypadku użycia i jawne porty modułowe.
 
 ### Backend Contract
 
@@ -330,3 +400,7 @@ W zależności od typu zmiany przejdź dalej do odpowiedniego pliku:
 - `doc/FRONTEND_SETUP.md` - bootstrap UI, routing i warstwa klienta API
 - `doc/JWT_ARCHITECTURE.md` - model sesji i bezpieczeństwo tokenów
 - `doc/EMAIL_2FA_FLOWS.md` - szczegółowe flow email confirmation, 2FA i password reset
+- `doc/PRODUCT_EVOLUTION/DEVELOPMENT_PLAN.md` - kolejność najbliższych inkrementów
+- `doc/PRODUCT_EVOLUTION/FEATURE_PROPOSAL_TEMPLATE.md` - decyzja przed większym feature'em
+- `doc/MODULAR_VSA_MODULE_CHECKLIST.md` - Definition of Done modułu i slice'a
+- `doc/ROADMAP/14_ADR_INCREMENTAL_MEDIATR_ADOPTION.md` - reguły i kolejność adopcji MediatR
