@@ -61,7 +61,7 @@ services:
     logging: *default-logging
 
   minio-init:
-    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    image: quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z
     restart: "no"
     entrypoint:
       - /bin/sh
