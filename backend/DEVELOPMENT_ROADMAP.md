@@ -8,25 +8,35 @@ The project is a .NET 9 modular monolith with a React frontend. Backend correctn
 
 ## Current priority
 
-**V3: Domain boundaries, transactions and optimistic concurrency** is the current implementation stage.
+**V4 notification-contract closure followed by incremental MediatR adoption** is the
+current implementation priority.
 
-V1 is complete as the junior baseline and V2 is complete for the current security-hardening scope. The application already contains authentication, projects, tasks, membership, invitations, comments, attachments, activity, notifications, workers, health checks, Docker wiring and automated tests. The next value comes from stronger domain boundaries, transaction semantics and domain-level concurrency handling.
+V1 is complete as the junior baseline and V2 is complete for the current
+security-hardening scope. The backend VSA pilot is proven across `Projects`,
+`ProjectTasks` and `Notifications`; the next value is a simpler golden path and
+end-to-end contract completeness. MediatR is then introduced through one query, one
+command and a safe telemetry behavior before becoming the default for new slices.
+This is an incremental dispatch migration, not another broad folder rewrite. V5
+runtime evidence proceeds independently and still gates any production-ready claim.
 
 ## Current progress
 
-As of **2026-09-02**. Percentages follow the calculation documented in the canonical [roadmap overview](../doc/ROADMAP/00_ROADMAP_OVERVIEW.md).
+As of **2026-09-21**. Percentages follow the calculation documented in the canonical [roadmap overview](../doc/ROADMAP/00_ROADMAP_OVERVIEW.md).
 
 | Stage | Progress | Status |
 |---|---:|---|
 | V1 | 100% | Complete baseline. |
 | V2 | 96% | Complete for the current scope; minor follow-ups remain. |
-| V3 | 40% | Project and ProjectTask aggregate boundaries are documented and tested; project, invitation and task concurrency plus invitation and member transaction workflows have PostgreSQL coverage; dashboard date predicates and index usage are covered; `User.Email` and `User.DisplayName` use tested domain value objects, while `User` mutations are encapsulated behind a factory and explicit domain methods without changing the existing schema or API contracts; the first `CreateProjectTask` vertical slice now has a focused handler, endpoint, validator and module registration; implementation is not complete. |
-| V4 | 28% | Foundations present; implementation not complete. |
+| V3 | 65% | Domain and transaction work remains, while the backend VSA pilot is complete across three modules with explicit ports, module registration and architecture guardrails. |
+| V4 | 78% | Security audit, authorized workspace search, attachment lifecycle and the browser E2E baseline exist; notification contract completeness and remaining evidence are next. |
 | V5 | 80% | VPS deployment, controlled migrations, encrypted backup/restore, rollback, monitoring and protected staging smoke are implemented; real staging evidence is still pending. |
 | V6 | 13% | Initial foundations; measurement work not started. |
-| V7 | 0% | Optional and intentionally not started. |
+| V7 | 0% | Incremental MediatR adoption is accepted and planned; code implementation has not started. |
 
-**Overall roadmap progress: 51%**.
+**Overall roadmap progress: 62%**.
+
+The current execution order is documented in
+[`../doc/PRODUCT_EVOLUTION/DEVELOPMENT_PLAN.md`](../doc/PRODUCT_EVOLUTION/DEVELOPMENT_PLAN.md).
 
 ## Stage index
 
@@ -38,7 +48,8 @@ As of **2026-09-02**. Percentages follow the calculation documented in the canon
 | V4 | Security audit, workspace search, attachment hardening and browser E2E | [04_V4_PRODUCT_COMPLETENESS.md](../doc/ROADMAP/04_V4_PRODUCT_COMPLETENESS.md) |
 | V5 | Deployment, secrets, migrations, backups and operations | [05_V5_DEPLOYMENT_AND_OPERATIONS.md](../doc/ROADMAP/05_V5_DEPLOYMENT_AND_OPERATIONS.md) |
 | V6 | Measurement, database performance, idempotency and worker reliability | [06_V6_PERFORMANCE_AND_RELIABILITY.md](../doc/ROADMAP/06_V6_PERFORMANCE_AND_RELIABILITY.md) |
-| V7 | Optional evolution driven by real constraints | [07_V7_OPTIONAL_EVOLUTION.md](../doc/ROADMAP/07_V7_OPTIONAL_EVOLUTION.md) |
+| V7 | Planned MediatR adoption plus optional evolution driven by real constraints | [07_V7_OPTIONAL_EVOLUTION.md](../doc/ROADMAP/07_V7_OPTIONAL_EVOLUTION.md) |
+| MediatR ADR | Accepted dispatch target and incremental migration | [14_ADR_INCREMENTAL_MEDIATR_ADOPTION.md](../doc/ROADMAP/14_ADR_INCREMENTAL_MEDIATR_ADOPTION.md) |
 | Learning workflow | How to work through each stage | [08_LEARNING_WORKFLOW.md](../doc/ROADMAP/08_LEARNING_WORKFLOW.md) |
 | Modular VSA checklist | Definition of Done for modules and slices | [MODULAR_VSA_MODULE_CHECKLIST.md](../doc/MODULAR_VSA_MODULE_CHECKLIST.md) |
 
@@ -62,13 +73,16 @@ For the documentation work:
 docs/project-development-roadmap
 ```
 
-For the immediate V3 work, start with a focused branch such as:
+For the next product increments, use focused branches such as:
 
 ```text
-feature/v3-domain-transactions-and-concurrency
+feature/v4-notification-contract
 ```
 
-Other examples are `feature/optimistic-concurrency`, `feature/security-audit`, `feature/workspace-search`, `chore/deployment-readiness` and `perf/project-dashboard-query`.
+Other examples are `feature/project-permission-matrix`,
+`feature/mediatr-query-pilot`, `feature/mediatr-command-pilot`,
+`feature/realtime-notification-delivery`, `feature/task-review-transition`,
+`chore/v5-runtime-evidence` and `perf/project-dashboard-query`.
 
 ## Learning model
 

@@ -35,3 +35,11 @@ deduplication boundary. Their behavior and transaction ordering are retained, bu
 migrating them to `ICollaborationNotificationWriter` is deferred to avoid changing
 already stable flows during the V4 release gate. Project create/archive and ordinary
 task update/delete intentionally do not notify the actor.
+
+## Client contract closure
+
+The backend currently exposes twelve notification types, while the frontend type
+catalog covers only the original six. V4 is not contract-complete until every public
+backend type has explicit frontend rendering, resource navigation and fallback
+behavior for an unknown future type. Real-time delivery remains a later transport
+decision and must not be used to hide this contract gap.

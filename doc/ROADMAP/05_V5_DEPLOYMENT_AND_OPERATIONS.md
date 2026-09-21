@@ -6,7 +6,7 @@ V5 ma przeprowadzić aplikację z lokalnego Docker Compose i CI do jednego realn
 
 ## Status realizacji
 
-Stan na: **2026-09-02**.
+Stan na: **2026-09-21**.
 
 | Obszar | Postęp | Status i dowód |
 |---|---:|---|
@@ -27,11 +27,13 @@ Wynik nie oznacza gotowości produkcyjnej. Największy brak V5 to wybrane, realn
 
 ## Decyzja o środowisku
 
-Najpierw należy wybrać jeden cel wdrożenia i opisać powód wyboru. Przykładowe opcje to:
+Wybranym celem V5 jest jeden Linux VPS z Docker Compose, Caddy i obrazami
+publikowanymi do GHCR. Ten wariant odpowiada skali jednej aplikacji, pozwala przećwiczyć
+pełny kontrakt operacyjny i nie dodaje kosztu orkiestracji klastra.
 
-- Azure App Service lub Container Apps;
-- VPS z Docker Compose;
-- inny dostawca kontenerów.
+Azure App Service, Container Apps i inni dostawcy pozostają przyszłymi wariantami
+hostingu, a nie częścią obecnego release gate. Ich dodanie wymaga osobnej decyzji o
+koszcie, sekretach, storage, migracjach, backupie i rollbacku.
 
 Kubernetes nie jest wymagany do zaliczenia tego etapu. Dla jednej aplikacji i jednej osoby może zwiększyć koszt operacyjny bez wartości edukacyjnej proporcjonalnej do złożoności.
 

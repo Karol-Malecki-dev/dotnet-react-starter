@@ -14,7 +14,28 @@ The sequence optimizes for short feedback loops:
 - a small browser E2E foundation early, then one browser scenario with each workflow;
 - no production adapter before the deployment target and threat model are selected.
 
-## Verified baseline
+## Execution update
+
+State reviewed against the project snapshot on **2026-09-21**. The detailed package
+descriptions below remain historical implementation guidance; they must not be
+reimplemented when the current code already satisfies their exit gate.
+
+| Package | Current state | Remaining decision or evidence |
+| --- | --- | --- |
+| 0. Attachment hardening | Implemented | Keep PostgreSQL quota and cleanup regression coverage. |
+| 1. Browser E2E foundation | Implemented | Maintain the Compose/Playwright path. |
+| 2. Security audit foundation | Implemented | Review event completeness and sensitive metadata. |
+| 3. Security-event wiring | Implemented baseline | Verify every critical outcome maps to one safe event. |
+| 4. Lockout/rate-limit UX | Implemented baseline | Close time-window and browser regression evidence. |
+| 5. Workspace search | Implemented | Verify the permission matrix and query behavior at scale. |
+| 6. Activity/Notifications | Active gap | Align backend/frontend event types, links and contract tests. |
+| 7. Production attachments | Implementation present | V5 runtime storage, restore and alert evidence remains. |
+| 8. Final browser matrix | Partially complete | Add only missing critical workflows, starting with Notifications. |
+
+The active sequence is now maintained in
+[`../PRODUCT_EVOLUTION/DEVELOPMENT_PLAN.md`](../PRODUCT_EVOLUTION/DEVELOPMENT_PLAN.md).
+
+## Historical baseline
 
 State verified from the worktree on **2026-08-31**:
 
@@ -424,19 +445,15 @@ Use this checklist when updating the V4 percentages:
 
 ## Fast start for the next sessions
 
-For each package, begin with the named anchor and one failing or missing test:
+Do not restart completed packages from their original anchors. Begin with one current
+gap and one discriminating test:
 
-| Package | First anchor | First discriminating check |
+| Next increment | First anchor | First discriminating check |
 |---|---|---|
-| 0 | `EfCreateProjectTaskAttachmentStore` | Concurrent byte quota leaves exactly one valid row |
-| 1 | `frontend/package.json` and Mailpit | Register-confirm-login works twice on Compose |
-| 2 | `ApplicationDbContext` auth entities | Persisted event contains no submitted secret |
-| 3 | `AuthController` and `DatabaseAuthService` | Final auth outcome maps to exactly one event |
-| 4 | `Login.tsx` | `401` stays neutral and `429` has bounded retry UX |
-| 5 | `QuickSearchBar.tsx` and task access query | Inaccessible exact match produces zero results |
-| 6 | product event matrix and existing writers | State plus required side effects commit atomically |
-| 7 | attachment cleanup processor and storage port | Repeated cleanup is safe and observable |
-| 8 | Playwright auth fixture | Two browser contexts complete invitation workflow |
+| Notifications contract | backend/frontend notification types and event matrix | Every public backend type has explicit frontend behavior |
+| Permission matrix | current project access ports and route tests | Role change immediately changes resource access |
+| V5 runtime evidence | deployment runbook and release gate | Restore returns database, objects and Data Protection keys |
+| Future real-time | accepted transport ADR and Notifications API | Offline/reconnected client recovers durable state |
 
 This table is the handoff point for implementation. It avoids repeating a repository-wide
 audit at the start of every branch while still requiring a local code check before edits.

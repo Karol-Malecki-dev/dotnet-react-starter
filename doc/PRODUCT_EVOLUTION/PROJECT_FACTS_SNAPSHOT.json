@@ -1,0 +1,528 @@
+{
+  "project": "dotnet-react-starter",
+  "capturedAt": "2026-09-21",
+  "purpose": "Repository facts for a later product-development analysis",
+  "scope": [
+    "backend",
+    "frontend",
+    "tests",
+    "local docker compose",
+    "VPS deployment configuration"
+  ],
+  "collectionMode": "static-source-inventory",
+  "runtimeValidationPerformed": false,
+  "buildPerformed": false,
+  "testsPerformed": false,
+  "dockerComposeStarted": false,
+  "secretsIncluded": false,
+  "architecture": {
+    "backendProjects": [
+      "API",
+      "Application",
+      "Domain",
+      "Infrastructure",
+      "Shared"
+    ],
+    "testProjects": [
+      "UnitTests",
+      "IntegrationTests",
+      "E2ETests"
+    ],
+    "backendFramework": ".NET 9",
+    "frontend": {
+      "framework": "React",
+      "reactVersion": "19.2.x",
+      "typescriptVersion": "5.7.x",
+      "buildTool": "Vite 6.3.x",
+      "router": "React Router 7.18.x",
+      "componentTesting": [
+        "Vitest",
+        "Testing Library"
+      ],
+      "browserE2E": "Playwright 1.62.x"
+    },
+    "database": "PostgreSQL",
+    "orm": "Entity Framework Core",
+    "persistenceContext": "Infrastructure.Data.ApplicationDbContext",
+    "architectureStyle": [
+      "layered backend",
+      "modular monolith",
+      "vertical slices"
+    ],
+    "registeredInfrastructureModules": [
+      "Projects",
+      "ProjectTasks",
+      "Notifications"
+    ],
+    "workspaceSearchPath": "Infrastructure.Modules.Workspace.SearchWorkspace"
+  },
+  "domain": {
+    "entities": [
+      "User",
+      "RefreshToken",
+      "AuthenticatorLoginChallenge",
+      "AuthenticatorRecoveryCode",
+      "Project",
+      "ProjectMember",
+      "ProjectInvitation",
+      "ProjectTask",
+      "ProjectTaskLabel",
+      "ProjectTaskComment",
+      "ProjectTaskAttachment",
+      "ProjectTaskAttachmentCleanupMessage",
+      "ProjectTaskDeadlineReminder",
+      "ProjectActivity",
+      "Notification",
+      "NotificationEmailPreference",
+      "NotificationEmailOutboxMessage",
+      "AccountSecurityEvent",
+      "BaseEntity"
+    ],
+    "systemRoles": [
+      "User",
+      "Admin"
+    ],
+    "projectMemberRoles": [
+      "Owner",
+      "Member",
+      "Viewer"
+    ],
+    "enumTypes": [
+      "UserRole",
+      "RevocationReason",
+      "ProjectTaskStatus",
+      "ProjectTaskPriority",
+      "ProjectTaskDeadlineReminderType",
+      "ProjectMemberRole",
+      "ProjectInvitationStatus",
+      "NotificationType"
+    ],
+    "aggregateObservations": [
+      "Project owns project membership behavior and project-level mutations.",
+      "ProjectTask owns task field, status, assignment, due-date and label mutations.",
+      "Project owner is created as a project member with Owner role.",
+      "Project owner cannot be removed or have the owner role changed through project domain methods.",
+      "Task labels are normalized, deduplicated, sorted and limited to 10 items."
+    ],
+    "sourcePaths": [
+      "backend/Domain/Entities/",
+      "backend/Domain/Entities/JWT/RefreshToken.cs",
+      "backend/Domain/Enums/"
+    ]
+  },
+  "identityAndAuthorization": {
+    "authFlows": [
+      "registration",
+      "email confirmation",
+      "resend email confirmation",
+      "password login",
+      "email 2FA",
+      "TOTP authenticator 2FA",
+      "recovery codes",
+      "refresh-token rotation",
+      "refresh-token replay detection",
+      "single-session logout",
+      "logout all sessions",
+      "password change",
+      "forgot password",
+      "password reset",
+      "current-user lookup",
+      "admin user management",
+      "account activation and deactivation",
+      "login lockout"
+    ],
+    "authorizationLayers": [
+      "AllowAnonymous on selected public auth endpoints",
+      "Authorize on authenticated endpoints",
+      "Admin role authorization on administration endpoints",
+      "project membership checks in module handlers and stores",
+      "frontend ProtectedRoute and allowedRoles checks"
+    ],
+    "sourcePaths": [
+      "backend/API/Controllers/AuthController.cs",
+      "backend/API/Controllers/AdminController.cs",
+      "backend/API/Controllers/UsersController.cs",
+      "backend/API/Modules/Projects/",
+      "backend/API/Modules/ProjectTasks/",
+      "frontend/src/components/UI/ProtectedRoute.tsx",
+      "frontend/src/components/AppRoutes.tsx"
+    ]
+  },
+  "apiSurface": {
+    "auth": [
+      "POST /api/auth/login",
+      "POST /api/auth/register",
+      "POST /api/auth/confirm-email",
+      "POST /api/auth/resend-confirmation",
+      "POST /api/auth/verify-2fa",
+      "POST /api/auth/resend-2fa",
+      "POST /api/auth/authenticator/setup",
+      "POST /api/auth/authenticator/confirm",
+      "POST /api/auth/authenticator/disable",
+      "POST /api/auth/authenticator/recovery-codes",
+      "POST /api/auth/refresh-token",
+      "POST /api/auth/logout",
+      "POST /api/auth/logout-all",
+      "GET /api/auth/me",
+      "POST /api/auth/verify-token",
+      "POST /api/auth/change-password",
+      "POST /api/auth/forgot-password",
+      "POST /api/auth/reset-password"
+    ],
+    "adminAndUsers": [
+      "GET /api/admin/dashboard-stats",
+      "GET /api/admin/users",
+      "GET /api/admin/security-events",
+      "GET /api/admin/users/{userId}",
+      "GET /api/admin/users/by-email",
+      "PUT /api/admin/users/{userId}",
+      "PUT /api/admin/users/{userId}/role",
+      "PUT /api/admin/users/{userId}/activate",
+      "PUT /api/admin/users/{userId}/deactivate",
+      "DELETE /api/admin/users/{userId}",
+      "GET /api/users/{id}",
+      "GET /api/users",
+      "GET /api/users/me",
+      "GET /api/users/count",
+      "DELETE /api/users/{id}",
+      "PUT /api/users/{id}/display-name",
+      "PUT /api/users/{id}/role",
+      "PUT /api/users/me",
+      "GET /api/users/me/security",
+      "PATCH /api/users/me/security/two-factor"
+    ],
+    "projectsAndMembership": [
+      "POST /api/projects",
+      "GET /api/projects",
+      "GET /api/projects/{projectId}",
+      "PUT /api/projects/{projectId}",
+      "DELETE /api/projects/{projectId}",
+      "GET /api/projects/{projectId}/dashboard",
+      "GET /api/projects/{projectId}/activity",
+      "GET /api/projects/{projectId}/members",
+      "GET /api/projects/{projectId}/members/available",
+      "POST /api/projects/{projectId}/members",
+      "PATCH /api/projects/{projectId}/members/{userId}/role",
+      "DELETE /api/projects/{projectId}/members/{userId}",
+      "GET /api/projects/{projectId}/invitations",
+      "POST /api/projects/{projectId}/invitations",
+      "GET /api/project-invitations/mine",
+      "POST /api/project-invitations/accept",
+      "POST /api/project-invitations/decline"
+    ],
+    "tasksCommentsAndAttachments": [
+      "GET /api/projects/{projectId}/tasks",
+      "POST /api/projects/{projectId}/tasks",
+      "GET /api/projects/{projectId}/tasks/{taskId}",
+      "PUT /api/projects/{projectId}/tasks/{taskId}",
+      "PATCH /api/projects/{projectId}/tasks/{taskId}/status",
+      "DELETE /api/projects/{projectId}/tasks/{taskId}",
+      "GET /api/projects/{projectId}/tasks/{taskId}/comments",
+      "POST /api/projects/{projectId}/tasks/{taskId}/comments",
+      "DELETE /api/projects/{projectId}/tasks/{taskId}/comments/{commentId}",
+      "GET /api/projects/{projectId}/tasks/{taskId}/attachments",
+      "POST /api/projects/{projectId}/tasks/{taskId}/attachments",
+      "GET /api/projects/{projectId}/tasks/{taskId}/attachments/{attachmentId}/download",
+      "DELETE /api/projects/{projectId}/tasks/{taskId}/attachments/{attachmentId}"
+    ],
+    "notifications": [
+      "GET /api/notifications",
+      "GET /api/notifications/unread-count",
+      "GET /api/notifications/email-preference",
+      "PATCH /api/notifications/{id}/read",
+      "PATCH /api/notifications/read-all",
+      "PATCH /api/notifications/email-preference"
+    ],
+    "workspaceAndRuntime": [
+      "GET /api/workspace/search",
+      "GET /api/runtime-config",
+      "GET /health",
+      "GET /health/live",
+      "GET /health/ready",
+      "GET /health/workers",
+      "GET /health/storage",
+      "GET /health/malware-scanner",
+      "GET /health/email"
+    ],
+    "sourcePaths": [
+      "backend/API/Controllers/",
+      "backend/API/Modules/",
+      "backend/API/Program.cs"
+    ]
+  },
+  "notifications": {
+    "persistentFields": [
+      "UserId",
+      "NotificationType",
+      "Title",
+      "Message",
+      "ResourceType",
+      "ResourceId",
+      "ProjectId",
+      "DeduplicationKey",
+      "CreatedAt",
+      "ReadAt"
+    ],
+    "backendNotificationTypes": [
+      "ProjectInvitation",
+      "TaskAssigned",
+      "SecurityAlert",
+      "System",
+      "TaskDeadlineApproaching",
+      "TaskOverdue",
+      "ProjectMemberRemoved",
+      "ProjectMemberRoleChanged",
+      "TaskStatusChanged",
+      "TaskCommented",
+      "TaskAttachmentAdded",
+      "TaskAttachmentRemoved"
+    ],
+    "frontendNotificationTypes": [
+      "ProjectInvitation",
+      "TaskAssigned",
+      "SecurityAlert",
+      "System",
+      "TaskDeadlineApproaching",
+      "TaskOverdue"
+    ],
+    "frontendOperations": [
+      "load notifications through API",
+      "refresh notifications",
+      "mark one notification as read",
+      "mark all notifications as read",
+      "store unread count",
+      "store loading and error state"
+    ],
+    "realtimeTransportObservedInInspectedSource": false,
+    "emailOutbox": {
+      "fields": [
+        "NotificationId",
+        "UserId",
+        "CreatedAt",
+        "NextAttemptAt",
+        "AttemptCount",
+        "ProcessedAt",
+        "LastError"
+      ],
+      "worker": "NotificationEmailOutboxWorker",
+      "pollIntervalSeconds": 15,
+      "batchSize": 20,
+      "maxAttempts": 3,
+      "healthCheckWorkerName": "notification-email-outbox"
+    },
+    "sourcePaths": [
+      "backend/Domain/Entities/Notification.cs",
+      "backend/Domain/Entities/NotificationEmailOutboxMessage.cs",
+      "backend/Domain/Enums/NotificationType.cs",
+      "backend/Infrastructure/Services/NotificationEmailOutboxWorker.cs",
+      "frontend/src/context/NotificationsContext.tsx",
+      "frontend/src/types/notifications.ts"
+    ]
+  },
+  "optimisticConcurrency": {
+    "entitiesWithConcurrencyStamp": [
+      "User",
+      "Project",
+      "ProjectTask",
+      "ProjectInvitation",
+      "RefreshToken"
+    ],
+    "requestContractsWithExpectedStamp": [
+      "project update",
+      "project task update",
+      "project task status update",
+      "project task delete query parameter"
+    ],
+    "conflictResponse": "HTTP 409 Conflict",
+    "postgresqlEvidenceInSource": [
+      "stale project update is rejected",
+      "stale project task update is rejected",
+      "winning persisted value is preserved",
+      "concurrent refresh-token use allows one successor and records replay for the other"
+    ],
+    "sourcePaths": [
+      "backend/Domain/Entities/Project.cs",
+      "backend/Domain/Entities/ProjectTask.cs",
+      "backend/Infrastructure/Data/Configurations/ProjectConfiguration.cs",
+      "backend/Infrastructure/Data/Configurations/ProjectTaskConfiguration.cs",
+      "backend/API/Contracts/Projects/ProjectRequests.cs",
+      "backend/API/Contracts/Projects/ProjectResponses.cs",
+      "backend/API/Contracts/Projects/ProjectTaskResponses.cs",
+      "backend/API/Middleware/ExceptionHandlingMiddleware.cs",
+      "backend/IntegrationTests/PostgreSqlIntegrationTests.cs",
+      "backend/IntegrationTests/ProjectTasksApiIntegrationTests.cs"
+    ]
+  },
+  "attachments": {
+    "operations": [
+      "upload",
+      "list",
+      "download",
+      "delete"
+    ],
+    "storageImplementations": [
+      "LocalProjectTaskAttachmentStorage",
+      "S3ProjectTaskAttachmentStorage"
+    ],
+    "localComposeStorage": "MinIO",
+    "productionMalwareScanner": "ClamAV",
+    "backgroundProcessing": [
+      "attachment cleanup queue",
+      "attachment cleanup worker",
+      "attachment reconciliation service"
+    ],
+    "sourcePaths": [
+      "backend/Infrastructure/Modules/ProjectTasks/ProjectTasksModule.cs",
+      "backend/Infrastructure/Services/LocalProjectTaskAttachmentStorage.cs",
+      "backend/Infrastructure/Services/S3ProjectTaskAttachmentStorage.cs",
+      "backend/Infrastructure/Services/AttachmentStorageHealthCheck.cs",
+      "docker-compose.yml",
+      "deploy/vps/compose.production.yml"
+    ]
+  },
+  "frontendRoutes": {
+    "public": [
+      "/",
+      "/login",
+      "/register",
+      "/confirm-email",
+      "/forgot-password",
+      "/reset-password",
+      "/verify-2fa"
+    ],
+    "authenticated": [
+      "/dashboard",
+      "/profile",
+      "/notifications",
+      "/projects",
+      "/project-invitation"
+    ],
+    "admin": [
+      "/admin",
+      "/admin/users",
+      "/users"
+    ],
+    "sourcePath": "frontend/src/components/AppRoutes.tsx"
+  },
+  "tests": {
+    "backendProjects": [
+      "backend/UnitTests/UnitTests.csproj",
+      "backend/IntegrationTests/IntegrationTests.csproj",
+      "backend/E2ETests/E2ETests.csproj"
+    ],
+    "integrationCoverageAreasPresent": [
+      "auth",
+      "users",
+      "projects",
+      "project invitations",
+      "project tasks",
+      "notifications",
+      "observability",
+      "module architecture",
+      "PostgreSQL"
+    ],
+    "frontendUnitAndComponentAreasPresent": [
+      "AppRoutes",
+      "bootstrap gate",
+      "ProtectedRoute",
+      "Navbar",
+      "Login",
+      "Register",
+      "Profile",
+      "Notifications",
+      "AdminPanel",
+      "UserList",
+      "AuthContext",
+      "RuntimeConfigContext",
+      "helpers"
+    ],
+    "browserE2EScenariosPresent": [
+      "registration, email confirmation, 2FA and logout",
+      "project creation and task collaboration",
+      "viewer invitation and read-only permissions",
+      "stale project edit from concurrent browser context"
+    ],
+    "playwrightConfig": {
+      "testDir": "./e2e",
+      "workers": 1,
+      "baseUrlDefault": "http://localhost:3000",
+      "trace": "retain-on-failure",
+      "screenshot": "only-on-failure",
+      "video": "retain-on-failure"
+    }
+  },
+  "operations": {
+    "localComposeServices": [
+      "db",
+      "mailpit",
+      "minio",
+      "minio-init",
+      "backend",
+      "frontend"
+    ],
+    "vpsServicesAndComponentsObserved": [
+      "db",
+      "minio",
+      "mailpit staging profile",
+      "minio-init",
+      "clamav",
+      "migration",
+      "backend",
+      "frontend",
+      "caddy",
+      "blackbox-exporter",
+      "alertmanager",
+      "node-exporter",
+      "prometheus",
+      "grafana"
+    ],
+    "healthEndpoints": [
+      "/health",
+      "/health/live",
+      "/health/ready",
+      "/health/workers",
+      "/health/storage",
+      "/health/malware-scanner",
+      "/health/email"
+    ],
+    "operationalScriptsObserved": [
+      "deploy/vps/deploy.sh",
+      "deploy/vps/rollback.sh",
+      "deploy/vps/backup.sh",
+      "deploy/vps/restore.sh"
+    ],
+    "sourcePaths": [
+      "docker-compose.yml",
+      "backend/API/Program.cs",
+      "deploy/vps/compose.production.yml",
+      "deploy/vps/compose.staging.yml",
+      "deploy/vps/observability/"
+    ]
+  },
+  "runtimeVerificationRequired": [
+    "local Docker Compose startup and health",
+    "API, frontend, PostgreSQL, Mailpit and MinIO availability",
+    "database migration application",
+    "full backend and frontend test execution",
+    "Playwright execution against running stack",
+    "PostgreSQL concurrency behavior at runtime",
+    "email outbox retries and attempt limit",
+    "MinIO/S3 persistence and cleanup reconciliation",
+    "ClamAV attachment scanning",
+    "backup, restore, rollback and staging monitoring",
+    "current documentation versus current source alignment",
+    "behavior with multiple backend instances"
+  ],
+  "analysisSourceDocuments": [
+    "doc/ROADMAP/00_ROADMAP_OVERVIEW.md",
+    "doc/ROADMAP/03_V3_DOMAIN_TRANSACTIONS_AND_CONCURRENCY.md",
+    "doc/ROADMAP/04_V4_PRODUCT_COMPLETENESS.md",
+    "doc/ROADMAP/05_V5_DEPLOYMENT_AND_OPERATIONS.md",
+    "doc/ROADMAP/06_V6_PERFORMANCE_AND_RELIABILITY.md",
+    "doc/ROADMAP/07_V7_OPTIONAL_EVOLUTION.md",
+    "doc/PRODUCT_EVOLUTION/README.md",
+    "doc/PRODUCT_EVOLUTION/FEATURE_BACKLOG.md",
+    "backend/DEVELOPMENT_ROADMAP.md",
+    "doc/ARCHITECTURE.md"
+  ]
+}

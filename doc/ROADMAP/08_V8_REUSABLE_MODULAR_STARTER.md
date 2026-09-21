@@ -12,33 +12,54 @@ wcześniej potwierdzone w realnych przypadkach użycia.
 
 ## Status realizacji
 
-Stan na: **2026-08-31**.
+Stan na: **2026-09-21**.
 
 | Obszar | Postęp | Status |
 |---|---:|---|
-| Standard modułu i slice'a | 35% | Istnieją ADR, checklista oraz backendowy pilot `ProjectTasks` obejmujący kilka rodzajów slice'ów; standard nie został jeszcze potwierdzony na kilku modułach. |
-| Guardrails architektoniczne | 0% | Brak automatycznych testów granic, kompletności rejestracji i kontraktów modułu. |
+| Standard modułu i slice'a | 70% | ADR, checklista i backendowe moduły `Projects`, `ProjectTasks` oraz `Notifications` potwierdzają podstawowy standard command/query slice'a. |
+| Guardrails architektoniczne | 45% | Istnieją testy DI, unikalności tras i bezpośredniego dostępu do `ApplicationDbContext`; brakuje pełniejszych reguł zależności, kontraktów OpenAPI/TypeScript i testu wygenerowanego wariantu. |
 | Scaffolding | 0% | Brak generatora modułu albo slice'a. |
 | Wybór i instalacja modułów | 0% | Brak stabilnego mechanizmu tworzenia projektu z wybranym zestawem capability. |
 | Wersjonowanie i aktualizacje | 0% | Brak potwierdzonej strategii aktualizowania modułów w wielu projektach. |
-| Moduły referencyjne | 15% | Backendowy `ProjectTasks` pilot ma większość przypadków użycia w slice'ach, ale nie jest jeszcze ukończonym produktem dystrybucyjnym ani drugim modułem referencyjnym. |
+| Moduły referencyjne | 60% | `Projects`, `ProjectTasks` i `Notifications` dostarczają różne wzorce, ale nie są jeszcze niezależnie instalowanymi i wersjonowanymi capability. |
 
-**Postęp V8: 0%**.
+**Gotowość fundamentów V8: 29%**. **Realizacja V8: 0%**.
 
-Istniejące fundamenty nie uruchamiają jeszcze etapu. V8 rozpoczyna się dopiero po
-spełnieniu kryteriów wejścia.
+Istniejące fundamenty pozwalają już poprawić manualny developer experience, ale nie
+uruchamiają jeszcze platformizacji. V8 rozpoczyna się dopiero po spełnieniu kryteriów
+wejścia i zebraniu pomiarów kolejnych slice'ów.
 
 ## Kryteria wejścia
 
 Przed rozpoczęciem V8 wymagane są:
 
-- co najmniej dwa lub trzy moduły biznesowe z kilkoma command i query slices;
-- stabilne nazewnictwo kontraktów, handlerów, endpointów, portów i rejestracji;
-- potwierdzone testami granice zależności między modułami;
+- co najmniej dwa lub trzy moduły biznesowe z kilkoma command i query slices
+  (**spełnione dla backendowego pilota**);
+- stabilne nazewnictwo kontraktów, handlerów, endpointów, portów i rejestracji
+  (**częściowo spełnione**);
+- potwierdzone testami granice zależności między modułami
+  (**częściowo spełnione**);
 - udokumentowany sposób współdzielenia jednej bazy i migracji;
 - zmierzony czas ręcznego tworzenia kolejnych slice'ów;
 - przynajmniej jeden przypadek użycia startera albo modułu w drugim projekcie;
 - lista elementów rzeczywiście powtarzalnych, a nie tylko przewidywanych.
+
+## Most V3/V4: ergonomia przed platformizacją
+
+Przed formalnym V8 wolno i należy:
+
+- utrzymywać jeden manualny golden path w `doc/ADDING_FEATURES.md`;
+- wskazywać działający command i query jako wzorce;
+- oznaczać elementy warunkowe jako `N/A`, zamiast tworzyć puste pliki;
+- mierzyć czas, liczbę plików i ręczne punkty rejestracji;
+- upraszczać dokumentację i istniejące konwencje bez zmiany runtime architecture.
+
+Przed formalnym V8 nie należy:
+
+- budować pełnego generatora modułów;
+- wprowadzać auto-discovery tylko po to, aby ukryć rejestrację DI;
+- publikować modułów jako NuGet;
+- obiecywać aktualizacji wielu projektów bez drugiego rzeczywistego konsumenta.
 
 ## Zakres implementacyjny
 
@@ -66,6 +87,7 @@ Wprowadzić możliwie proste kontrole:
 
 - testy architektury blokujące niedozwolone zależności między modułami;
 - test composition root potwierdzający możliwość zbudowania kontenera DI;
+- test dokładnie jednego `IRequestHandler` dla każdego requestu MediatR;
 - test mapowania endpointów włączonych modułów;
 - kontrolę konfiguracji opcji podczas startu;
 - testy kontraktów OpenAPI i zgodności typów frontendu;
@@ -91,6 +113,11 @@ sprawdzony szkielet, na przykład:
 
 Generator nie powinien tworzyć pustych repository, eventów, workerów ani migracji,
 jeśli dany przypadek ich nie potrzebuje.
+
+Po zakończeniu adopcji MediatR generator tworzy `IRequest<TResult>`,
+`IRequestHandler<TRequest, TResult>` i adapter używający `ISender`. Nie powinien
+utrzymywać dwóch wariantów dispatchingu tylko dla kompatybilności z niezmigrowanymi
+slice'ami; generator zaczyna się dopiero po ustabilizowaniu docelowego standardu.
 
 ### 4. Tworzenie nowego projektu
 

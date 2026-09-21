@@ -11,35 +11,37 @@ opisane w [13_V4_IMPLEMENTATION_PLAN.md](13_V4_IMPLEMENTATION_PLAN.md).
 
 ## Status realizacji
 
-Stan na: **2026-08-31**.
+Stan na: **2026-09-21**.
 
 | Obszar | Postęp | Status i dowód |
 |---|---:|---|
-| 1. Account security audit | 0% | Activity istnieje, ale odrębny audyt bezpieczeństwa nie został jeszcze wdrożony. |
-| 2. Auth lockout UX | 25% | Backendowy lockout działa; pełne neutralne komunikaty i UX po stronie frontendu są jeszcze do dopracowania. |
-| 3. Global workspace search | 25% | Istnieje quick search oraz wyszukiwanie zadań w projekcie; brakuje jednego autoryzowanego search endpointu workspace. |
-| 4. Załączniki jako funkcja produkcyjna | 55% | Upload, download, kontrola dostępu, content sniffing i bezpieczne klucze storage działają; brakuje atomowych quota, production storage, retencji i pełnych testów operacyjnych. |
-| 5. Kompletność activity i notifications | 40% | Activity, notifications i outbox istnieją; brakuje pełnego audytu zdarzeń, deduplikacji i kompletnej mapy zdarzeń. |
-| 6. Browser E2E | 25% | Istnieją smoke tests działającego stacka; pełne browser E2E głównych workflowów nie zostały jeszcze dodane. |
+| 1. Account security audit | 80% | `AccountSecurityEvent` i administracyjny read model istnieją. Pozostaje przegląd kompletności zdarzeń, prywatności metadanych i runtime evidence. |
+| 2. Auth lockout UX | 75% | Backendowy lockout, neutralne błędy oraz frontendowa obsługa `401`/`429` istnieją; pozostaje domknięcie scenariuszy czasu odblokowania i regresji browser E2E. |
+| 3. Global workspace search | 85% | Autoryzowany `SearchWorkspace` endpoint i osobny read path istnieją; pozostaje potwierdzenie kompletnej macierzy uprawnień i zachowania przy większym zbiorze. |
+| 4. Załączniki jako funkcja produkcyjna | 85% | Local/S3 storage, quota, content validation, cleanup, reconciliation i opcjonalny ClamAV są zaimplementowane. V5 nadal wymaga restore i operacyjnego evidence na realnym środowisku. |
+| 5. Kompletność activity i notifications | 70% | Trwałe notifications, activity, deduplication key i email outbox istnieją. Backend ma szerszy katalog typów niż frontend; to najbliższa luka kontraktu. |
+| 6. Browser E2E | 75% | Playwright obejmuje auth/2FA/logout, projekt i zadanie, viewer read-only oraz konflikt concurrency. Pozostają wybrane ścieżki odzyskiwania konta i domknięcie macierzy zdarzeń. |
 
-**Postęp V4: 28%**.
+**Postęp V4: 78%**.
 
 Procent jest średnią głównych obszarów V4 i opisuje gotowość do dalszej realizacji, a nie kompletność obecnych ekranów.
 
 ## Stan wyjściowy
 
-Projekt ma już projekty, zadania, członkostwo, zaproszenia, komentarze, załączniki, aktywność, dashboard i podstawowy quick search. Część funkcji istnieje tylko jako fundament:
+Projekt ma już projekty, zadania, członkostwo, zaproszenia, komentarze, załączniki,
+aktywność, audyt bezpieczeństwa, autoryzowany search workspace i browser E2E.
+Pozostały przede wszystkim luki kontraktowe i dowodowe:
 
-- quick search wyszukuje strony i akcje, nie dane workspace;
-- załączniki mają lokalny storage i podstawową walidację, ale nie pełne zabezpieczenia produkcyjne;
-- aktywność nie jest jeszcze pełnym audytem bezpieczeństwa;
-- testy frontendowe nie zastępują browser E2E przez realny stack.
+- frontend obsługuje mniej typów Notifications niż backend;
+- macierz uprawnień nie jest jeszcze jednym jawnym artefaktem projektowym;
+- nie wszystkie krytyczne zdarzenia mają browser E2E;
+- production storage, backup, restore i alerty wymagają potwierdzenia runtime w V5.
 
 ## Zakres implementacyjny
 
 ### 1. Account security audit
 
-Dodać audyt zdarzeń bezpieczeństwa, między innymi:
+Utrzymać i domknąć istniejący audyt zdarzeń bezpieczeństwa, obejmujący między innymi:
 
 - login sukces/porażka;
 - logout i revocation;
@@ -54,7 +56,7 @@ Audyt powinien przechowywać minimalny zestaw danych: aktora, typ zdarzenia, cza
 
 ### 2. Auth lockout UX
 
-Po wdrożeniu backendowego lockoutu dodać frontendowe komunikaty:
+Zweryfikować istniejący backendowy lockout i frontendowe komunikaty:
 
 - neutralne przy błędnych danych;
 - jasne przy czasowym zablokowaniu konta;
@@ -63,54 +65,49 @@ Po wdrożeniu backendowego lockoutu dodać frontendowe komunikaty:
 
 ### 3. Global workspace search
 
-Rozszerzyć quick search o dane, jeśli produkt tego potrzebuje:
+Istniejący autoryzowany `SearchWorkspace` jest bazą. Dalsze rozszerzenie może objąć:
 
 - projekty;
 - zadania;
 - członkowie dostępnego workspace;
 - zaproszenia lub powiadomienia.
 
-Search musi respektować te same uprawnienia co normalne endpointy. Nie można pobierać wszystkich danych i filtrować ich dopiero w frontendzie.
+Search musi nadal respektować te same uprawnienia co normalne endpointy. Nie można
+pobierać wszystkich danych i filtrować ich dopiero w frontendzie.
 
-Zakres powinien rozpocząć się od jednego endpointu z paginacją i określonym typem wyników. Dopiero później można dodać full-text search lub wyszukiwanie wielomodułowe.
+Przed full-text search albo kolejnymi typami wyników należy potwierdzić realną potrzebę,
+plan zapytania i macierz uprawnień.
 
 ### 4. Załączniki jako funkcja produkcyjna
 
 Szczegółowa kolejność wdrożenia i decyzje graniczne znajdują się w
 `12_ATTACHMENT_HARDENING_PLAN.md`.
 
-Backend i frontendowa obsługa już istnieją. Do produkcyjnego poziomu brakuje między innymi:
+Backend i frontendowa obsługa, local/S3 storage, quota, walidacja zawartości, cleanup,
+reconciliation oraz opcjonalny ClamAV już istnieją. Do zamknięcia pozostają:
 
-- trwałego i odpowiedniego storage;
-- limitów per użytkownik, projekt i zadanie;
-- dalszego utwardzenia bezpiecznej nazwy i content type wraz z testami formatów brzegowych;
-- kontroli malware lub quarantine, jeśli środowisko tego wymaga;
-- cleanupu pliku po nieudanym zapisie metadanych;
-- cleanupu metadanych po nieudanym usunięciu pliku;
-- polityki retencji i usuwania;
-- testów path traversal, dużych plików i niedozwolonych typów.
+- potwierdzenie konfiguracji S3/MinIO i ClamAV na docelowym środowisku;
+- restore drill obejmujący metadane, obiekty i Data Protection keys;
+- potwierdzenie retencji oraz alertów;
+- regresyjne testy operacyjne po zmianie storage albo limitów.
 
 ### 5. Kompletność activity i notifications
 
-- zidentyfikować wszystkie ważne zdarzenia domenowe;
-- dodać brakujące wpisy dla usunięcia, zmian roli i statusu;
+- utrzymać jedną mapę ważnych zdarzeń produktu;
+- wyrównać backendowe i frontendowe typy powiadomień;
 - rozdzielić aktywność produktu od audytu bezpieczeństwa;
 - zapewnić spójne linki do zasobów w powiadomieniach;
 - obsłużyć błędy i ponowienia bez duplikowania zdarzeń.
 
 ### 6. Browser E2E
 
-Dodać browser-level E2E dla najważniejszych workflowów:
+Utrzymać istniejące browser-level E2E i domknąć brakujące krytyczne workflowy:
 
-- rejestracja i potwierdzenie emaila;
-- login bez i z 2FA;
-- reset hasła;
-- utworzenie projektu;
-- zaproszenie i akceptacja członka;
-- utworzenie, edycja i zmiana statusu zadania;
-- komentarz i załącznik;
-- brak dostępu do zasobu innego użytkownika;
-- konflikt concurrency.
+- reset hasła i odzyskiwanie konta;
+- typ Notifications wcześniej nieobsługiwany przez frontend;
+- komentarz i załącznik w krytycznej ścieżce;
+- utrata uprawnienia po zmianie roli;
+- zachowanie po reconnect dla przyszłego transportu real-time.
 
 ## Zasada architektoniczna dla nowych funkcji
 
@@ -144,6 +141,8 @@ mikrofrontendów.
 - global search nie omija autoryzacji;
 - audyt bezpieczeństwa jest odrębny od activity produktu;
 - załączniki mają określoną politykę storage, limitów, retencji i walidacji;
+- backendowy i frontendowy katalog Notifications mają jawny kontrakt oraz zachowanie
+  dla nieznanego typu;
 - główne przepływy przechodzą przez browser E2E;
 - frontend pozostaje cienką warstwą prezentacji i nie zawiera reguł bezpieczeństwa;
 - nowe większe przypadki użycia w potwierdzonych modułach spełniają modułową checklistę slice'a;

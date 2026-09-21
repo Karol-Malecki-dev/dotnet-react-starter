@@ -48,7 +48,7 @@ services:
       retries: 10
 
   minio-init:
-    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    image: quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z
     container_name: dotnet-react-minio-init
     entrypoint:
       - /bin/sh
