@@ -99,6 +99,8 @@ jobs:
           bash -n deploy/vps/rollback.sh
           bash -n deploy/vps/backup.sh
           bash -n deploy/vps/restore.sh
+          bash -n deploy/vps/verify-staging.sh
+          bash -n deploy/vps/copy-backup-offhost.sh
 
       - name: Validate Caddy configuration
         run: |
@@ -156,8 +158,46 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
 
+      - name: Pull Docker Compose dependencies with retry
+        run: |
+          set -euo pipefail
+
+          for attempt in 1 2 3; do
+            if docker compose pull --quiet db mailpit minio minio-init; then
+              exit 0
+            fi
+
+            if [[ "$attempt" -eq 3 ]]; then
+              echo "Docker Compose dependency pull failed after ${attempt} attempts." >&2
+              exit 1
+            fi
+
+            delay=$((attempt * 10))
+            echo "Docker Compose dependency pull failed; retrying in ${delay}s." >&2
+            sleep "$delay"
+          done
+
+      - name: Build application images with retry
+        run: |
+          set -euo pipefail
+
+          for attempt in 1 2 3; do
+            if docker compose build --parallel; then
+              exit 0
+            fi
+
+            if [[ "$attempt" -eq 3 ]]; then
+              echo "Application image build failed after ${attempt} attempts." >&2
+              exit 1
+            fi
+
+            delay=$((attempt * 10))
+            echo "Application image build failed; retrying in ${delay}s." >&2
+            sleep "$delay"
+          done
+
       - name: Start application stack
-        run: docker compose up --build --wait --wait-timeout 180 --detach
+        run: docker compose up --wait --wait-timeout 180 --detach
 
       - name: Run E2E smoke tests
         run: dotnet test backend/E2ETests/E2ETests.csproj --configuration Release

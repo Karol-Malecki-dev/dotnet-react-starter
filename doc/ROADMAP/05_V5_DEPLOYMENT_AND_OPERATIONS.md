@@ -14,7 +14,7 @@ Stan na: **2026-09-21**.
 | 2. Obrazy i registry | 85% | Obrazy są multi-stage, runtime backendu działa jako non-root, CD publikuje pełne SHA i skanuje obrazy; pozostaje wykonanie pipeline'u dla finalnego commita. |
 | 3. Migracje bazy | 80% | Osobny migration container jest wymagany przed API, a restore uruchamia kontrolowane migracje; brakuje dowodu migracji na stagingu i scenariusza awarii na VPS. |
 | 4. Reverse proxy i TLS | 80% | Caddy, forwarded headers, cookies, nagłówki bezpieczeństwa i limity proxy są skonfigurowane; docelowy certyfikat i domena wymagają walidacji środowiskowej. |
-| 5. Baza, storage i backup | 75% | Trwały PostgreSQL/MinIO, skoordynowany i szyfrowany backup oraz restore są zaimplementowane; brakuje off-host copy i zapisanego restore drillu. |
+| 5. Baza, storage i backup | 75% | Trwały PostgreSQL/MinIO, skoordynowany i szyfrowany backup oraz restore są zaimplementowane; istnieje helper off-host transferu z checksumą, ale brakuje wykonanej kopii off-host i zapisanego restore drillu. |
 | 6. CI/CD | 85% | CI waliduje kod i konfigurację, a CD publikuje SHA, wdraża protected staging, uruchamia migracje i pełne publiczne browser smoke; brak wykonanego cyklu na realnym hoście. |
 | 7. Monitoring i procedury | 80% | Health checks, dashboard, Prometheus, Alertmanager, alerty, rollback i runbook są skonfigurowane; brak obserwacji realnych danych i testowej notyfikacji. |
 

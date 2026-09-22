@@ -30,7 +30,9 @@ CI składa się z czterech jobów:
 
 3. **Docker Compose smoke tests**
    - czeka na przejście backendu i frontendu;
-   - buduje i uruchamia cały stack przez Docker Compose;
+   - z retry pobiera obrazy zależności Compose;
+   - z retry buduje obrazy backendu i frontendu;
+   - uruchamia cały stack przez Docker Compose;
    - sprawdza health endpoint backendu i frontend przez testy `E2ETests`;
    - przy błędzie zapisuje logi kontenerów;
    - zawsze zatrzymuje i usuwa kontenery oraz wolumeny testowe.
@@ -101,5 +103,13 @@ Po skonfigurowaniu chronionego środowiska `staging` job wdrożeniowy:
 2. używa sekretów środowiska staging i przypiętego klucza hosta SSH;
 3. wykonuje migracje bazy zgodnie z ustaloną strategią;
 4. wdraża aplikację na VPS;
-5. sprawdza health endpointy i uruchamia Playwright przez publiczny HTTPS;
-6. zatrzymuje workflow przy nieudanym smoke teście.
+5. uruchamia `verify-staging.sh`, który sprawdza publiczne health endpointy,
+   Prometheusa, reguły alertów, Grafanę i dane z probe'ów;
+6. uruchamia Playwright przez publiczny HTTPS;
+7. zatrzymuje workflow przy nieudanym smoke teście.
+
+Podczas ręcznego wdrożenia `deploy_staging=true` można dodatkowo ustawić
+`test_alertmanager=true`. CD uruchamia wtedy syntetyczne powiadomienie przez
+`verify-staging.sh`; operator musi potwierdzić dostarczenie na skonfigurowanym
+receiverze, ponieważ sama odpowiedź API Alertmanagera nie dowodzi dostarczenia
+zewnętrznego webhooka.

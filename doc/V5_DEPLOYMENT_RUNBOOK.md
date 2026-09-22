@@ -31,6 +31,7 @@ Use a currently supported Ubuntu LTS release with:
   object storage, metrics, and two backup generations;
 - Docker Engine and the Docker Compose plugin from Docker's official repository;
 - `gnupg` for encrypted backup archives;
+- `curl` and the OpenSSH client for staging verification and off-host transfer;
 - a dedicated `dotnet-react` deployment account;
 - inbound ports `80/tcp` and `443/tcp+udp`;
 - SSH restricted to the operator's source network;
@@ -113,8 +114,10 @@ endpoint. Do not put a webhook token or provider credential in the repository.
 5. Confirm `https://<domain>/health/ready` returns HTTP 200.
 6. CD opens a pinned SSH tunnel to Mailpit and runs the registration, email confirmation, login,
   2FA, project, task, comment, and attachment browser smoke workflows through public HTTPS.
-7. Verify that the Grafana dashboard receives health and host metrics and send a test
-  Alertmanager notification.
+7. CD runs `verify-staging.sh`, which checks public health, Grafana, Prometheus rules,
+  and application/host probe data.
+8. When closing the release gate, run the CD input `test_alertmanager=true`. Confirm that
+  the synthetic notification reaches the configured operator receiver and record the result.
 
 The deployment script serializes deploys with `flock`. It records the active and previous image
 tags and automatically rolls back the application when Compose or public readiness fails.
@@ -147,10 +150,14 @@ Install the timer after copying the deployment directory:
 ```bash
 sudo chown dotnet-react:dotnet-react \
   /opt/dotnet-react-starter/backup.sh \
-  /opt/dotnet-react-starter/restore.sh
+  /opt/dotnet-react-starter/restore.sh \
+  /opt/dotnet-react-starter/verify-staging.sh \
+  /opt/dotnet-react-starter/copy-backup-offhost.sh
 sudo chmod 0750 \
   /opt/dotnet-react-starter/backup.sh \
-  /opt/dotnet-react-starter/restore.sh
+  /opt/dotnet-react-starter/restore.sh \
+  /opt/dotnet-react-starter/verify-staging.sh \
+  /opt/dotnet-react-starter/copy-backup-offhost.sh
 sudo install -o root -g root -m 0644 \
   /opt/dotnet-react-starter/systemd/dotnet-react-backup.service /etc/systemd/system/
 sudo install -o root -g root -m 0644 \
@@ -173,6 +180,21 @@ snapshot. PostgreSQL, MinIO, monitoring, and ClamAV remain running.
 Copy the resulting `*.tar.gz.gpg` snapshots to encrypted off-host storage. The local GPG layer
 protects the artifact before transfer; off-host storage still needs independent access control,
 retention and encryption. A backup existing only on the application VPS is not disaster recovery.
+
+Use the repository helper after a successful backup:
+
+```bash
+./copy-backup-offhost.sh \
+  /var/backups/dotnet-react-starter/2026-08-31T020000Z.tar.gz.gpg \
+  backup-operator@backup-host \
+  /srv/backups/dotnet-react-starter
+```
+
+The destination host must already be trusted in the operator's SSH `known_hosts`.
+The helper uses non-interactive host-key verification and fails when the remote SHA-256
+checksum differs from the local checksum. Record the destination, checksum, and UTC
+timestamp as release evidence. Do not copy the encryption key to the destination as part
+of this operation.
 
 ## Restore drill
 
