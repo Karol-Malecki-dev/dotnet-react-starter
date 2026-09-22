@@ -8,6 +8,7 @@ pagination, or cache behavior.
 
 The diagnostic mirrors the current read paths:
 
+- visible project list;
 - project task count used by paged task listing;
 - project task page with labels and ordering;
 - dashboard task statistics;
@@ -18,11 +19,18 @@ The source implementations are:
 
 - `Infrastructure/Modules/ProjectTasks/ListProjectTasks/EfProjectTaskQueryStore.cs`;
 - `Infrastructure/Modules/ProjectTasks/Dashboard/EfProjectTaskDashboardReader.cs`;
+- `Infrastructure/Modules/Projects/ListProjects/EfListProjectsStore.cs`;
 - `Infrastructure/Modules/Projects/GetProjectDashboard/EfGetProjectDashboardStore.cs`.
 
 The SQL is intentionally kept in a diagnostic script rather than added to the
 application runtime. It must be kept aligned with the store implementations when
 the read contract changes.
+
+For a disposable PostgreSQL-backed fixture, the integration test
+`PostgreSqlQueryPlanEvidenceTests.PostgreSql_query_plan_evidence_is_captured_for_v6_fixture`
+seeds 20 noise projects, 1,000 benchmark tasks, labels, and activity, then writes
+the same kind of evidence to `artifacts/v6/`. This is the reproducible local
+evidence path used by [`V6_QUERY_PLAN_FINDINGS.md`](./V6_QUERY_PLAN_FINDINGS.md).
 
 ## Running the diagnostic
 
@@ -32,6 +40,7 @@ fixture used by [`V6_BASELINE.md`](./V6_BASELINE.md):
 ```powershell
 pwsh -File .\scripts\Capture-PostgresQueryPlans.ps1 `
   -ProjectId 00000000-0000-0000-0000-000000000000 `
+  -UserId 00000000-0000-0000-0000-000000000000 `
   -ComposeFile .\docker-compose.yml `
   -DbService db `
   -DbUser postgres `
@@ -61,8 +70,9 @@ database credentials, access tokens, or real user data.
 
 The report includes PostgreSQL/database metadata, global and selected-project row
 counts, the application version, fixture description, query parameters, and the
-plan output. When `-ApplicationVersion` is omitted, the script uses the current Git
-commit when available; otherwise it records `not provided`.
+plan output. Pass `-UserId` to include the visible-project query; without it, that
+query is explicitly skipped. When `-ApplicationVersion` is omitted, the script uses
+the current Git commit when available; otherwise it records `not provided`.
 
 ## Safety and interpretation
 
