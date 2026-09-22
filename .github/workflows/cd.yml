@@ -19,6 +19,11 @@ on:
         required: true
         default: false
         type: boolean
+      test_alertmanager:
+        description: Send a synthetic Alertmanager notification after staging verification
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -247,6 +252,30 @@ jobs:
           set -euo pipefail
           ssh "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "cd '${DEPLOY_PATH}' && chmod +x deploy.sh rollback.sh backup.sh restore.sh && ./deploy.sh '${IMAGE_TAG}' '${DEPLOY_ENV_FILE}' 'https://${STAGING_DOMAIN}' 'staging'"
+
+      - name: Verify staging runtime and observability
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ vars.STAGING_SSH_HOST }}
+          DEPLOY_USER: ${{ vars.STAGING_SSH_USER }}
+          DEPLOY_PATH: ${{ vars.STAGING_APP_PATH }}
+          STAGING_DOMAIN: ${{ vars.STAGING_DOMAIN }}
+        run: |
+          set -euo pipefail
+          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "cd '${DEPLOY_PATH}' && chmod +x verify-staging.sh && ./verify-staging.sh 'https://${STAGING_DOMAIN}'"
+
+      - name: Trigger Alertmanager test notification
+        if: inputs.test_alertmanager
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ vars.STAGING_SSH_HOST }}
+          DEPLOY_USER: ${{ vars.STAGING_SSH_USER }}
+          DEPLOY_PATH: ${{ vars.STAGING_APP_PATH }}
+        run: |
+          set -euo pipefail
+          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "cd '${DEPLOY_PATH}' && ./verify-staging.sh 'https://${{ vars.STAGING_DOMAIN }}' --trigger-alert-test"
 
       - name: Set up Node.js for staging smoke
         uses: actions/setup-node@v4

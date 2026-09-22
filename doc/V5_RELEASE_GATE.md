@@ -14,6 +14,7 @@ CI additionally validates:
 
 - production Docker Compose interpolation;
 - Bash deployment, rollback, backup, and restore syntax;
+- Bash staging verification and encrypted off-host backup transfer syntax;
 - Caddy TLS/proxy configuration;
 - Prometheus scrape and alert rules plus Alertmanager routing configuration;
 - backend and frontend image builds;
@@ -45,3 +46,13 @@ Do not promote when any of the following is true:
 - no previous immutable image is available;
 - required GitHub Environment approval or host-key pinning is missing;
 - image scanning reports an unresolved HIGH or CRITICAL vulnerability.
+
+The repository provides two operator helpers:
+
+- `deploy/vps/verify-staging.sh` checks the public HTTPS health endpoints, local
+  Prometheus and Alertmanager readiness, Grafana health, loaded alert rules, and
+  live node/application probe data. With `--trigger-alert-test`, it submits a
+  synthetic alert to Alertmanager; the operator must still confirm delivery at the
+  configured receiver.
+- `deploy/vps/copy-backup-offhost.sh` copies a `*.tar.gz.gpg` archive to an SSH
+  destination and compares the local SHA-256 checksum with the remote checksum.
