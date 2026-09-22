@@ -78,7 +78,9 @@ sequential closed-loop run. It must not be presented as a maximum-capacity resul
 ## Database evidence
 
 API latency alone cannot explain a database regression. For each representative
-query, capture a PostgreSQL plan separately:
+query, capture a PostgreSQL plan separately. The repeatable runner
+[`scripts/Capture-PostgresQueryPlans.ps1`](../scripts/Capture-PostgresQueryPlans.ps1)
+captures the current task, dashboard, and activity paths:
 
 ```sql
 EXPLAIN (ANALYZE, BUFFERS, VERBOSE)
@@ -88,8 +90,9 @@ EXPLAIN (ANALYZE, BUFFERS, VERBOSE)
 
 Keep the plan, parameter values (with identifiers anonymized), row counts, and
 execution environment beside the baseline report. Prefer SQL generated from the
-current store implementation or a focused diagnostic test; do not invent a query
-that does not represent the production code path.
+current store implementation or the focused diagnostic described in
+[`V6_QUERY_ANALYSIS.md`](./V6_QUERY_ANALYSIS.md); do not invent a query that does
+not represent the production code path.
 
 ## Comparison rule
 
