@@ -103,6 +103,20 @@ jobs:
           bash -n deploy/vps/copy-backup-offhost.sh
           bash -n deploy/vps/capture-release-evidence.sh
 
+      - name: Validate performance baseline script
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Join-Path $PWD 'scripts/Measure-ApiBaseline.ps1'),
+            [ref]$tokens,
+            [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_ }
+            exit 1
+          }
+
       - name: Validate Caddy configuration
         run: |
           docker run --rm \
