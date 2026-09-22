@@ -103,18 +103,24 @@ jobs:
           bash -n deploy/vps/copy-backup-offhost.sh
           bash -n deploy/vps/capture-release-evidence.sh
 
-      - name: Validate performance baseline script
+      - name: Validate V6 PowerShell scripts
         shell: pwsh
         run: |
-          $tokens = $null
-          $errors = $null
-          [System.Management.Automation.Language.Parser]::ParseFile(
-            (Join-Path $PWD 'scripts/Measure-ApiBaseline.ps1'),
-            [ref]$tokens,
-            [ref]$errors) | Out-Null
-          if ($errors.Count -gt 0) {
-            $errors | ForEach-Object { Write-Error $_ }
-            exit 1
+          $paths = @(
+            'scripts/Measure-ApiBaseline.ps1',
+            'scripts/Capture-PostgresQueryPlans.ps1'
+          )
+          foreach ($path in $paths) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Join-Path $PWD $path),
+              [ref]$tokens,
+              [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error "$path`: $_" }
+              exit 1
+            }
           }
 
       - name: Validate Caddy configuration
