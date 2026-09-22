@@ -1,8 +1,5 @@
 using System.Data.Common;
 using System.Text;
-using Domain.Entities;
-using Domain.Enums;
-using Domain.ValueObjects;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,8 +10,6 @@ namespace IntegrationTests;
 [Collection(nameof(PostgreSqlIntegrationTestCollection))]
 public sealed class PostgreSqlQueryPlanEvidenceTests
 {
-    private const int BenchmarkTaskCount = 1_000;
-    private const int NoiseProjectCount = 20;
     private readonly PostgreSqlWebApplicationFactory _factory;
     private readonly ITestOutputHelper _output;
 
@@ -47,7 +42,7 @@ public sealed class PostgreSqlQueryPlanEvidenceTests
             report.AppendLine($"- Application version: {Environment.GetEnvironmentVariable("GITHUB_SHA") ?? "integration-test"}");
             report.AppendLine($"- Benchmark project ID: {fixture.ProjectId}");
             report.AppendLine($"- Benchmark owner ID: {fixture.OwnerId}");
-            report.AppendLine($"- Fixture: {NoiseProjectCount} noise projects; {BenchmarkTaskCount} benchmark tasks; labels and activity included");
+            report.AppendLine($"- Fixture: {fixture.NoiseProjectCount} noise projects; {fixture.TaskCount} benchmark tasks; {fixture.LabelCount} labels; {fixture.ActivityCount} activities");
             report.AppendLine($"- Dashboard date window: {today:yyyy-MM-dd} through {nextDay:yyyy-MM-dd} (exclusive)");
             report.AppendLine();
             report.AppendLine("> Plans were captured with EXPLAIN (ANALYZE, BUFFERS, VERBOSE) against a disposable Testcontainers PostgreSQL database.");
@@ -245,76 +240,14 @@ public sealed class PostgreSqlQueryPlanEvidenceTests
         Assert.Contains("Planning Time", report.ToString(), StringComparison.Ordinal);
     }
 
-    private async Task<(Guid OwnerId, Guid ProjectId)> SeedFixtureAsync()
+    private async Task<V6BenchmarkFixture> SeedFixtureAsync()
     {
         await using var scope = _factory.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var ownerId = Guid.NewGuid();
-        var owner = User.Create(
-            EmailAddress.Create($"v6-query-plan-owner-{ownerId:N}@example.com"),
-            DisplayName.Create("V6 Query Plan Owner"),
-            UserRole.User,
-            isActive: true,
-            isEmailConfirmed: true,
-            id: ownerId,
-            createdAt: DateTime.UtcNow);
-        var benchmarkProject = Project.Create(ownerId, $"V6 benchmark {Guid.NewGuid():N}");
-        var noiseProjects = Enumerable
-            .Range(0, NoiseProjectCount)
-            .Select(index => Project.Create(ownerId, $"V6 noise project {index} {Guid.NewGuid():N}"))
-            .ToList();
-
-        dbContext.Users.Add(owner);
-        dbContext.Projects.Add(benchmarkProject);
-        dbContext.Projects.AddRange(noiseProjects);
-
-        var tasks = new List<ProjectTask>(BenchmarkTaskCount);
-        for (var index = 0; index < BenchmarkTaskCount; index++)
-        {
-            var dueDate = (index % 5) switch
-            {
-                0 => (DateTime?)DateTime.UtcNow.Date.AddDays(-index % 31),
-                1 => (DateTime?)DateTime.UtcNow.Date.AddDays(index % 8),
-                _ => (DateTime?)null
-            };
-            var task = ProjectTask.Create(
-                benchmarkProject.Id,
-                $"V6 benchmark task {index:D4}",
-                "Synthetic V6 query-plan fixture task.",
-                (ProjectTaskPriority)(index % 3 + 1),
-                dueDate,
-                assignedUserId: null,
-                createdByUserId: ownerId,
-                labels: new[] { $"bucket-{index % 10}", index % 2 == 0 ? "even" : "odd" });
-
-            if (index % 7 == 0)
-            {
-                task.ChangeStatus(ProjectTaskStatus.Done);
-            }
-            else if (index % 3 == 0)
-            {
-                task.ChangeStatus(ProjectTaskStatus.InProgress);
-            }
-
-            tasks.Add(task);
-        }
-
-        dbContext.ProjectTasks.AddRange(tasks);
-        dbContext.ProjectActivities.AddRange(
-            tasks
-                .Where((_, index) => index % 5 == 0)
-                .Select(task => new ProjectActivity
-                {
-                    ProjectId = benchmarkProject.Id,
-                    ActorUserId = ownerId,
-                    ProjectTaskId = task.Id,
-                    Type = "TaskUpdated",
-                    Description = "Synthetic V6 query-plan fixture activity.",
-                    CreatedAt = DateTime.UtcNow
-                }));
-
-        await dbContext.SaveChangesAsync();
-        return (ownerId, benchmarkProject.Id);
+        return await V6BenchmarkFixtureSeeder.SeedAsync(
+            dbContext,
+            V6BenchmarkFixtureSeeder.DefaultTaskCount,
+            V6BenchmarkFixtureSeeder.DefaultNoiseProjectCount);
     }
 
     private static async Task AppendPlanAsync(

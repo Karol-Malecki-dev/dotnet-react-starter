@@ -48,15 +48,38 @@ Both hypotheses require a larger fixture and an API latency comparison before
 implementation. The existing composite dashboard index must not be removed or
 replaced based on this report alone.
 
+## Large-fixture follow-up
+
+The opt-in
+`PostgreSqlLargeFixtureApiBaselineTests.PostgreSql_large_fixture_api_baseline_is_captured`
+now repeats the measurement with 10,000 tasks, 20,000 labels, and 2,000 activity
+rows. It exercises the three authenticated read-only API scenarios and captures
+plans for the task page and dashboard paths in the same Testcontainers database.
+The detailed protocol and recorded API p95 values are documented in
+[`V6_LARGE_FIXTURE_API_BASELINE.md`](V6_LARGE_FIXTURE_API_BASELINE.md).
+
+The larger run still does not approve an index migration:
+
+- task-page plan execution was 7.589 ms and used the existing project task index
+  followed by a top-N sort;
+- dashboard statistics executed in 3.946 ms with the existing composite index;
+- overdue and upcoming queries executed in 1.417 ms and 1.711 ms respectively,
+  using the project/date portion of the index while filtering `Status <> 'Done'`;
+- the authenticated API p95 values were 30.022 ms for the task page and
+  39.321 ms for the dashboard, with no failed requests.
+
+The API-to-plan gap should be separated into database time, EF materialization,
+and endpoint orchestration before introducing cache or changing the schema.
+
 ## Next measurement
 
 The next performance slice should:
 
-1. run the API baseline against the same fixture and authenticated user;
-2. repeat the plan capture with at least an order of magnitude more tasks;
-3. record p95 latency, execution time, rows removed by filters, and buffer reads;
-4. compare a candidate index in a disposable database only;
-5. adopt a migration only if the before/after result meets a documented threshold.
+1. capture the generated EF SQL for the authenticated API endpoints;
+2. define a measurable p95 and plan-quality threshold for one candidate change;
+3. compare that candidate in a disposable database with the same 10,000-task fixture;
+4. record p95 latency, execution time, rows removed by filters, and buffer reads;
+5. adopt a migration only if the before/after result meets the documented threshold.
 
 Until that measurement exists, cache, Redis, and speculative index additions remain
 out of scope.
