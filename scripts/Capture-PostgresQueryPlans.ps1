@@ -3,6 +3,8 @@ param(
     [Parameter(Mandatory = $true)]
     [Guid]$ProjectId,
 
+    [Guid]$UserId,
+
     [string]$ComposeFile = 'docker-compose.yml',
 
     [string]$EnvFile,
@@ -156,6 +158,26 @@ FROM "ProjectTasks"
 WHERE "ProjectId" = '$projectIdLiteral';
 "@
 
+$visibleProjectListSql = @"
+EXPLAIN (ANALYZE, BUFFERS, VERBOSE)
+SELECT project.*
+FROM "Projects" AS project
+WHERE (
+    project."OwnerId" = '$UserId'
+    OR EXISTS (
+        SELECT 1
+        FROM "ProjectMembers" AS member
+        INNER JOIN "Users" AS member_user
+            ON member_user."Id" = member."UserId"
+        WHERE member."ProjectId" = project."Id"
+          AND member."UserId" = '$UserId'
+          AND member_user."IsActive"
+    )
+)
+  AND NOT project."IsArchived"
+ORDER BY project."UpdatedAt" DESC;
+"@
+
 $taskPageSql = @"
 EXPLAIN (ANALYZE, BUFFERS, VERBOSE)
 SELECT task.*, label.*
@@ -270,6 +292,7 @@ $report.Add("- Generated UTC: $([DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss
 $report.Add("- Application version: $ApplicationVersion")
 $report.Add("- Fixture description: $FixtureDescription")
 $report.Add("- Project ID: $ProjectId")
+$report.Add("- User ID: $(if ($UserId -eq [Guid]::Empty) { 'not provided; visible-project plan skipped' } else { $UserId })")
 $report.Add("- Compose file: $ComposeFile")
 $report.Add("- Database service: $DbService")
 $report.Add("- Database name: $DbName")
@@ -294,6 +317,9 @@ $report.Add('```')
 $report.Add('')
 
 Add-ExplainPlan -Report $report -Name 'Project task count' -Sql $taskCountSql
+if ($UserId -ne [Guid]::Empty) {
+    Add-ExplainPlan -Report $report -Name 'Visible project list' -Sql $visibleProjectListSql
+}
 Add-ExplainPlan -Report $report -Name 'Project task page with labels' -Sql $taskPageSql
 Add-ExplainPlan -Report $report -Name 'Project dashboard task statistics' -Sql $taskDashboardStatsSql
 Add-ExplainPlan -Report $report -Name 'Project dashboard overdue tasks' -Sql $taskDashboardOverdueSql
