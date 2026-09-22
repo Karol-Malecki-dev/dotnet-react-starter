@@ -30,7 +30,9 @@ CI składa się z czterech jobów:
 
 3. **Docker Compose smoke tests**
    - czeka na przejście backendu i frontendu;
-   - buduje i uruchamia cały stack przez Docker Compose;
+   - z retry pobiera obrazy zależności Compose;
+   - z retry buduje obrazy backendu i frontendu;
+   - uruchamia cały stack przez Docker Compose;
    - sprawdza health endpoint backendu i frontend przez testy `E2ETests`;
    - przy błędzie zapisuje logi kontenerów;
    - zawsze zatrzymuje i usuwa kontenery oraz wolumeny testowe.
