@@ -53,8 +53,9 @@ ghcr.io/<owner>/dotnet-react-starter-frontend:<commit-sha>
 Ręczne uruchomienie z `main` może wdrożyć obraz o pełnym SHA do chronionego środowiska `staging`.
 CD przesyła definicję VPS, uruchamia kontrolowane migracje przez `deploy.sh`, włącza stagingowy
 profil Mailpit, a następnie wykonuje browser smoke przez publiczny HTTPS. Mailpit pozostaje dostępny
-wyłącznie na loopback VPS i jest osiągany przez przypięty tunel SSH. Produkcja nie jest wdrażana
-automatycznie.
+wyłącznie na loopback VPS i jest osiągany przez przypięty tunel SSH. Po walidacji CD pobiera
+z VPS i publikuje artefakt `v5-staging-evidence-<commit-sha>` z checksumowanym dowodem
+automatycznych kontroli. Produkcja nie jest wdrażana automatycznie.
 
 ## Bezpieczeństwo
 
@@ -105,11 +106,17 @@ Po skonfigurowaniu chronionego środowiska `staging` job wdrożeniowy:
 4. wdraża aplikację na VPS;
 5. uruchamia `verify-staging.sh`, który sprawdza publiczne health endpointy,
    Prometheusa, reguły alertów, Grafanę i dane z probe'ów;
-6. uruchamia Playwright przez publiczny HTTPS;
-7. zatrzymuje workflow przy nieudanym smoke teście.
+6. uruchamia `capture-release-evidence.sh`, który zapisuje stan Compose, status migracji,
+   aktualny i poprzedni immutable tag oraz manifest SHA-256, a następnie publikuje te pliki
+   jako artefakt `v5-staging-evidence-<commit-sha>`;
+7. uruchamia Playwright przez publiczny HTTPS;
+8. zatrzymuje workflow przy nieudanym smoke teście.
 
 Podczas ręcznego wdrożenia `deploy_staging=true` można dodatkowo ustawić
 `test_alertmanager=true`. CD uruchamia wtedy syntetyczne powiadomienie przez
 `verify-staging.sh`; operator musi potwierdzić dostarczenie na skonfigurowanym
 receiverze, ponieważ sama odpowiedź API Alertmanagera nie dowodzi dostarczenia
-zewnętrznego webhooka.
+zewnętrznego webhooka. Po drugim udanym deployu można ustawić także
+`require_rollback_target=true`, aby brak poprzedniego immutable taga zatrzymał
+walidację release readiness. Artefakt automatyczny nie zastępuje ręcznych dowodów
+backupu off-host, restore drillu, dostarczenia alertu ani manualnego rollbacku.

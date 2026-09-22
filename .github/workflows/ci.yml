@@ -101,6 +101,7 @@ jobs:
           bash -n deploy/vps/restore.sh
           bash -n deploy/vps/verify-staging.sh
           bash -n deploy/vps/copy-backup-offhost.sh
+          bash -n deploy/vps/capture-release-evidence.sh
 
       - name: Validate Caddy configuration
         run: |

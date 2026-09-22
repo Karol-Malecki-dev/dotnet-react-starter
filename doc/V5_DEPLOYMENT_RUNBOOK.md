@@ -115,9 +115,14 @@ endpoint. Do not put a webhook token or provider credential in the repository.
 6. CD opens a pinned SSH tunnel to Mailpit and runs the registration, email confirmation, login,
   2FA, project, task, comment, and attachment browser smoke workflows through public HTTPS.
 7. CD runs `verify-staging.sh`, which checks public health, Grafana, Prometheus rules,
-  and application/host probe data.
-8. When closing the release gate, run the CD input `test_alertmanager=true`. Confirm that
-  the synthetic notification reaches the configured operator receiver and record the result.
+  and application/host probe data, then captures an artifact with the automated
+  release evidence.
+8. On the first staging deployment, the automated evidence may report
+  `AUTOMATED_CHECKS_PASSED_ROLLBACK_PENDING`; deploy a second immutable image before
+  closing the rollback part of the gate.
+9. When closing the release gate, run the CD inputs `test_alertmanager=true` and
+  `require_rollback_target=true`. Confirm that the synthetic notification reaches the
+  configured operator receiver and record the result.
 
 The deployment script serializes deploys with `flock`. It records the active and previous image
 tags and automatically rolls back the application when Compose or public readiness fails.
@@ -152,12 +157,14 @@ sudo chown dotnet-react:dotnet-react \
   /opt/dotnet-react-starter/backup.sh \
   /opt/dotnet-react-starter/restore.sh \
   /opt/dotnet-react-starter/verify-staging.sh \
-  /opt/dotnet-react-starter/copy-backup-offhost.sh
+  /opt/dotnet-react-starter/copy-backup-offhost.sh \
+  /opt/dotnet-react-starter/capture-release-evidence.sh
 sudo chmod 0750 \
   /opt/dotnet-react-starter/backup.sh \
   /opt/dotnet-react-starter/restore.sh \
   /opt/dotnet-react-starter/verify-staging.sh \
-  /opt/dotnet-react-starter/copy-backup-offhost.sh
+  /opt/dotnet-react-starter/copy-backup-offhost.sh \
+  /opt/dotnet-react-starter/capture-release-evidence.sh
 sudo install -o root -g root -m 0644 \
   /opt/dotnet-react-starter/systemd/dotnet-react-backup.service /etc/systemd/system/
 sudo install -o root -g root -m 0644 \
