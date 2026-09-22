@@ -15,8 +15,8 @@ Stan na: **2026-09-21**.
 | 3. Migracje bazy | 80% | Osobny migration container jest wymagany przed API, a restore uruchamia kontrolowane migracje; brakuje dowodu migracji na stagingu i scenariusza awarii na VPS. |
 | 4. Reverse proxy i TLS | 80% | Caddy, forwarded headers, cookies, nagłówki bezpieczeństwa i limity proxy są skonfigurowane; docelowy certyfikat i domena wymagają walidacji środowiskowej. |
 | 5. Baza, storage i backup | 75% | Trwały PostgreSQL/MinIO, skoordynowany i szyfrowany backup oraz restore są zaimplementowane; istnieje helper off-host transferu z checksumą, ale brakuje wykonanej kopii off-host i zapisanego restore drillu. |
-| 6. CI/CD | 85% | CI waliduje kod i konfigurację, a CD publikuje SHA, wdraża protected staging, uruchamia migracje i pełne publiczne browser smoke; brak wykonanego cyklu na realnym hoście. |
-| 7. Monitoring i procedury | 80% | Health checks, dashboard, Prometheus, Alertmanager, alerty, rollback i runbook są skonfigurowane; brak obserwacji realnych danych i testowej notyfikacji. |
+| 6. CI/CD | 85% | CI waliduje kod i konfigurację, a CD publikuje SHA, wdraża protected staging, uruchamia migracje, pełne publiczne browser smoke i publikuje checksumowany artefakt automatycznych dowodów; brak wykonanego cyklu na realnym hoście. |
+| 7. Monitoring i procedury | 80% | Health checks, dashboard, Prometheus, Alertmanager, alerty, rollback, runbook i collector dowodów release są skonfigurowane; brak obserwacji realnych danych i testowej notyfikacji. |
 
 **Postęp implementacji V5: 80%**.
 

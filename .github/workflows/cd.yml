@@ -24,6 +24,11 @@ on:
         required: true
         default: false
         type: boolean
+      require_rollback_target:
+        description: Fail staging validation when no previous immutable image tag is available
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -253,17 +258,39 @@ jobs:
           ssh "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "cd '${DEPLOY_PATH}' && chmod +x deploy.sh rollback.sh backup.sh restore.sh && ./deploy.sh '${IMAGE_TAG}' '${DEPLOY_ENV_FILE}' 'https://${STAGING_DOMAIN}' 'staging'"
 
-      - name: Verify staging runtime and observability
+      - name: Capture automated staging release evidence
         shell: bash
         env:
           DEPLOY_HOST: ${{ vars.STAGING_SSH_HOST }}
           DEPLOY_USER: ${{ vars.STAGING_SSH_USER }}
           DEPLOY_PATH: ${{ vars.STAGING_APP_PATH }}
+          DEPLOY_ENV_FILE: ${{ vars.STAGING_ENV_FILE }}
           STAGING_DOMAIN: ${{ vars.STAGING_DOMAIN }}
+          IMAGE_TAG: ${{ needs.publish.outputs.image_tag }}
+          REQUIRE_ROLLBACK_TARGET: ${{ inputs.require_rollback_target }}
         run: |
           set -euo pipefail
+          evidence_path=".v5-release-evidence/${IMAGE_TAG}"
+          rollback_argument=""
+          if [[ "$REQUIRE_ROLLBACK_TARGET" == "true" ]]; then
+            rollback_argument=" --require-rollback-target"
+          fi
           ssh "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "cd '${DEPLOY_PATH}' && chmod +x verify-staging.sh && ./verify-staging.sh 'https://${STAGING_DOMAIN}'"
+            "cd '${DEPLOY_PATH}' && chmod +x verify-staging.sh capture-release-evidence.sh && ./capture-release-evidence.sh '${DEPLOY_ENV_FILE}' 'https://${STAGING_DOMAIN}' '${evidence_path}' 'staging'${rollback_argument}"
+
+          rm -rf "${RUNNER_TEMP}/v5-release-evidence"
+          mkdir -p "${RUNNER_TEMP}/v5-release-evidence"
+          scp -r \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/${evidence_path}/." \
+            "${RUNNER_TEMP}/v5-release-evidence/"
+
+      - name: Upload automated staging release evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v5-staging-evidence-${{ needs.publish.outputs.image_tag }}
+          path: ${{ runner.temp }}/v5-release-evidence
+          if-no-files-found: ignore
 
       - name: Trigger Alertmanager test notification
         if: inputs.test_alertmanager
