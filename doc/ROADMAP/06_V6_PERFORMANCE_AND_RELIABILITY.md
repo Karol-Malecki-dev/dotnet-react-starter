@@ -10,7 +10,7 @@ Stan na: **2026-08-29**.
 
 | Obszar | Postęp | Status i dowód |
 |---|---:|---|
-| 1. Baseline i pomiary | 0% | Nie ma jeszcze raportu p50/p95/p99, throughputu ani realistycznego baseline'u. |
+| 1. Baseline i pomiary | 0% | Protokół i runner pomiarowy są przygotowane w `doc/V6_BASELINE.md` oraz `scripts/Measure-ApiBaseline.ps1`; raport p50/p95/p99, throughputu i realistycznego baseline'u jest jeszcze do wykonania. |
 | 2. EF Core i PostgreSQL | 25% | EF Core, PostgreSQL, migracje, indeksy i paginacja istnieją; brak systematycznej analizy `EXPLAIN ANALYZE`. |
 | 3. Cache | 0% | Brak uzasadnionego przypadku cache wymagającego implementacji. |
 | 4. Idempotencja i retry | 10% | Outbox i retry workerów są fundamentem; brak jawnych idempotency keys i pełnego testu powtórzeń. |
@@ -20,6 +20,10 @@ Stan na: **2026-08-29**.
 **Postęp V6: 13%**.
 
 V6 powinien ruszyć dopiero po wybraniu scenariuszy, danych testowych i mierzalnego kryterium sukcesu.
+
+Pierwszy slice V6 definiuje trzy read-only scenariusze API, fixture danych i powtarzalny
+runner baseline'u. Nie wprowadza jeszcze cache, Redis ani zmian optymalizacyjnych przed
+zebraniem pomiarów.
 
 ## Zakres implementacyjny
 
