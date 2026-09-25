@@ -13,8 +13,8 @@ Stan na: **2026-09-25**.
 | 1. Baseline i pomiary | 85% | Protokół, runner oraz opt-in test authenticated API baseline'u są przygotowane w `doc/V6_BASELINE.md`, `scripts/Measure-ApiBaseline.ps1` i `doc/V6_LARGE_FIXTURE_API_BASELINE.md`; istnieje powtarzalny pomiar 10 000 zadań z p50/p95/p99, error rate, payloadem, throughputem, czasem EF oraz raportem before/after dla pierwszego indeksu. |
 | 2. EF Core i PostgreSQL | 70% | Istnieją plany PostgreSQL, rzeczywisty wygenerowany SQL EF, liczba round-tripów i rozdzielenie czasu EF od czasu HTTP; pierwszy indeks paginacji został dodany dopiero po pozytywnym pomiarze before/after. |
 | 3. Cache | 0% | Brak uzasadnionego przypadku cache wymagającego implementacji. |
-| 4. Idempotencja i retry | 45% | Powiadomienia mają jawny kontrakt `userId + deduplicationKey`, ochronę przed wyścigiem zapisu oraz outbox z warunkowym claim/lease, retry i testami PostgreSQL; HTTP idempotency keys oraz provider-level email idempotency pozostają poza zakresem. |
-| 5. Background processing | 60% | Outbox ma atomowy claim PostgreSQL, pięciominutowy lease, odzyskiwanie wygasłych rekordów i warunkowe finalizowanie przez właściciela; dead-letter, queue-lag metrics i provider delivery receipts pozostają do wykonania. |
+| 4. Idempotencja i retry | 55% | Powiadomienia mają jawny kontrakt `userId + deduplicationKey`, ochronę przed wyścigiem zapisu oraz outbox z warunkowym claim/lease, retry i dead-letter po trzeciej porażce; HTTP idempotency keys oraz provider-level email idempotency pozostają poza zakresem. |
+| 5. Background processing | 80% | Outbox ma atomowy claim PostgreSQL, pięciominutowy lease, odzyskiwanie wygasłych rekordów, warunkowe finalizowanie, jawny dead-letter status oraz trzy gauge metrics dla kolejki; provider delivery receipts pozostają do wykonania. |
 | 6. Frontend request coordination | 10% | Istnieje centralny HttpClient i obsługa sesji; single-flight refresh oraz pełne scenariusze offline/retry nie są jeszcze zwalidowane. |
 
 **Postęp V6: 30%**.
@@ -42,6 +42,16 @@ atomowo przejmowany przez warunkowy `UPDATE`, a wygasły lease może zostać
 odzyskany przez kolejnego workera. Sukces i retry są zapisywane tylko wtedy,
 gdy lease nadal należy do wykonującej instancji. Dowód konkurencji i ograniczenia
 opisuje `doc/V6_OUTBOX_LEASING.md`.
+
+Czwarty slice V6 nadaje trwały status rekordom, które wyczerpały trzy próby.
+`DeadLetteredAt` jest ustawiane atomowo przy trzeciej porażce, a zwykły worker
+nie wybiera takiego rekordu ponownie. Przywrócenie do kolejki wymaga jawnej
+operacji operatorskiej resetującej status i licznik prób.
+
+Piąty slice V6 dodaje bezpieczny endpoint Prometheus `/metrics` dla outboxa.
+Eksportowane są liczba nieprzetworzonych rekordów, wiek najstarszego rekordu
+oraz liczba rekordów dead-letter. Wszystkie wartości są liczone jednym
+agregującym zapytaniem PostgreSQL i mają test integracyjny.
 
 ## Zakres implementacyjny
 

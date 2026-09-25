@@ -1,4 +1,5 @@
 using Application.Interfaces;
+using Domain.Entities;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -11,7 +12,6 @@ namespace Infrastructure.Services;
 public sealed class NotificationEmailOutboxProcessor : INotificationEmailOutboxProcessor
 {
     private const int BatchSize = 20;
-    private const int MaxAttempts = 3;
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(5);
 
     private readonly ApplicationDbContext _dbContext;
@@ -34,7 +34,8 @@ public sealed class NotificationEmailOutboxProcessor : INotificationEmailOutboxP
         var candidateIds = await _dbContext.NotificationEmailOutboxMessages
             .AsNoTracking()
             .Where(message => message.ProcessedAt == null
-                && message.AttemptCount < MaxAttempts
+                && message.DeadLetteredAt == null
+                && message.AttemptCount < NotificationEmailOutboxMessage.MaxAttempts
                 && message.NextAttemptAt <= now
                 && (message.ProcessingLeaseExpiresAt == null
                     || message.ProcessingLeaseExpiresAt <= now))
@@ -53,7 +54,8 @@ public sealed class NotificationEmailOutboxProcessor : INotificationEmailOutboxP
         var claimedCount = await _dbContext.NotificationEmailOutboxMessages
             .Where(message => candidateIds.Contains(message.Id)
                 && message.ProcessedAt == null
-                && message.AttemptCount < MaxAttempts
+                && message.DeadLetteredAt == null
+                && message.AttemptCount < NotificationEmailOutboxMessage.MaxAttempts
                 && message.NextAttemptAt <= now
                 && (message.ProcessingLeaseExpiresAt == null
                     || message.ProcessingLeaseExpiresAt <= now))
@@ -96,7 +98,8 @@ public sealed class NotificationEmailOutboxProcessor : INotificationEmailOutboxP
                             .SetProperty(candidate => candidate.ProcessedAt, processedAt)
                             .SetProperty(candidate => candidate.LastError, (string?)null)
                             .SetProperty(candidate => candidate.ProcessingLeaseId, (Guid?)null)
-                            .SetProperty(candidate => candidate.ProcessingLeaseExpiresAt, (DateTime?)null),
+                            .SetProperty(candidate => candidate.ProcessingLeaseExpiresAt, (DateTime?)null)
+                            .SetProperty(candidate => candidate.DeadLetteredAt, (DateTime?)null),
                         cancellationToken);
 
                 if (updatedRows == 0)
@@ -113,7 +116,11 @@ public sealed class NotificationEmailOutboxProcessor : INotificationEmailOutboxP
             catch (Exception exception)
             {
                 var attemptCount = message.AttemptCount + 1;
-                var nextAttemptAt = DateTime.UtcNow.AddMinutes(attemptCount);
+                var failureAt = DateTime.UtcNow;
+                var nextAttemptAt = failureAt.AddMinutes(attemptCount);
+                var deadLetteredAt = attemptCount >= NotificationEmailOutboxMessage.MaxAttempts
+                    ? failureAt
+                    : (DateTime?)null;
                 var error = exception.Message[..Math.Min(exception.Message.Length, 2000)];
                 var updatedRows = await _dbContext.NotificationEmailOutboxMessages
                     .Where(candidate => candidate.Id == message.Id
@@ -125,7 +132,8 @@ public sealed class NotificationEmailOutboxProcessor : INotificationEmailOutboxP
                             .SetProperty(candidate => candidate.LastError, error)
                             .SetProperty(candidate => candidate.NextAttemptAt, nextAttemptAt)
                             .SetProperty(candidate => candidate.ProcessingLeaseId, (Guid?)null)
-                            .SetProperty(candidate => candidate.ProcessingLeaseExpiresAt, (DateTime?)null),
+                            .SetProperty(candidate => candidate.ProcessingLeaseExpiresAt, (DateTime?)null)
+                            .SetProperty(candidate => candidate.DeadLetteredAt, deadLetteredAt),
                         cancellationToken);
 
                 if (updatedRows == 0)

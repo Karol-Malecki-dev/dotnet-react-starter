@@ -34,11 +34,14 @@ The existing retry policy remains explicit:
 - maximum of three attempts;
 - after a failure, `NextAttemptAt` is delayed by the new attempt count in
   minutes;
-- after the third failure the row remains unprocessed with its last error and
-  is no longer selected by the worker.
+- after the third failure, `DeadLetteredAt` is set together with the last
+  error and the row is no longer selected by the worker;
+- operational requeue must explicitly clear `DeadLetteredAt` and reset the
+  attempt count rather than only changing `NextAttemptAt`.
 
-The `ProcessedAt`, `NextAttemptAt` and `ProcessingLeaseExpiresAt` index supports
-the due-row and lease-recovery lookup.
+The `ProcessedAt`, `DeadLetteredAt`, `NextAttemptAt` and
+`ProcessingLeaseExpiresAt` index supports the due-row and lease-recovery
+lookup.
 
 ## Concurrency evidence
 
@@ -52,6 +55,22 @@ The test verifies that:
 - the successful row has both lease fields cleared;
 - an expired lease can be reclaimed;
 - a failed delivery clears ownership and schedules the retry.
+- a third failed delivery becomes visible as dead-lettered and is not retried.
+
+## Queue metrics
+
+The API exposes a small Prometheus text endpoint at `/metrics`. It reports:
+
+- `notification_email_outbox_pending_messages` for all unprocessed,
+  non-dead-letter messages, including messages waiting for their next retry;
+- `notification_email_outbox_oldest_pending_message_age_seconds` for the age
+  of the oldest message in that set;
+- `notification_email_outbox_dead_letter_messages` for unprocessed messages
+  that exhausted their retry budget.
+
+The production Prometheus configuration scrapes this endpoint directly. The
+metrics reader calculates all three values in one aggregate PostgreSQL query;
+it does not load individual outbox rows into application memory.
 
 ## Boundaries and follow-up
 
@@ -60,5 +79,4 @@ The test verifies that:
 - It does not provide provider-level email idempotency.
 - A crash after an external send and before the conditional success update can
   still cause a later retry and duplicate provider delivery.
-- A durable dead-letter status, queue-lag metrics and provider delivery
-  receipts remain follow-up work.
+- Provider delivery receipts remain follow-up work.
