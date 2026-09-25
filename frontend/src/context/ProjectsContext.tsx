@@ -27,6 +27,7 @@ interface ProjectsContextValue {
   tasks: ProjectTaskDto[];
   loading: boolean;
   tasksLoading: boolean;
+  tasksError: string | null;
   error: string | null;
   members: ProjectMemberDto[];
   availableMembers: ProjectMemberUserDto[];
@@ -45,6 +46,7 @@ interface ProjectsContextValue {
   projectScope?: 'all' | 'owned' | 'member';
   setProjectScope?: (scope: 'all' | 'owned' | 'member') => Promise<void>;
   refreshProjects: () => Promise<void>;
+  retryTasks: () => Promise<void>;
   selectProject: (projectId: string) => Promise<void>;
   createProject: (request: CreateProjectRequest) => Promise<ProjectDto>;
   updateProject: (projectId: string, request: UpdateProjectRequest) => Promise<ProjectDto>;
@@ -85,6 +87,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState<ProjectTaskDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [tasksLoading, setTasksLoading] = useState(false);
+  const [tasksError, setTasksError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [members, setMembers] = useState<ProjectMemberDto[]>([]);
   const [availableMembers, setAvailableMembers] = useState<ProjectMemberUserDto[]>([]);
@@ -131,7 +134,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     const controller = new AbortController();
     tasksRequestController.current = controller;
     setTasksLoading(true);
-    setError(null);
+    setTasksError(null);
 
     try {
       const response = await projectApi.getTasks(projectId, {
@@ -146,13 +149,13 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
 
       setTasks(response.data?.items ?? []);
       setTaskTotalPages(response.data?.totalPages ?? 0);
+      setTasksError(null);
     } catch (caughtError) {
       if (controller.signal.aborted) {
         return;
       }
 
-      setTasks([]);
-      setError(caughtError instanceof Error ? caughtError.message : 'Unable to load tasks');
+      setTasksError(caughtError instanceof Error ? caughtError.message : 'Unable to load tasks');
     } finally {
       if (tasksRequestController.current === controller) {
         tasksRequestController.current = null;
@@ -160,6 +163,12 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
       }
     }
   }, [taskFilters, taskPage, taskSearch]);
+
+  const retryTasks = useCallback(async () => {
+    if (selectedProjectId) {
+      await loadTasks(selectedProjectId);
+    }
+  }, [loadTasks, selectedProjectId]);
 
   const setTaskFilters = useCallback((filters: Partial<Omit<ProjectTaskQuery, 'pageNumber' | 'pageSize' | 'search'>>) => {
     setTaskFiltersState((currentFilters) => ({ ...currentFilters, ...filters }));
@@ -246,6 +255,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
       void loadDashboard(selectedProjectId);
     } else {
       setTasks([]);
+      setTasksError(null);
       setMembers([]);
       setAvailableMembers([]);
       setActivities([]);
@@ -584,6 +594,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     tasks,
     loading,
     tasksLoading,
+    tasksError,
     error,
     members,
     availableMembers,
@@ -602,6 +613,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     projectScope,
     setProjectScope,
     refreshProjects: () => loadProjects(),
+    retryTasks,
     selectProject,
     createProject,
     updateProject,
@@ -638,6 +650,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     tasks,
     loading,
     tasksLoading,
+    tasksError,
     error,
     members,
     availableMembers,
@@ -656,6 +669,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     setIncludeArchived,
     setProjectScope,
     loadProjects,
+    retryTasks,
     selectProject,
     createProject,
     updateProject,

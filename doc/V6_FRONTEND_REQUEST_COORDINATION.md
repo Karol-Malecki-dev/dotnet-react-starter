@@ -51,5 +51,6 @@ verifies that:
 - This slice does not automatically retry network errors or `5xx` responses.
 - It does not add a global retry budget, exponential backoff, or circuit breaker.
 - Request cancellation still follows the caller-provided `AbortSignal`.
-- Offline UX and cancellation of obsolete UI requests require separate
-  scenarios and browser-level evidence.
+- The application now exposes browser online/offline state through
+  `NetworkStatusBanner`, while task-list failures expose an explicit retry
+  action. This is a user-driven recovery path, not an automatic retry policy.
