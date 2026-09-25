@@ -17,7 +17,25 @@ public sealed class DatabaseNotificationWriter : INotificationWriter
         _dbContext = dbContext;
     }
 
-    public async Task CreateAsync(Guid userId, NotificationType type, string title, string message, string? resourceType = null, Guid? resourceId = null, Guid? projectId = null, bool sendEmail = true, CancellationToken cancellationToken = default, string? deduplicationKey = null)
+    /// <summary>
+    /// Creates a notification and optional email outbox message.
+    /// </summary>
+    /// <remarks>
+    /// When <paramref name="deduplicationKey"/> is provided, it is scoped to the
+    /// recipient and makes this operation idempotent. Repeating the same key is a
+    /// successful no-op and does not create another notification or outbox message.
+    /// </remarks>
+    public async Task CreateAsync(
+        Guid userId,
+        NotificationType type,
+        string title,
+        string message,
+        string? resourceType = null,
+        Guid? resourceId = null,
+        Guid? projectId = null,
+        bool sendEmail = true,
+        CancellationToken cancellationToken = default,
+        string? deduplicationKey = null)
     {
         if (userId == Guid.Empty || string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(message))
         {
@@ -69,7 +87,20 @@ public sealed class DatabaseNotificationWriter : INotificationWriter
             });
         }
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException exception) when (
+            normalizedDeduplicationKey is not null
+            && PostgreSqlErrorClassifier.IsUniqueConstraintViolation(
+                exception,
+                "IX_Notifications_UserId_DeduplicationKey"))
+        {
+            // Another request persisted the same recipient/key between the
+            // existence check and this save. The desired side effect already exists.
+            _dbContext.ChangeTracker.Clear();
+        }
     }
 
 }

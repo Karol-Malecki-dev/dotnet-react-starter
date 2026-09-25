@@ -13,7 +13,7 @@ Stan na: **2026-09-25**.
 | 1. Baseline i pomiary | 85% | Protokół, runner oraz opt-in test authenticated API baseline'u są przygotowane w `doc/V6_BASELINE.md`, `scripts/Measure-ApiBaseline.ps1` i `doc/V6_LARGE_FIXTURE_API_BASELINE.md`; istnieje powtarzalny pomiar 10 000 zadań z p50/p95/p99, error rate, payloadem, throughputem, czasem EF oraz raportem before/after dla pierwszego indeksu. |
 | 2. EF Core i PostgreSQL | 70% | Istnieją plany PostgreSQL, rzeczywisty wygenerowany SQL EF, liczba round-tripów i rozdzielenie czasu EF od czasu HTTP; pierwszy indeks paginacji został dodany dopiero po pozytywnym pomiarze before/after. |
 | 3. Cache | 0% | Brak uzasadnionego przypadku cache wymagającego implementacji. |
-| 4. Idempotencja i retry | 10% | Outbox i retry workerów są fundamentem; brak jawnych idempotency keys i pełnego testu powtórzeń. |
+| 4. Idempotencja i retry | 25% | Powiadomienia mają jawny kontrakt `userId + deduplicationKey`, unikalny indeks PostgreSQL, ochronę przed wyścigiem zapisu i test powtórzenia na Testcontainers; HTTP idempotency keys oraz provider-level email idempotency pozostają poza zakresem. |
 | 5. Background processing | 35% | Outbox, workery i graceful shutdown działają; brak koordynacji multi-instance, lease i pełnej strategii dead-letter. |
 | 6. Frontend request coordination | 10% | Istnieje centralny HttpClient i obsługa sesji; single-flight refresh oraz pełne scenariusze offline/retry nie są jeszcze zwalidowane. |
 
@@ -31,6 +31,11 @@ fixture: `ProjectTasks(ProjectId, CreatedAt DESC)` skrócił task-page p95 z
 `22.272 ms` do `19.060 ms` i zmienił plan z pełnego odczytu tasków na odczyt
 pierwszych 20 rekordów przez indeks. Wynik i ograniczenia opisuje
 `doc/V6_QUERY_PLAN_FINDINGS.md`.
+
+Drugi slice V6 formalizuje idempotencję powiadomień. Dla stabilnego klucza
+biznesowego powtórzenie zapisu jest sukcesem bez tworzenia drugiego
+powiadomienia ani drugiego wpisu email outbox. Kontrakt i granice opisuje
+`doc/V6_IDEMPOTENCY.md`.
 
 ## Zakres implementacyjny
 
