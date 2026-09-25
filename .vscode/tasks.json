@@ -10,13 +10,10 @@
       },
       "presentation": {
         "reveal": "always",
-        "panel": "shared",
+        "panel": "dedicated",
         "clear": false
       },
-      "problemMatcher": [],
-      "runOptions": {
-        "runOn": "folderOpen"
-      }
+      "problemMatcher": []
     },
     {
       "label": "Docker Compose: Stop",
@@ -27,7 +24,7 @@
       },
       "presentation": {
         "reveal": "always",
-        "panel": "shared"
+        "panel": "dedicated"
       },
       "problemMatcher": []
     }

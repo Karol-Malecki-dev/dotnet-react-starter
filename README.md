@@ -211,6 +211,10 @@ To build the containers, wait for the backend and frontend, run the full test so
 ./scripts/Invoke-E2ETests.ps1
 ```
 
+Skrypt uruchamia testowy Compose pod unikalną nazwą projektu i wybiera wolne
+porty hosta, więc nie zatrzymuje stacku uruchomionego w innym oknie VS Code.
+Adresy użyte w testach są wypisywane na początku skryptu.
+
 Optional smoke-test overrides:
 
 ```powershell

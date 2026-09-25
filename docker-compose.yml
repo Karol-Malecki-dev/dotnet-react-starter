@@ -1,7 +1,6 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: dotnet-react-db
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-dotnetreact}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -20,7 +19,6 @@ services:
 
   mailpit:
     image: axllent/mailpit:v1.27
-    container_name: dotnet-react-mailpit
     ports:
       - "${MAILPIT_SMTP_PORT:-1025}:1025"
       - "${MAILPIT_HTTP_PORT:-8025}:8025"
@@ -29,7 +27,6 @@ services:
 
   minio:
     image: ghcr.io/coollabsio/minio:RELEASE.2025-04-22T22-12-26Z@sha256:a4938f37f1be1841b8e7b627ad0207b265345fd0d063e42d7410c78af0e63e68
-    container_name: dotnet-react-minio
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
@@ -53,7 +50,6 @@ services:
 
   minio-init:
     image: ghcr.io/coollabsio/minio:RELEASE.2025-04-22T22-12-26Z@sha256:a4938f37f1be1841b8e7b627ad0207b265345fd0d063e42d7410c78af0e63e68
-    container_name: dotnet-react-minio-init
     entrypoint:
       - /bin/sh
       - -c
@@ -76,7 +72,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: dotnet-react-backend
     ports:
       - "${BACKEND_HTTP_PORT:-5000}:5000"
     environment:
@@ -108,7 +103,7 @@ services:
       - Attachments__MalwareScannerHost=${ATTACHMENTS_MALWARE_SCANNER_HOST:-}
       - Attachments__MalwareScannerPort=${ATTACHMENTS_MALWARE_SCANNER_PORT:-3310}
       - Attachments__MalwareScannerTimeoutSeconds=${ATTACHMENTS_MALWARE_SCANNER_TIMEOUT_SECONDS:-30}
-      - ForwardedHeaders__Enabled=${FORWARDED_HEADERS_ENABLED:-true}
+      - ForwardedHeaders__Enabled=${FORWARDED_HEADERS_ENABLED:-false}
       - ForwardedHeaders__KnownNetworks__0=${FORWARDED_HEADERS_KNOWN_NETWORK_0:-172.28.0.0/16}
       - ForwardedHeaders__ForwardLimit=${FORWARDED_HEADERS_FORWARD_LIMIT:-1}
       - Cors__AllowCredentials=${CORS_ALLOW_CREDENTIALS:-true}
@@ -157,7 +152,6 @@ services:
       args:
         VITE_API_URL: ${FRONTEND_REACT_APP_API_URL:-/api}
         NODE_OPTIONS: ${FRONTEND_NODE_OPTIONS:---max_old_space_size=4096}
-    container_name: dotnet-react-frontend
     ports:
       - "${FRONTEND_HTTP_PORT:-3000}:3000"
     depends_on:
@@ -174,9 +168,6 @@ services:
 networks:
   dotnet-react-network:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.28.0.0/16
 
 volumes:
   postgres-data:

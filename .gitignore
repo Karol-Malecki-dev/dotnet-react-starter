@@ -16,6 +16,8 @@
 # Environment files
 /.env
 /.env.local
+/.env.*
+!/.env.example
 /frontend/.env
 /frontend/.env.development
 /frontend/.env.production
