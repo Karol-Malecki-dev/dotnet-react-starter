@@ -144,6 +144,21 @@ describe('Projects page', () => {
     expect(screen.getByText('High', { selector: 'span.priority' })).toBeInTheDocument();
   });
 
+  it('offers an explicit retry when the task list fails', async () => {
+    const retryTasks = jest.fn().mockResolvedValue(undefined);
+    mockedUseProjects.mockReturnValue(createContextValue({
+      tasksError: 'Network unavailable',
+      retryTasks,
+    }));
+
+    render(<Projects />);
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Network unavailable');
+    fireEvent.click(screen.getByRole('button', { name: 'Retry tasks' }));
+
+    await waitFor(() => expect(retryTasks).toHaveBeenCalledTimes(1));
+  });
+
   it('scrolls to a task requested through the project navigation URL', () => {
     const scrollIntoView = vi.fn();
     Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView });
