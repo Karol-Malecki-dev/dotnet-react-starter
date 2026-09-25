@@ -26,9 +26,30 @@ public sealed class CreateProjectTaskHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(ProjectMemberRole.Viewer);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command, CancellationToken.None);
 
         Assert.Equal(ProjectOperationStatus.Forbidden, result.Status);
+        _commandStore.Verify(store => store.AddTask(It.IsAny<ProjectTask>()), Times.Never);
+        _commandStore.Verify(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_propagates_cancellation_from_authorization()
+    {
+        var command = CreateCommand();
+        using var cancellationTokenSource = new CancellationTokenSource();
+        var cancellationToken = cancellationTokenSource.Token;
+
+        _access
+            .Setup(access => access.GetActiveProjectRoleAsync(
+                command.OwnerId,
+                command.ProjectId,
+                cancellationToken))
+            .ThrowsAsync(new OperationCanceledException(cancellationToken));
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            CreateHandler().Handle(command, cancellationToken));
+
         _commandStore.Verify(store => store.AddTask(It.IsAny<ProjectTask>()), Times.Never);
         _commandStore.Verify(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -50,7 +71,7 @@ public sealed class CreateProjectTaskHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command, CancellationToken.None);
 
         Assert.Equal(ProjectOperationStatus.ValidationError, result.Status);
         Assert.Equal("Assigned user is not an active member of this project", result.Message);
@@ -68,7 +89,7 @@ public sealed class CreateProjectTaskHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(ProjectMemberRole.Owner);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(201, result.CreatedStatusCode);
@@ -100,7 +121,7 @@ public sealed class CreateProjectTaskHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         _assignmentNotificationWriter.Verify(writer => writer.AddTaskAssignedNotificationAsync(
@@ -137,7 +158,8 @@ public sealed class CreateProjectTaskHandlerTests
                 It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("notification preparation failed"));
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => CreateHandler().HandleAsync(command));
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreateHandler().Handle(command, CancellationToken.None));
 
         _commandStore.Verify(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }

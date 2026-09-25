@@ -4,13 +4,15 @@ using Application.Modules.ProjectTasks.AssignmentNotifications;
 using Application.Modules.ProjectTasks.CreateProjectTask;
 using Domain.Entities;
 using Domain.Enums;
+using MediatR;
 
 namespace Infrastructure.Modules.ProjectTasks.CreateProjectTask;
 
 /// <summary>
 /// Coordinates authorization, task creation, activity recording, and assignee notification.
 /// </summary>
-public sealed class CreateProjectTaskHandler : ICreateProjectTaskHandler
+public sealed class CreateProjectTaskHandler
+    : IRequestHandler<CreateProjectTaskCommand, ProjectOperationResult<ProjectTaskView>>
 {
     private readonly IProjectTaskAccess _projectTaskAccess;
     private readonly IProjectTaskCommandStore _commandStore;
@@ -26,9 +28,9 @@ public sealed class CreateProjectTaskHandler : ICreateProjectTaskHandler
         _assignmentNotificationWriter = assignmentNotificationWriter;
     }
 
-    public async Task<ProjectOperationResult<ProjectTaskView>> HandleAsync(
+    public async Task<ProjectOperationResult<ProjectTaskView>> Handle(
         CreateProjectTaskCommand command,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var role = await _projectTaskAccess.GetActiveProjectRoleAsync(
             command.OwnerId,

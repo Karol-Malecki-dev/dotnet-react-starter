@@ -1,6 +1,7 @@
 using Application.Features.ProjectManagement.Tasks;
 using Application.Features.Projects;
 using Domain.Enums;
+using MediatR;
 
 namespace Application.Modules.ProjectTasks.CreateProjectTask;
 
@@ -15,14 +16,5 @@ public sealed record CreateProjectTaskCommand(
     ProjectTaskPriority Priority,
     DateTime? DueDate,
     Guid? AssignedUserId,
-    IReadOnlyList<string> Labels);
-
-/// <summary>
-/// Executes the create-project-task use case without exposing persistence details to the API.
-/// </summary>
-public interface ICreateProjectTaskHandler
-{
-    Task<ProjectOperationResult<ProjectTaskView>> HandleAsync(
-        CreateProjectTaskCommand command,
-        CancellationToken cancellationToken = default);
-}
+    IReadOnlyList<string> Labels)
+    : IRequest<ProjectOperationResult<ProjectTaskView>>;
