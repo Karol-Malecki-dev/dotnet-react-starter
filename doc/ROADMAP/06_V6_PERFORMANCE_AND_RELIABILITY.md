@@ -19,6 +19,9 @@ Stan na: **2026-09-25**.
 
 **Postęp V6: 30%**.
 
+Formalny checklist release'u, wymagane dowody oraz świadomie odłożone elementy
+opisuje [`doc/V6_RELEASE_GATE.md`](../V6_RELEASE_GATE.md).
+
 V6 powinien ruszyć dopiero po wybraniu scenariuszy, danych testowych i mierzalnego kryterium sukcesu.
 
 Pierwszy slice V6 definiuje trzy read-only scenariusze API, fixture danych i powtarzalny
