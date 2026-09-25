@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using MediatR;
 
 namespace Application.Modules.Projects.GetProjectDetails;
 
@@ -8,17 +9,8 @@ namespace Application.Modules.Projects.GetProjectDetails;
 public sealed record GetProjectDetailsQuery(
     Guid UserId,
     Guid ProjectId,
-    bool IncludeArchived = false);
-
-/// <summary>
-/// Executes the get-project-details use case.
-/// </summary>
-public interface IGetProjectDetailsHandler
-{
-    Task<ProjectOperationResult<ProjectView>> HandleAsync(
-        GetProjectDetailsQuery query,
-        CancellationToken cancellationToken = default);
-}
+    bool IncludeArchived = false)
+    : IRequest<ProjectOperationResult<ProjectView>>;
 
 /// <summary>
 /// Provides the persistence projection required by the get-project-details slice.

@@ -153,8 +153,12 @@ Before changing dependency manifests:
 - document the selected package version and registration API in the implementation
   change.
 
-The roadmap does not preselect a package version because this information must be
-verified at implementation time.
+The first pilot selects `MediatR 12.5.0`. It is compatible with the repository's
+`.NET 9` target and remains available under the MIT license. The current latest
+`MediatR 14.2.0` release uses the newer licensing model and license-key configuration,
+so it is intentionally not introduced into this public starter without a separate
+licensing decision. The selected package version and registration API must be
+revisited before a future major upgrade.
 
 ## Implementation checkpoints
 
