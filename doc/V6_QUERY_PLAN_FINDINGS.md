@@ -58,7 +58,7 @@ plans for the task page and dashboard paths in the same Testcontainers database.
 The detailed protocol and recorded API p95 values are documented in
 [`V6_LARGE_FIXTURE_API_BASELINE.md`](V6_LARGE_FIXTURE_API_BASELINE.md).
 
-The larger run still does not approve an index migration:
+The larger run by itself did not approve an index migration:
 
 - task-page plan execution was 7.589 ms and used the existing project task index
   followed by a top-N sort;
@@ -68,18 +68,50 @@ The larger run still does not approve an index migration:
 - the authenticated API p95 values were 30.022 ms for the task page and
   39.321 ms for the dashboard, with no failed requests.
 
-The API-to-plan gap should be separated into database time, EF materialization,
-and endpoint orchestration before introducing cache or changing the schema.
+The API-to-plan gap is now split into captured EF command time and the remaining
+HTTP time. On the 2026-09-25 repeat, the task page used three commands with EF
+p95 `16.899 ms` and HTTP p95 `33.599 ms`; the dashboard used five commands with
+EF p95 `25.275 ms` and HTTP p95 `35.870 ms`. This confirmed that the next
+optimization decision had to be based on round-trip/query shape evidence, not
+only on a hand-written PostgreSQL plan.
+
+## Candidate index experiment
+
+The opt-in
+`PostgreSqlTaskPaginationCandidateTests.Task_pagination_candidate_index_is_compared_before_and_after`
+test repeated the task-page measurement with the same 10,000-task fixture. It
+dropped the migrated index in the disposable database for the before phase and
+recreated it for the after phase, so the comparison remained valid after the
+production migration was generated.
+
+| Phase | Task-page HTTP p95 | Plan execution time | Task access path |
+|---|---:|---:|---|
+| Without candidate index | 22.272 ms | 5.114 ms | Sequential task scan, top-N sort |
+| With `(ProjectId, CreatedAt DESC)` | 19.060 ms | 0.370 ms | Candidate index, 20 task rows read in order |
+
+Both phases returned 30/30 successful requests. The result met the experiment
+gate: approximately 14% lower task-page p95, no request errors, and a plan that
+avoids scanning and sorting all tasks in the benchmark project. With explicit
+statistics collection, representative plan execution fell from `5.114 ms` to
+`0.370 ms`. The candidate was promoted through the
+[`AddProjectTaskCreatedAtIndex` migration](../backend/Infrastructure/Data/Migrations/20260925163911_AddProjectTaskCreatedAtIndex.cs)
+and the model configuration. The migration test verifies the descending
+`CreatedAt` definition after startup migrations are applied.
+
+This decision applies only to task pagination. It does not approve a partial
+due-date index or a cache, and it does not change the dashboard query shape.
 
 ## Next measurement
 
 The next performance slice should:
 
-1. capture the generated EF SQL for the authenticated API endpoints;
-2. define a measurable p95 and plan-quality threshold for one candidate change;
-3. compare that candidate in a disposable database with the same 10,000-task fixture;
-4. record p95 latency, execution time, rows removed by filters, and buffer reads;
-5. adopt a migration only if the before/after result meets the documented threshold.
+1. repeat the large-fixture baseline after the migration and compare the same
+   task-page and dashboard paths;
+2. record p95 latency, EF command count, execution time, rows removed by filters,
+   and buffer reads;
+3. investigate dashboard due-date indexing only with a separate fixture and
+   before/after threshold;
+4. keep cache and Redis out of scope until a measured read path requires them.
 
-Until that measurement exists, cache, Redis, and speculative index additions remain
-out of scope.
+The candidate index is now a measured schema change; further indexes remain
+out of scope until their own measurement exists.

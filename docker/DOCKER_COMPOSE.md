@@ -98,8 +98,14 @@ non-root, a `docker-compose.yml` montuje do niego named volume.
 Załączniki są przechowywane przez adapter S3 w prywatnym buckecie MinIO. Dane MinIO
 znajdują się w named volume `minio-data`, a jednorazowy serwis `minio-init` tworzy bucket
 i wyłącza anonimowy dostęp przed startem backendu. Port `9000` udostępnia API S3, a
-`9001` konsolę administracyjną. Domyślne dane dostępowe służą wyłącznie lokalnemu
-Compose; w innym środowisku należy je zastąpić sekretami.
+`9001` konsolę administracyjną. Obraz serwera MinIO jest pobierany z publicznego mirroru
+GHCR i przypięty digestem. Ten sam obraz zawiera polecenie `mc` używane przez
+jednorazowy serwis `minio-init`, więc lokalny Compose, CI i Compose produkcyjny używają
+jednego, powtarzalnego artefaktu zamiast niedostępnych referencji Quay.
+Healthcheck MinIO korzysta z dołączonego polecenia `mc ready`, ponieważ ten mirror nie
+zawiera `curl`.
+Domyślne dane dostępowe służą wyłącznie lokalnemu Compose; w innym środowisku należy je
+zastąpić sekretami.
 
 Przed wdrożeniem produkcyjnym ustaw `ASPNETCORE_ENVIRONMENT=Production`, własny losowy
 `JWT_SECRET`, `JWT_REFRESH_TOKEN_COOKIE_SECURE_POLICY=Always`, trwały

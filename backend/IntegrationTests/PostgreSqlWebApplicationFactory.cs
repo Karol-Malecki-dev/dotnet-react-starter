@@ -9,13 +9,15 @@ using Testcontainers.PostgreSql;
 
 namespace IntegrationTests;
 
-public sealed class PostgreSqlWebApplicationFactory : CustomWebApplicationFactory, IAsyncLifetime
+public class PostgreSqlWebApplicationFactory : CustomWebApplicationFactory, IAsyncLifetime
 {
     private readonly PostgreSqlContainer _database = new PostgreSqlBuilder("postgres:16-alpine")
         .WithDatabase("starter_tests")
         .WithUsername("postgres")
         .WithPassword("postgres")
         .Build();
+
+    public EfCommandCapture CommandCapture { get; } = new();
 
     public Task InitializeAsync() => _database.StartAsync();
 
@@ -47,7 +49,10 @@ public sealed class PostgreSqlWebApplicationFactory : CustomWebApplicationFactor
             services.RemoveAll<DbContextOptions<ApplicationDbContext>>();
             services.RemoveAll<DbContextOptions>();
             services.RemoveAll<IDbContextOptionsConfiguration<ApplicationDbContext>>();
-            services.AddDbContext<ApplicationDbContext>(options => options.UseNpgsql(connectionString));
+            services.AddDbContext<ApplicationDbContext>(options =>
+                options
+                    .UseNpgsql(connectionString)
+                    .AddInterceptors(CommandCapture));
         });
     }
 }

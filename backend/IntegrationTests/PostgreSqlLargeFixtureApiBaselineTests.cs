@@ -47,6 +47,7 @@ public sealed class PostgreSqlLargeFixtureApiBaselineTests
         try
         {
             fixture = await SeedFixtureAsync(taskCount, noiseProjectCount);
+            await AnalyzeFixtureTablesAsync();
             var accessToken = await GenerateAccessTokenAsync(fixture.OwnerId);
             using var client = _factory.CreateClient();
             client.Timeout = TimeSpan.FromSeconds(30);
@@ -78,7 +79,8 @@ public sealed class PostgreSqlLargeFixtureApiBaselineTests
                         client,
                         scenario,
                         warmupRequests,
-                        measuredRequests));
+                        measuredRequests,
+                        _factory.CommandCapture));
             }
 
             var plans = await CapturePlansAsync(fixture);
@@ -130,6 +132,38 @@ public sealed class PostgreSqlLargeFixtureApiBaselineTests
         return tokens.AccessToken;
     }
 
+    private async Task AnalyzeFixtureTablesAsync()
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        await dbContext.Database.OpenConnectionAsync();
+        try
+        {
+            await ExecuteNonQueryAsync(
+                dbContext.Database.GetDbConnection(),
+                """ANALYZE "ProjectTasks";""");
+            await ExecuteNonQueryAsync(
+                dbContext.Database.GetDbConnection(),
+                """ANALYZE "ProjectTaskLabels";""");
+            await ExecuteNonQueryAsync(
+                dbContext.Database.GetDbConnection(),
+                """ANALYZE "ProjectActivities";""");
+        }
+        finally
+        {
+            await dbContext.Database.CloseConnectionAsync();
+        }
+    }
+
+    private static async Task ExecuteNonQueryAsync(
+        DbConnection connection,
+        string sql)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        await command.ExecuteNonQueryAsync();
+    }
+
     private async Task DeleteFixtureAsync(V6BenchmarkFixture fixture)
     {
         await using var scope = _factory.Services.CreateAsyncScope();
@@ -146,7 +180,8 @@ public sealed class PostgreSqlLargeFixtureApiBaselineTests
         HttpClient client,
         ApiScenario scenario,
         int warmupRequests,
-        int measuredRequests)
+        int measuredRequests,
+        EfCommandCapture commandCapture)
     {
         for (var index = 0; index < warmupRequests; index++)
         {
@@ -162,7 +197,11 @@ public sealed class PostgreSqlLargeFixtureApiBaselineTests
         var wallClock = Stopwatch.StartNew();
         for (var index = 0; index < measuredRequests; index++)
         {
-            measurements.Add(await SendRequestAsync(client, scenario.Path));
+            measurements.Add(
+                await SendObservedRequestAsync(
+                    client,
+                    scenario.Path,
+                    commandCapture));
         }
 
         wallClock.Stop();
@@ -175,7 +214,24 @@ public sealed class PostgreSqlLargeFixtureApiBaselineTests
         var payloadSizes = successfulMeasurements
             .Select(measurement => measurement.PayloadBytes)
             .ToArray();
+        var efCommandCounts = successfulMeasurements
+            .Select(measurement => (double)measurement.EfCapture.CommandCount)
+            .ToArray();
+        var efDurations = successfulMeasurements
+            .Select(measurement => measurement.EfCapture.TotalDurationMs)
+            .ToArray();
+        var nonDatabaseDurations = successfulMeasurements
+            .Select(measurement => Math.Max(
+                measurement.LatencyMs - measurement.EfCapture.TotalDurationMs,
+                0))
+            .ToArray();
         var elapsedSeconds = wallClock.Elapsed.TotalSeconds;
+        var representativeCommands = successfulMeasurements
+            .SelectMany(measurement => measurement.EfCapture.Commands)
+            .GroupBy(command => command.CommandText, StringComparer.Ordinal)
+            .Select(group => group.OrderBy(command => command.DurationMs).First())
+            .OrderByDescending(command => command.DurationMs)
+            .ToArray();
 
         return new ApiScenarioResult(
             scenario,
@@ -191,6 +247,16 @@ public sealed class PostgreSqlLargeFixtureApiBaselineTests
             latencies.Length == 0 ? null : latencies.Average(),
             payloadSizes.Length == 0 ? null : payloadSizes.Average(),
             elapsedSeconds <= 0 ? null : measurements.Count / elapsedSeconds,
+            efCommandCounts.Length == 0 ? null : efCommandCounts.Average(),
+            Percentile(efDurations, 50),
+            Percentile(efDurations, 95),
+            Percentile(efDurations, 99),
+            efDurations.Length == 0 ? null : efDurations.Average(),
+            Percentile(nonDatabaseDurations, 50),
+            Percentile(nonDatabaseDurations, 95),
+            Percentile(nonDatabaseDurations, 99),
+            nonDatabaseDurations.Length == 0 ? null : nonDatabaseDurations.Average(),
+            representativeCommands,
             measurements
                 .GroupBy(measurement => measurement.StatusCode)
                 .OrderBy(group => group.Key)
@@ -221,7 +287,8 @@ public sealed class PostgreSqlLargeFixtureApiBaselineTests
                 (int)response.StatusCode,
                 stopwatch.Elapsed.TotalMilliseconds,
                 body.Length,
-                success ? null : $"HTTP {(int)response.StatusCode}");
+                success ? null : $"HTTP {(int)response.StatusCode}",
+                new EfRequestCapture([]));
         }
         catch (HttpRequestException exception)
         {
@@ -231,7 +298,8 @@ public sealed class PostgreSqlLargeFixtureApiBaselineTests
                 0,
                 stopwatch.Elapsed.TotalMilliseconds,
                 0,
-                exception.Message);
+                exception.Message,
+                new EfRequestCapture([]));
         }
         catch (TaskCanceledException exception)
         {
@@ -241,7 +309,29 @@ public sealed class PostgreSqlLargeFixtureApiBaselineTests
                 0,
                 stopwatch.Elapsed.TotalMilliseconds,
                 0,
-                exception.Message);
+                exception.Message,
+                new EfRequestCapture([]));
+        }
+    }
+
+    private static async Task<ApiRequestMeasurement> SendObservedRequestAsync(
+        HttpClient client,
+        string path,
+        EfCommandCapture commandCapture)
+    {
+        commandCapture.Start();
+        try
+        {
+            var measurement = await SendRequestAsync(client, path);
+            return measurement with
+            {
+                EfCapture = commandCapture.Stop()
+            };
+        }
+        catch
+        {
+            commandCapture.Stop();
+            throw;
         }
     }
 
@@ -459,6 +549,35 @@ public sealed class PostgreSqlLargeFixtureApiBaselineTests
         }
 
         report.AppendLine();
+        report.AppendLine("## EF Core timing");
+        report.AppendLine();
+        report.AppendLine("| Scenario | Avg SQL commands/request | EF p50 ms | EF p95 ms | EF p99 ms | Avg EF ms | Non-database p50 ms | Non-database p95 ms | Non-database p99 ms |");
+        report.AppendLine("|---|---:|---:|---:|---:|---:|---:|---:|---:|");
+        foreach (var result in results)
+        {
+            report.AppendLine(
+                $"| {result.Scenario.Name} | {Format(result.AverageEfCommandCount)} | {Format(result.EfP50)} | {Format(result.EfP95)} | {Format(result.EfP99)} | {Format(result.AverageEfDuration)} | {Format(result.NonDatabaseP50)} | {Format(result.NonDatabaseP95)} | {Format(result.NonDatabaseP99)} |");
+        }
+
+        report.AppendLine();
+        report.AppendLine("## Representative generated SQL");
+        report.AppendLine();
+        foreach (var result in results)
+        {
+            report.AppendLine($"### {result.Scenario.Name}");
+            report.AppendLine();
+            foreach (var command in result.RepresentativeCommands)
+            {
+                report.AppendLine($"- `{command.Kind}` — {Format(command.DurationMs)} ms");
+                report.AppendLine();
+                report.AppendLine("```sql");
+                report.AppendLine(command.CommandText);
+                report.AppendLine("```");
+                report.AppendLine();
+            }
+        }
+
+        report.AppendLine();
         report.AppendLine("## PostgreSQL plans");
         report.AppendLine();
         foreach (var plan in plans)
@@ -581,7 +700,8 @@ public sealed class PostgreSqlLargeFixtureApiBaselineTests
         int StatusCode,
         double LatencyMs,
         int PayloadBytes,
-        string? Error);
+        string? Error,
+        EfRequestCapture EfCapture);
 
     private sealed record ApiScenarioResult(
         ApiScenario Scenario,
@@ -595,6 +715,16 @@ public sealed class PostgreSqlLargeFixtureApiBaselineTests
         double? AverageLatency,
         double? AveragePayload,
         double? Throughput,
+        double? AverageEfCommandCount,
+        double? EfP50,
+        double? EfP95,
+        double? EfP99,
+        double? AverageEfDuration,
+        double? NonDatabaseP50,
+        double? NonDatabaseP95,
+        double? NonDatabaseP99,
+        double? AverageNonDatabaseDuration,
+        IReadOnlyList<EfCommandObservation> RepresentativeCommands,
         IReadOnlyList<string> StatusCounts,
         IReadOnlyList<string> Errors);
 
