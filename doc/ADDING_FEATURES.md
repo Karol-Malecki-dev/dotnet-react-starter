@@ -49,7 +49,7 @@ Minimalna mapa odpowiedzialności:
 
 | Projekt | Element | Kiedy jest potrzebny |
 | --- | --- | --- |
-| `Application` | command/query, handler contract, focused port | zawsze kontrakt handlera; port tylko dla zewnętrznej zależności |
+| `Application` | command/query, focused port | nowy slice implementuje `IRequest<TResult>`; port tylko dla zewnętrznej zależności |
 | `API` | request/response, validator, endpoint/controller | gdy slice jest publicznie dostępny przez HTTP |
 | `Infrastructure` | handler i adapter EF/integracji | handler wykonawczy oraz tylko potrzebne adaptery |
 | `UnitTests` | test handlera/validatora | dla reguł sukcesu i meaningful failure paths |
@@ -102,14 +102,16 @@ Jeśli dodajesz nowy feature po stronie backendu:
 
 1. Ustal jeden use case, jego aktora, właściciela modułu oraz wynik błędu.
 2. Zacznij od domeny tylko wtedy, gdy pojawia się albo zmienia niezmiennik biznesowy.
-3. Dodaj command/query i kontrakt handlera w
+3. Dodaj command/query w
    `backend/Application/Modules/<BusinessModule>/<UseCase>/`.
 4. Dodaj focused port wyłącznie dla potrzebnej operacji persistence lub integracji.
 5. Dodaj request/response, walidację i endpoint w
    `backend/API/Modules/<BusinessModule>/<UseCase>/`.
 6. Dodaj handler i wymagany adapter w
    `backend/Infrastructure/Modules/<BusinessModule>/<UseCase>/`.
-7. Zarejestruj zależności przez rozszerzenie właściwego modułu.
+7. Zarejestruj porty, adaptery i workery przez rozszerzenie właściwego modułu.
+   Nowy handler MediatR jest wykrywany przez `AddApplicationDispatch`; nie dodawaj
+   drugiej ręcznej rejestracji `IRequestHandler`.
 8. Dodaj targeted unit test oraz integration test publicznego kontraktu.
 9. Zaktualizuj frontend i browser E2E, jeśli use case jest częścią krytycznego
    workflowu użytkownika.
@@ -219,10 +221,11 @@ Każdy slice powinien mieć, zależnie od potrzeb:
 7. rejestrację w module, a nie bezpośredni wpis w composition root;
 8. krótką dokumentację decyzji, zależności i zachowania przy błędzie.
 
-Po aktywacji bramki MediatR command/query implementuje `IRequest<TResult>`, handler
-implementuje `IRequestHandler<TRequest, TResult>`, a adapter HTTP używa `ISender`.
-W pozostałych slice'ach przejściowych jawny interfejs handlera pozostaje poprawny do
-czasu ich zaplanowanej migracji.
+Po aktywacji bramki MediatR każdy nowy command/query implementuje `IRequest<TResult>`,
+handler implementuje `IRequestHandler<TRequest, TResult>`, a adapter HTTP używa
+`ISender`. `AddApplicationDispatch` skanuje assembly handlerów jeden raz. W
+pozostałych slice'ach przejściowych jawny interfejs handlera pozostaje poprawny tylko
+do czasu ich zaplanowanej migracji.
 
 Po zakończeniu migracji CRUD `ProjectTasks` nie dodawaj nowych przypadków użycia do
 dużego serwisu. Każda nowa komenda lub kwerenda powinna mieć własny slice oraz

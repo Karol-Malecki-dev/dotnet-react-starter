@@ -56,6 +56,8 @@ Opisz migrację, backfill i kompatybilność wsteczną albo zaznacz `N/A`.
 
 - Typ: `command` / `query`
 - Nazwa slice'a:
+- Dispatch: `MediatR` przez `ISender`/`IRequestHandler` (nowy slice) albo jawny
+  wyjątek przejściowy zapisany w ADR 14:
 - Stan początkowy:
 - Warunek sukcesu:
 - Dozwolone przejścia:
@@ -64,9 +66,10 @@ Opisz migrację, backfill i kompatybilność wsteczną albo zaznacz `N/A`.
 ```mermaid
 flowchart LR
     A[Actor] --> B[HTTP adapter]
-    B --> C[Command or query handler]
-    C --> D[Domain rule / focused port]
-    D --> E[(Persistence)]
+    B --> C[ISender.Send]
+    C --> D[IRequestHandler]
+    D --> E[Domain rule / focused port]
+    E --> F[(Persistence)]
 ```
 
 ## 6. Autoryzacja

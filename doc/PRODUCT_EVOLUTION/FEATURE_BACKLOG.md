@@ -153,8 +153,9 @@ validation behavior i `MediatR.INotification`.
 i `ProjectTasks`; `Identity` tylko przy realnej zmianie use case'a.
 
 **Dowody akceptacji:** publiczne kontrakty pilota są niezmienione, każdy request ma
-dokładnie jeden handler, `Domain` nie zależy od MediatR, a logowanie nie zapisuje
-payloadów ani sekretów.
+dokładnie jeden handler, `Domain` nie zależy od MediatR, logowanie nie zapisuje
+payloadów ani sekretów, a dokumentacja wskazuje MediatR jako domyślny standard dla
+nowych slice'ów.
 
 **Decyzja:** zaakceptowana w
 [`ADR incremental MediatR adoption`](../ROADMAP/14_ADR_INCREMENTAL_MEDIATR_ADOPTION.md).

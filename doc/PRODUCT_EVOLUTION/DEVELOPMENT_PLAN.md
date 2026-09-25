@@ -149,9 +149,10 @@ transaction behavior, validation behavior, retry ani `MediatR.INotification`.
 **Test rozstrzygający:** oba slice'y zachowują identyczne trasy, response/status codes
 i skutki w bazie, a test architektury wykrywa brak albo duplikat handlera.
 
-**Bramka adopcji:** decyzja o użyciu MediatR jest zaakceptowana. Pilot rozstrzyga
-szczegóły rejestracji, telemetrii i tempo migracji, a nie to, czy biblioteka zostanie
-natychmiast usunięta po demonstracji.
+**Bramka adopcji:** decyzja o użyciu MediatR jest zaakceptowana. Pilot i standard
+nowych slice'ów rozstrzygnęły rejestrację, telemetrię i tempo migracji. Nowe
+slice'y używają MediatR domyślnie, a istniejące moduły są migrowane inkrementalnie;
+nie ma zgody na natychmiastowy rewrite ani na użycie biblioteki jako event busa.
 
 ### M3: jawna macierz uprawnień
 

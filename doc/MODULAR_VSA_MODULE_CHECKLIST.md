@@ -29,8 +29,9 @@ short reason instead of creating an empty abstraction, event, worker or migratio
 ## Vertical slice
 
 - [ ] The use case has a focused command/query.
-- [ ] The request/result contract is in `Application`; a transitional direct-handler
-      interface also remains there until that slice migrates.
+- [ ] The request/result contract is in `Application`; new slices implement
+      `IRequest<TResult>`. A direct-handler interface is allowed only for a slice
+      explicitly listed as transitional in ADR 14.
 - [ ] The handler implementation is in `Infrastructure` or the selected adapter
       assembly and depends on ports, not API types.
 - [ ] HTTP request and response contracts are explicit.
@@ -48,13 +49,18 @@ short reason instead of creating an empty abstraction, event, worker or migratio
       the slice is exposed in the UI.
 - [ ] Documentation and an ADR are updated when a boundary or contract changes.
 
-## MediatR-migrated slice
+## Canonical MediatR slice
 
-Apply this section after the MediatR pilot gate:
+Apply this section to every new backend command/query slice after the pilot gate.
+Use the transitional direct-handler style only while completing a migration already
+listed in `ROADMAP/14_ADR_INCREMENTAL_MEDIATR_ADOPTION.md`.
 
 - [ ] The command/query implements `IRequest<TResult>`.
 - [ ] Exactly one `IRequestHandler<TRequest, TResult>` is registered.
 - [ ] The HTTP adapter dispatches through `ISender`.
+- [ ] `AddApplicationDispatch` is the only MediatR assembly-scan registration.
+- [ ] The module entry point registers focused ports, adapters and workers, not the
+      migrated handler a second time.
 - [ ] Cancellation reaches the handler and its I/O calls.
 - [ ] The slice has no remaining parallel direct-handler dispatch path.
 - [ ] Resource authorization and transaction ownership remain explicit.

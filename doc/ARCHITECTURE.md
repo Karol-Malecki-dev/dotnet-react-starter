@@ -211,6 +211,27 @@ Przejściowo współdzielone pozostają `IProjectTaskAccess`, `IProjectTaskComma
 oraz `ProjectTaskView`, ponieważ są używane przez kilka slice'ów. Dashboard korzysta
 już z jawnego `IProjectTaskDashboardReader` należącego do `ProjectTasks`.
 
+Nowe slice'y używają kanonicznego dispatchingu MediatR:
+
+```text
+CreateProjectTaskController
+	|
+ISender.Send(CreateProjectTaskCommand)
+	|
+MediatRTelemetryBehavior
+	|
+CreateProjectTaskHandler : IRequestHandler<CreateProjectTaskCommand, TResult>
+	|
+IProjectTaskAccess + IProjectTaskCommandStore + assignment notification port
+	|
+ApplicationDbContext / PostgreSQL
+```
+
+`AddApplicationDispatch` skanuje assembly handlerów jeden raz. `ProjectTasksModule`
+rejestruje focused ports, adaptery i workery, ale nie dodaje drugiej rejestracji
+zmigrowanego handlera. Dotychczasowe slice'y z jawnym interfejsem handlera są
+przejściowe i migrują wyłącznie w kolejności zapisanej w ADR 14.
+
 Przepływ dla odczytu listy zadań wygląda następująco:
 
 ```text
@@ -266,14 +287,14 @@ opisują rzeczywiste potrzeby funkcji: kontrolę dostępu, listowanie z filtrami
 zapis zmian zadania. Implementacje EF pozostają w `Infrastructure`, a kontrolery
 nie znają `ApplicationDbContext`.
 
-Rozdzielenie query i command nie zależy od MediatR, RabbitMQ ani event busa. Obecny
-baseline używa jawnych interfejsów handlerów i dzięki temu potwierdził granice VSA
-niezależnie od biblioteki.
+Rozdzielenie query i command nie zależy od MediatR, RabbitMQ ani event busa. Wcześniejszy
+baseline używał jawnych interfejsów handlerów i dzięki temu potwierdził granice VSA
+niezależnie od biblioteki; obecny standard używa MediatR tylko jako dispatchera
+in-process.
 
-MediatR jest zaakceptowanym kolejnym krokiem dla dispatchingu in-process. Zostanie
-wdrożony inkrementalnie przez `ISender` i `IRequestHandler`, bez zmiany istniejących
-endpointów, migracji, focused ports i modelu relacyjnego. `MediatR.INotification` nie
-zastępuje trwałych powiadomień ani outboxa. Szczegóły:
+MediatR jest wdrażany inkrementalnie przez `ISender` i `IRequestHandler`, bez zmiany
+istniejących endpointów, migracji, focused ports i modelu relacyjnego.
+`MediatR.INotification` nie zastępuje trwałych powiadomień ani outboxa. Szczegóły:
 [`ROADMAP/14_ADR_INCREMENTAL_MEDIATR_ADOPTION.md`](ROADMAP/14_ADR_INCREMENTAL_MEDIATR_ADOPTION.md).
 
 Rejestracja zależności tasków jest skupiona w `ProjectTasksModule.AddProjectTasksModule`.

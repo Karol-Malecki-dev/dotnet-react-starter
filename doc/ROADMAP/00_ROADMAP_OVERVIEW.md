@@ -48,7 +48,7 @@ Najważniejsze braki nie polegają obecnie na braku kolejnych endpointów. Dotyc
 
 - jednego prostego golden path dla kompletnego command/query slice'a;
 - spójności kontraktów Notifications między backendem i frontendem;
-- wdrożenia zaakceptowanego standardu MediatR bez utraty granic modułów;
+- migracji kolejnych modułów do zaakceptowanego standardu MediatR bez utraty granic modułów;
 - jawnej, testowalnej macierzy uprawnień przed dodaniem kolejnych workflowów;
 - zachowania klienta po reconnect, retry i konflikcie;
 - pomiarów wydajności oraz kosztu ręcznego tworzenia slice'ów;
@@ -56,7 +56,7 @@ Najważniejsze braki nie polegają obecnie na braku kolejnych endpointów. Dotyc
 
 ## Status realizacji roadmapy
 
-Stan na: **2026-09-21**.
+Stan na: **2026-09-25**.
 
 Procent opisuje realizację głównych obszarów danego etapu, a nie liczbę linii kodu. `100%` oznacza spełniony obszar wraz z testem, dokumentacją albo zaakceptowaną decyzją. `50%` oznacza istniejący fundament bez pełnego Definition of Done, a `0%` oznacza brak rozpoczętej realizacji. Postęp bazowej roadmapy jest średnią arytmetyczną etapów V1-V7 i nie jest miarą gotowości produkcyjnej. V8 jest późniejszym etapem platformizacji i nie jest wliczany do postępu bazowej aplikacji.
 
@@ -68,17 +68,17 @@ Procent opisuje realizację głównych obszarów danego etapu, a nie liczbę lin
 | V4 | 78% | Domykanie kontraktów i dowodów | Account security audit, autoryzowany workspace search, produkcyjny lifecycle załączników oraz bazowa macierz browser E2E są zaimplementowane. Najbliższa luka to pełny kontrakt Notifications po obu stronach API oraz domknięcie pozostałych scenariuszy. |
 | V5 | 80% | W toku | Implementacja deploymentu VPS, migracji, szyfrowanego backupu, rollbacku, monitoringu i protected staging smoke jest gotowa; formalny gate czeka na realny staging, off-host backup, restore drill i rollback evidence. |
 | V6 | 13% | Planowany | Istnieją podstawy EF, PostgreSQL i workerów; brak baseline'ów, load testów i pomiarów. |
-| V7 | 0% | MediatR zaplanowany; pozostałe kierunki opcjonalne | Inkrementalna adopcja MediatR ma zaakceptowany ADR i dwa slice'y pilotażowe; implementacja jeszcze się nie rozpoczęła. |
+| V7 | 50% | Pilot MediatR i standard nowych slice'ów ukończone; migracja modułów w toku | `GetProjectDetails`, `CreateProjectTask` i bezpieczny telemetry behavior są wdrożone; kolejne migracje zaczynają się od `Notifications`. |
 | V8 | 0% | Odroczony; fundamenty częściowo gotowe | Trzy moduły i pierwsze guardrails istnieją, ale generator, wybór modułów i strategia aktualizacji wymagają najpierw pomiaru kolejnych ręcznych slice'ów. |
 
-**Postęp bazowej roadmapy V1-V7: 62%**.
+**Postęp bazowej roadmapy V1-V7: 69%**.
 
 ## Aktualna strategia wykonania
 
 Etapy pozostają mapą dojrzałości, ale praca przebiega w trzech torach:
 
 1. **Produkt i VSA:** najpierw prosty golden path i kontrakt Notifications, następnie
-   pilot MediatR, macierz uprawnień i kolejne pojedyncze workflowy.
+   kolejne migracje MediatR, macierz uprawnień i pojedyncze workflowy.
 2. **Dowody V5:** staging, off-host backup, restore drill, rollback i alert test są
    zbierane równolegle. Nie blokują lokalnego feature development, lecz blokują
    deklarację production-ready.

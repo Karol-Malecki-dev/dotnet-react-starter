@@ -10,21 +10,20 @@ sprawdzonych modułów, generatory i dystrybucja między projektami należą do 
 
 ## Status realizacji
 
-Stan na: **2026-09-21**.
+Stan na: **2026-09-25**.
 
 | Obszar | Postęp | Status |
 |---|---:|---|
-| Dispatch VSA / MediatR | 0% | Decyzja i plan są zaakceptowane; implementacja pilota nie została rozpoczęta. |
+| Dispatch VSA / MediatR | 50% | Query i command pilot oraz kanoniczny standard nowych slice'ów są zaimplementowane; migracja istniejących modułów pozostaje zaplanowana. |
 | Tożsamość | 0% | Brak kierunku V7 wymagającego obecnie implementacji. |
 | Model produktu | 0% | Brak potwierdzonej potrzeby multi-tenancy, API keys lub wersjonowania publicznego API. |
 | Architektura rozproszona | 0% | Brak zmierzonego problemu uzasadniającego wyodrębnianie usług. |
 | Operacje | 0% | Multi-region i disaster recovery pozostają opcjonalnymi kierunkami przyszłości. |
 
-**Postęp implementacji V7: 0%**.
+**Postęp implementacji V7: 50% w zaakceptowanym torze MediatR**.
 
-Plan MediatR jest gotowy, ale postęp pozostaje zerowy do czasu zmiany kodu, testów i
-rejestracji DI. Pozostałe kierunki V7 nadal wymagają konkretnego problemu i
-zaakceptowanego ADR-u.
+Pierwsze trzy checkpointy MediatR mają kod, testy, guardrails DI i dokumentację.
+Pozostałe kierunki V7 nadal wymagają konkretnego problemu i zaakceptowanego ADR-u.
 
 ## Możliwe kierunki
 
@@ -41,9 +40,9 @@ Pierwszy etap obejmuje:
 - guardrails dokładnie jednego handlera, DI, cancellation i braku zależności
   `Domain -> MediatR`.
 
-Po przejściu pilota nowe slice'y używają MediatR domyślnie. Istniejące moduły są
-migrowane w kolejności `Notifications`, `Projects`, `ProjectTasks`; `Identity` tylko
-przy realnej zmianie konkretnego use case'a.
+Po przejściu checkpointu pilota nowe slice'y używają MediatR domyślnie. Istniejące
+moduły są migrowane w kolejności `Notifications`, `Projects`, `ProjectTasks`;
+`Identity` tylko przy realnej zmianie konkretnego use case'a.
 
 MediatR nie przejmuje:
 
