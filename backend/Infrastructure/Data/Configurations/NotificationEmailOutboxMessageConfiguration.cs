@@ -14,6 +14,7 @@ public sealed class NotificationEmailOutboxMessageConfiguration : IEntityTypeCon
         builder.HasIndex(message => new
         {
             message.ProcessedAt,
+            message.DeadLetteredAt,
             message.NextAttemptAt,
             message.ProcessingLeaseExpiresAt
         });

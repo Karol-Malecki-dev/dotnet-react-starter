@@ -352,6 +352,7 @@ namespace API.Services
                     : serviceProvider.GetRequiredService<LoggingNotificationEmailSender>();
             });
             services.AddScoped<INotificationEmailOutboxProcessor, NotificationEmailOutboxProcessor>();
+            services.AddScoped<INotificationEmailOutboxMetricsReader, NotificationEmailOutboxMetricsReader>();
             services.AddHostedService<NotificationEmailOutboxWorker>();
             services.AddScoped<IAdminService, DatabaseAdminService>();
             services.AddScoped<ISearchWorkspaceHandler, SearchWorkspaceHandler>();

@@ -7,7 +7,6 @@ namespace Infrastructure.Services;
 
 public sealed class NotificationEmailOutboxWorker : BackgroundService
 {
-    private const int MaxAttempts = 3;
     public const string WorkerName = "notification-email-outbox";
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<NotificationEmailOutboxWorker> _logger;

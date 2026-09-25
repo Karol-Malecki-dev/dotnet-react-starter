@@ -1,11 +1,13 @@
 using API.Middleware;
 using API.Services;
+using Application.Interfaces;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 using Serilog;
 using Shared.Settings;
+using System.Globalization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -96,6 +98,25 @@ try
     app.MapHealthChecks("/health/email", new HealthCheckOptions
     {
         Predicate = healthCheck => healthCheck.Tags.Contains("email")
+    });
+    app.MapGet("/metrics", async (
+        INotificationEmailOutboxMetricsReader metricsReader,
+        CancellationToken cancellationToken) =>
+    {
+        var metrics = await metricsReader.ReadAsync(cancellationToken);
+        var payload = string.Join(
+            Environment.NewLine,
+            "# HELP notification_email_outbox_pending_messages Number of unprocessed notification email outbox messages.",
+            "# TYPE notification_email_outbox_pending_messages gauge",
+            $"notification_email_outbox_pending_messages {metrics.PendingMessageCount}",
+            "# HELP notification_email_outbox_oldest_pending_message_age_seconds Age of the oldest unprocessed notification email outbox message in seconds.",
+            "# TYPE notification_email_outbox_oldest_pending_message_age_seconds gauge",
+            $"notification_email_outbox_oldest_pending_message_age_seconds {metrics.OldestPendingMessageAgeSeconds.ToString(CultureInfo.InvariantCulture)}",
+            "# HELP notification_email_outbox_dead_letter_messages Number of unprocessed notification email outbox messages that exhausted their retry budget.",
+            "# TYPE notification_email_outbox_dead_letter_messages gauge",
+            $"notification_email_outbox_dead_letter_messages {metrics.DeadLetterMessageCount}") + Environment.NewLine;
+
+        return Results.Text(payload, "text/plain; version=0.0.4");
     });
     app.MapControllers();
 

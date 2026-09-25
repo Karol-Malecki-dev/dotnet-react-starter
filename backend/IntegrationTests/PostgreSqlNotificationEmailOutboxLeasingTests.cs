@@ -112,6 +112,77 @@ public sealed class PostgreSqlNotificationEmailOutboxLeasingTests
         Assert.Null(message.ProcessingLeaseExpiresAt);
     }
 
+    [Fact]
+    public async Task Third_failed_delivery_marks_message_as_dead_lettered()
+    {
+        var outboxMessageId = await SeedOutboxMessageAsync();
+        var sender = new FailingNotificationEmailSender("SMTP unavailable");
+
+        for (var attempt = 1; attempt <= 3; attempt++)
+        {
+            await using (var processorScope = _factory.Services.CreateAsyncScope())
+            {
+                var processor = CreateProcessor(processorScope, sender);
+                await processor.ProcessPendingMessagesAsync();
+            }
+
+            if (attempt < 3)
+            {
+                await MakeMessageDueAsync(outboxMessageId);
+            }
+        }
+
+        await using var verificationScope = _factory.Services.CreateAsyncScope();
+        var dbContext = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var message = await dbContext.NotificationEmailOutboxMessages
+            .SingleAsync(candidate => candidate.Id == outboxMessageId);
+
+        Assert.Equal(3, sender.SendCount);
+        Assert.Equal(3, message.AttemptCount);
+        Assert.Equal("SMTP unavailable", message.LastError);
+        Assert.NotNull(message.DeadLetteredAt);
+        Assert.Null(message.ProcessedAt);
+        Assert.Null(message.ProcessingLeaseId);
+        Assert.Null(message.ProcessingLeaseExpiresAt);
+
+        await MakeMessageDueAsync(outboxMessageId);
+        var retrySender = new RecordingNotificationEmailSender();
+        await using var retryScope = _factory.Services.CreateAsyncScope();
+        var retryProcessor = CreateProcessor(retryScope, retrySender);
+        await retryProcessor.ProcessPendingMessagesAsync();
+
+        Assert.Equal(0, retrySender.SendCount);
+    }
+
+    [Fact]
+    public async Task Metrics_reader_aggregates_pending_and_dead_letter_messages()
+    {
+        var pendingMessageId = await SeedOutboxMessageAsync();
+        var deadLetterMessageId = await SeedOutboxMessageAsync();
+
+        await using (var setupScope = _factory.Services.CreateAsyncScope())
+        {
+            var dbContext = setupScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var pendingMessage = await dbContext.NotificationEmailOutboxMessages
+                .SingleAsync(message => message.Id == pendingMessageId);
+            pendingMessage.NextAttemptAt = DateTime.UtcNow.AddHours(1);
+            var deadLetterMessage = await dbContext.NotificationEmailOutboxMessages
+                .SingleAsync(message => message.Id == deadLetterMessageId);
+            deadLetterMessage.AttemptCount = NotificationEmailOutboxMessage.MaxAttempts;
+            deadLetterMessage.DeadLetteredAt = DateTime.UtcNow;
+            await dbContext.SaveChangesAsync();
+        }
+
+        await using var metricsScope = _factory.Services.CreateAsyncScope();
+        var metricsReader = metricsScope.ServiceProvider
+            .GetRequiredService<INotificationEmailOutboxMetricsReader>();
+        var metrics = await metricsReader.ReadAsync();
+
+        Assert.True(metrics.PendingMessageCount >= 1);
+        Assert.True(metrics.DeadLetterMessageCount >= 1);
+        Assert.True(metrics.OldestPendingMessageAgeSeconds >= 0);
+    }
+
     private NotificationEmailOutboxProcessor CreateProcessor(
         AsyncServiceScope scope,
         INotificationEmailSender sender)
@@ -150,6 +221,16 @@ public sealed class PostgreSqlNotificationEmailOutboxLeasingTests
             .Where(message => message.UserId == userId)
             .Select(message => message.Id)
             .SingleAsync();
+    }
+
+    private async Task MakeMessageDueAsync(Guid outboxMessageId)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var message = await dbContext.NotificationEmailOutboxMessages
+            .SingleAsync(candidate => candidate.Id == outboxMessageId);
+        message.NextAttemptAt = DateTime.UtcNow.AddMinutes(-1);
+        await dbContext.SaveChangesAsync();
     }
 
     private sealed class BlockingNotificationEmailSender : INotificationEmailSender
