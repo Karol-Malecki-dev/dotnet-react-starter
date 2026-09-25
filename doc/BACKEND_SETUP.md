@@ -118,8 +118,10 @@ zaszyfrowane poprzednim key ringiem.
 
 `ForwardedHeaders` włącza obsługę `X-Forwarded-For` i `X-Forwarded-Proto` tylko dla
 jawnie skonfigurowanych `KnownProxies` lub `KnownNetworks`. `ForwardLimit` ogranicza
-liczbę akceptowanych wpisów w łańcuchu. W Docker Compose frontendowy Nginx działa w
-podsieci `172.28.0.0/16`, dlatego lokalny przykład ustawia tę sieć jako zaufaną.
+liczbę akceptowanych wpisów w łańcuchu. Lokalny Docker Compose używa dynamicznie
+przydzielanej podsieci i domyślnie ma forwarded headers wyłączone. Jeśli lokalny
+proxy wymaga tych nagłówków, ustaw rzeczywisty CIDR bieżącej sieci w
+`FORWARDED_HEADERS_KNOWN_NETWORK_0` i włącz `FORWARDED_HEADERS_ENABLED`.
 W produkcji wpisz rzeczywisty zakres reverse proxy i nie używaj zaufania do wszystkich
 adresów.
 

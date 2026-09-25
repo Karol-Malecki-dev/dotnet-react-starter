@@ -14,8 +14,12 @@ To jak orkiestra - każdy instrument (kontener) zna swoją rolę i wie, kiedy gr
 Start:
 ```bash
 copy .env.example .env
-docker-compose up --build
+docker compose up --build
 ```
+
+Lokalny Compose nie ustawia `container_name` ani stałej podsieci. Nazwy
+kontenerów, sieci i wolumenów są izolowane przez nazwę projektu Compose, dzięki
+czemu kilka kopii projektu nie próbuje używać tych samych zasobów Dockera.
 
 Najważniejsze grupy zmiennych:
 
@@ -54,11 +58,13 @@ backend:
 - `context: ./backend` = folder z kodem
 - `dockerfile: Dockerfile` = plik do budowania
 
-```yaml
-container_name: dotnet-react-backend
+Kontenery mają nazwy nadawane przez Compose, na przykład
+`dotnet-react-local-backend-1`. Do logów używaj nazwy usługi, ponieważ działa
+niezależnie od nazwy projektu:
+
+```bash
+docker compose logs backend --tail 50
 ```
-- Nazwa kontenera w systemie Docker
-- Przydatna do debugowania: `docker logs dotnet-react-backend`
 
 ```yaml
 ports:
@@ -87,8 +93,9 @@ Root `.env.example` opisuje lokalny scenariusz HTTP:
 - `ASPNETCORE_ENVIRONMENT=Development`;
 - `JWT_REFRESH_TOKEN_COOKIE_SECURE_POLICY=SameAsRequest`;
 - `DATA_PROTECTION_KEY_RING_PATH=/home/app/.aspnet/DataProtection-Keys`;
-- `FORWARDED_HEADERS_ENABLED=true`;
-- `FORWARDED_HEADERS_KNOWN_NETWORK_0=172.28.0.0/16`.
+- `FORWARDED_HEADERS_ENABLED=false` dla lokalnej, dynamicznej sieci;
+- `FORWARDED_HEADERS_KNOWN_NETWORK_0` tylko wtedy, gdy podasz rzeczywisty CIDR
+  sieci Docker i ustawisz `FORWARDED_HEADERS_ENABLED=true`.
 
 Backend zapisuje klucze Data Protection w named volume `data-protection-keys`. Ten
 wolumen trzeba zachować między restartami i wdrożeniami, jeśli zaszyfrowane dane mają
@@ -164,7 +171,6 @@ frontend:
     dockerfile: Dockerfile
     args:
       VITE_API_URL: ${FRONTEND_REACT_APP_API_URL:-/api}
-  container_name: dotnet-react-frontend
   ports:
     - "3000:3000"
 ```
@@ -193,6 +199,8 @@ networks:
     driver: bridge
 ```
 - Tworzy wirtualną sieć dla kontenerów
+- Docker przydziela podsieć automatycznie, aby równoległe projekty nie
+  kolidowały na stałym zakresie IP
 - **Domyślnie kontenerami się komunikują po nazwach!**
 - Np. z frontendu: `http://backend:5000` (nie localhost!)
 
@@ -214,7 +222,7 @@ Docker DNS automatycznie resolve `backend` do IP kontenera!
 
 ### Pierwsze uruchomienie:
 ```bash
-docker-compose up
+docker compose up
 ```
 - Buduje obrazy (jeśli nie istnieją)
 - Uruchamia kontenery
@@ -222,20 +230,20 @@ docker-compose up
 
 ### W tle (daemon):
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 - `-d` = detached mode
 - Zwraca promptu, ale kontenery działają w tle
 
 ### Zatrzymanie:
 ```bash
-docker-compose down
+docker compose down
 ```
 - Zatrzymuje wszystkie kontenery
 - Usuwają sieci (ale obrazy zostają)
 
 ```bash
-docker-compose down -v
+docker compose down -v
 ```
 - `-v` = remove volumes (usuwa dane/bazy)
 - Usuwa również `data-protection-keys` i `minio-data`, więc unieważnia key ring oraz
@@ -243,7 +251,7 @@ docker-compose down -v
 
 ### Przebudowanie po zmianie kodu:
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 - Przebudowuje obrazy
 - Uruchamia nowe kontenery
@@ -252,25 +260,25 @@ docker-compose up --build
 
 ### Sprawdzić co działa:
 ```bash
-docker-compose ps
+docker compose ps
 ```
 - Wylistować uruchomione serwisy
 
 ### Logi:
 ```bash
-docker-compose logs
+docker compose logs
 ```
 - Wszystkie logi
 
 ```bash
-docker-compose logs -f frontend
+docker compose logs -f frontend
 ```
 - `-f` = follow (na żywo)
 - `frontend` = tylko tego serwisu
 
 ### Wejść do kontenera:
 ```bash
-docker-compose exec backend bash
+docker compose exec backend sh
 ```
 - `exec` = execute
 - `backend` = nazwa serwisu
@@ -331,11 +339,12 @@ Nie ma w repozytorium osobnego `docker-compose.dev.yml`; zmiany kodu na żywo i 
 lokalne uruchamiaj bezpośrednio z `dotnet run` oraz `npm start`, zgodnie z dokumentacją
 setupu.
 
-## Checklist - co się dzieje przy `docker-compose up`:
+## Checklist - co się dzieje przy `docker compose up`:
 
 1. ✅ Docker buduje backend (Dockerfile)
 2. ✅ Docker buduje frontend (Dockerfile)
-3. ✅ Docker tworzy network `dotnet-react-network`
+3. ✅ Docker tworzy projektową sieć, na przykład
+   `dotnet-react-local-dotnet-react-network`
 4. ✅ Uruchamia backend (port 5000)
 5. ✅ Czeka aż backend będzie healthy
 6. ✅ Uruchamia frontend (port 3000)
@@ -346,19 +355,16 @@ setupu.
 
 ### ❌ Port already in use
 ```bash
-# Zmień port w docker-compose.yml
-ports:
-  - "3001:3000"  # zamiast 3000:3000
+# Ustaw inny port hosta w pliku .env.<nazwa>
+FRONTEND_HTTP_PORT=13000
 ```
 
 ### ❌ Backend nie widać z frontendu
 ```bash
 # Sprawdź network
 docker network ls
-docker network inspect dotnet-react-network
-
-# Sprawdź czy backend w sieci
-docker-compose ps
+docker compose ps
+docker compose config --services
 ```
 
 ### ❌ "depends_on" czeka ale aplikacja nie gotowa
@@ -370,7 +376,7 @@ healthcheck:
 
 ### ❌ Logi są duże, szukam specific service
 ```bash
-docker-compose logs frontend --tail 50
+docker compose logs frontend --tail 50
 # --tail 50 = ostatnie 50 linii
 ```
 
@@ -378,19 +384,42 @@ docker-compose logs frontend --tail 50
 
 ### Override konfiguracji:
 ```bash
-# Zmienić port na żywo
-docker-compose -p myapp up
+# Uruchomić drugi, niezależny stack
+docker compose --project-name dotnet-react-v6 --env-file .env.v6 up --build --wait --detach
+
+# Zatrzymać dokładnie ten stack
+docker compose --project-name dotnet-react-v6 --env-file .env.v6 down --remove-orphans
 
 # Uruchomić tylko backend
-docker-compose up backend
+docker compose up backend
 ```
+
+Każdy równoległy stack musi mieć własny `COMPOSE_PROJECT_NAME` oraz własne
+porty hosta. Przykładowy `.env.v6`:
+
+```dotenv
+COMPOSE_PROJECT_NAME=dotnet-react-v6
+POSTGRES_PORT=55432
+MAILPIT_SMTP_PORT=11025
+MAILPIT_HTTP_PORT=18025
+MINIO_API_PORT=19000
+MINIO_CONSOLE_PORT=19001
+BACKEND_HTTP_PORT=15000
+FRONTEND_HTTP_PORT=13000
+FORWARDED_HEADERS_ENABLED=false
+```
+
+W tym przykładzie API jest pod `http://localhost:15000`, frontend pod
+`http://localhost:13000`, a Mailpit pod `http://localhost:18025`.
+Pliki `.env.*` są ignorowane przez Git, więc nie trafiają do repozytorium.
 
 ### Build bez cache (od zera):
 ```bash
-docker-compose up --build --no-cache
+docker compose up --build --no-cache
 ```
 
 ### Scale serwisu (wiele instancji):
-```bash
-docker-compose up --scale frontend=3
-```
+
+Skalowanie usług publikujących stałe porty hosta nie jest wspierane przez ten
+lokalny stack. Do równoległego uruchomienia użyj osobnego projektu i portów
+hosta zgodnie z przykładem powyżej.

@@ -152,6 +152,10 @@ Smoke testy E2E wymagają uruchomionego środowiska:
 ./scripts/Invoke-E2ETests.ps1
 ```
 
+Skrypt uruchamia testowy Compose pod unikalną nazwą projektu i wybiera wolne
+porty hosta, więc nie zatrzymuje stacku uruchomionego w innym oknie VS Code.
+Adresy użyte w testach są wypisywane na początku skryptu.
+
 Frontend:
 
 ```powershell
