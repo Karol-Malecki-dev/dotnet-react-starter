@@ -1,6 +1,6 @@
 # ADR: Incremental MediatR Adoption for Modular VSA
 
-- Status: Accepted for planned implementation
+- Status: Accepted; pilot and new-slice standard implemented, module migration in progress
 - Date: 2026-09-21
 - Scope: in-process command/query dispatch in backend vertical slices
 
@@ -170,6 +170,15 @@ revisited before a future major upgrade.
 | 4. Notifications migration | `refactor/mediatr-notifications` | Migrate one notification use case at a time and remove its old direct-handler interface. | Notification unit/integration tests pass after every slice. |
 | 5. Projects migration | `refactor/mediatr-projects` | Migrate project lifecycle, membership, invitations, activity and dashboard incrementally. | Project API and PostgreSQL concurrency/transaction tests remain green. |
 | 6. ProjectTasks migration | `refactor/mediatr-project-tasks` | Migrate task, comment and attachment slices without changing workers or durable side effects. | Task, attachment, worker and architecture suites remain green. |
+
+Current checkpoint status as of **2026-09-25**:
+
+- [x] Query foundation
+- [x] Command and telemetry
+- [x] New-slice default
+- [ ] Notifications migration
+- [ ] Projects migration
+- [ ] ProjectTasks migration
 
 ### Checkpoint 2 implementation notes
 
