@@ -12,6 +12,9 @@ public class EmailDeliverySettings
     /// <summary>SMTP port.</summary>
     public int Port { get; set; } = 587;
 
+    /// <summary>Maximum time in seconds allowed for one SMTP operation.</summary>
+    public int TimeoutSeconds { get; set; } = 30;
+
     /// <summary>Envelope sender email address.</summary>
     public string FromAddress { get; set; } = string.Empty;
 

@@ -150,6 +150,9 @@ Ważne zasady:
 - CORS jest konfigurowany przez settings, nie hardcode w `Program.cs`
 - walidacja opcji odbywa się przy starcie w `AddProjectServices.cs`
 - `EmailDelivery.Enabled = false` pozwala lokalnie działać bez zewnętrznego SMTP
+- `EmailDelivery.TimeoutSeconds` ogranicza pojedynczą operację SMTP do wartości
+  od 1 do 300 sekund; dotyczy zarówno wiadomości konta, jak i notification
+  outbox
 
 ## Authentication Flow
 

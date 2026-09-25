@@ -162,6 +162,23 @@ public class ProjectServiceCollectionExtensionsTests
     }
 
     [Fact]
+    public void Enabled_email_delivery_requires_a_bounded_timeout()
+    {
+        using var provider = BuildProvider(
+            new Dictionary<string, string?>
+            {
+                ["EmailDelivery:Enabled"] = "true",
+                ["EmailDelivery:Host"] = "smtp.example.test",
+                ["EmailDelivery:FromAddress"] = "noreply@example.test",
+                ["EmailDelivery:TimeoutSeconds"] = "0"
+            },
+            Environments.Development);
+
+        Assert.Throws<OptionsValidationException>(
+            () => provider.GetRequiredService<IOptions<EmailDeliverySettings>>().Value);
+    }
+
+    [Fact]
     public void Production_configuration_requires_s3_attachment_storage()
     {
         using var provider = BuildProvider(

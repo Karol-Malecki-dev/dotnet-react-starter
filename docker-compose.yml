@@ -121,6 +121,7 @@ services:
       - EmailDelivery__Enabled=${EMAIL_DELIVERY_ENABLED:-true}
       - EmailDelivery__Host=${EMAIL_DELIVERY_HOST:-mailpit}
       - EmailDelivery__Port=${EMAIL_DELIVERY_PORT:-1025}
+      - EmailDelivery__TimeoutSeconds=${EMAIL_DELIVERY_TIMEOUT_SECONDS:-30}
       - EmailDelivery__FromAddress=${EMAIL_DELIVERY_FROM_ADDRESS:-noreply@dotnet-react-starter.local}
       - EmailDelivery__FromName=${EMAIL_DELIVERY_FROM_NAME:-Dotnet React Starter}
       - EmailDelivery__Username=${EMAIL_DELIVERY_USERNAME:-}

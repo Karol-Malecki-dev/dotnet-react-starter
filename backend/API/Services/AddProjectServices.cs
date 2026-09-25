@@ -231,6 +231,8 @@ namespace API.Services
                     "Email delivery host is required when email delivery is enabled.")
                 .Validate(settings => !settings.Enabled || settings.Port > 0,
                     "Email delivery port must be greater than 0 when email delivery is enabled.")
+                .Validate(settings => !settings.Enabled || settings.TimeoutSeconds is > 0 and <= 300,
+                    "Email delivery timeout must be between 1 and 300 seconds when email delivery is enabled.")
                 .Validate(settings => !settings.Enabled || !string.IsNullOrWhiteSpace(settings.FromAddress),
                     "Email delivery from address is required when email delivery is enabled.")
                 .ValidateOnStart();
