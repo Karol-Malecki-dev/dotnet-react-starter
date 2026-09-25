@@ -15,7 +15,7 @@ Stan na: **2026-09-25**.
 | 3. Cache | 0% | Brak uzasadnionego przypadku cache wymagającego implementacji. |
 | 4. Idempotencja i retry | 55% | Powiadomienia mają jawny kontrakt `userId + deduplicationKey`, ochronę przed wyścigiem zapisu oraz outbox z warunkowym claim/lease, retry i dead-letter po trzeciej porażce; HTTP idempotency keys oraz provider-level email idempotency pozostają poza zakresem. |
 | 5. Background processing | 80% | Outbox ma atomowy claim PostgreSQL, pięciominutowy lease, odzyskiwanie wygasłych rekordów, warunkowe finalizowanie, jawny dead-letter status oraz trzy gauge metrics dla kolejki; provider delivery receipts pozostają do wykonania. |
-| 6. Frontend request coordination | 10% | Istnieje centralny HttpClient i obsługa sesji; single-flight refresh oraz pełne scenariusze offline/retry nie są jeszcze zwalidowane. |
+| 6. Frontend request coordination | 45% | `HttpClient` ma single-flight refresh, ochronę przed powtórnym refresh przy podmienionym tokenie oraz testy równoległych `401`; scenariusze cancellation/offline/retry UI pozostają do walidacji. |
 
 **Postęp V6: 30%**.
 
@@ -52,6 +52,14 @@ Piąty slice V6 dodaje bezpieczny endpoint Prometheus `/metrics` dla outboxa.
 Eksportowane są liczba nieprzetworzonych rekordów, wiek najstarszego rekordu
 oraz liczba rekordów dead-letter. Wszystkie wartości są liczone jednym
 agregującym zapytaniem PostgreSQL i mają test integracyjny.
+
+Szósty slice V6 koordynuje odświeżanie sesji po równoległych odpowiedziach `401`.
+Wspólny `HttpClient` wykonuje najwyżej jeden refresh dla jednego okna
+współbieżności, a pozostałe requesty czekają na ten sam rezultat. Jeśli token
+został już podmieniony przez inny request, kolejny request jest ponawiany bez
+uruchamiania drugiego refresh. Publiczne requesty z `skipAuth` nie uruchamiają
+mechanizmu odświeżania. Kontrakt i dowody opisuje
+`doc/V6_FRONTEND_REQUEST_COORDINATION.md`.
 
 ## Zakres implementacyjny
 
