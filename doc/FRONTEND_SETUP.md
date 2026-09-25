@@ -72,9 +72,13 @@ Ten klient odpowiada za:
 - dołączanie access tokenu do requestów
 - wysyłanie `credentials: 'include'` dla refresh token cookie
 - retry po `401`, jeśli da się odświeżyć sesję
+- współdzielenie jednego refreshu przez równoległe requesty oraz pomijanie
+  refreshu dla requestów `skipAuth`
 - mapowanie błędów i generowanie globalnych notice
 
 Na nim opierają się konkretne klienty, np. auth, users i runtime config.
+Szczegółowy kontrakt współbieżnego refreshu opisuje
+`doc/V6_FRONTEND_REQUEST_COORDINATION.md`.
 
 ## Authentication on the Frontend
 

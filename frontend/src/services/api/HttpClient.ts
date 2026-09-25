@@ -33,6 +33,7 @@ export interface RequestOptions<TBody> {
 export class HttpClient {
   private readonly baseUrl: string;
   private onUnauthorized?: () => Promise<boolean>;
+  private unauthorizedRefreshPromise: Promise<boolean> | null = null;
 
   constructor(options: HttpClientOptions = {}) {
     const configuredBaseUrl = options.baseUrl ?? import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
@@ -84,11 +85,9 @@ export class HttpClient {
       headers.set('Content-Type', 'application/json');
     }
 
-    if (!options.skipAuth) {
-      const accessToken = tokenManager.getAccessToken();
-      if (accessToken) {
-        headers.set('Authorization', `Bearer ${accessToken}`);
-      }
+    const requestAccessToken = options.skipAuth ? null : tokenManager.getAccessToken();
+    if (requestAccessToken) {
+      headers.set('Authorization', `Bearer ${requestAccessToken}`);
     }
 
     const response = await fetch(url, {
@@ -105,10 +104,17 @@ export class HttpClient {
       return parsed;
     }
 
-    if (response.status === 401 && this.onUnauthorized && !retried) {
-      const refreshed = await this.onUnauthorized();
-      if (refreshed) {
+    if (response.status === 401 && !options.skipAuth && !retried) {
+      const currentAccessToken = tokenManager.getAccessToken();
+      if (requestAccessToken && currentAccessToken && requestAccessToken !== currentAccessToken) {
         return this.request<TResponse, TBody>(method, path, options, true);
+      }
+
+      if (this.onUnauthorized) {
+        const refreshed = await this.refreshAfterUnauthorized();
+        if (refreshed) {
+          return this.request<TResponse, TBody>(method, path, options, true);
+        }
       }
     }
 
@@ -146,11 +152,9 @@ export class HttpClient {
     const headers = new Headers(options.headers);
     headers.set('Accept', 'application/octet-stream');
 
-    if (!options.skipAuth) {
-      const accessToken = tokenManager.getAccessToken();
-      if (accessToken) {
-        headers.set('Authorization', `Bearer ${accessToken}`);
-      }
+    const requestAccessToken = options.skipAuth ? null : tokenManager.getAccessToken();
+    if (requestAccessToken) {
+      headers.set('Authorization', `Bearer ${requestAccessToken}`);
     }
 
     const response = await fetch(url, {
@@ -165,10 +169,17 @@ export class HttpClient {
     }
 
     const parsed = await this.parseResponse<unknown>(response);
-    if (response.status === 401 && this.onUnauthorized && !retried) {
-      const refreshed = await this.onUnauthorized();
-      if (refreshed) {
+    if (response.status === 401 && !options.skipAuth && !retried) {
+      const currentAccessToken = tokenManager.getAccessToken();
+      if (requestAccessToken && currentAccessToken && requestAccessToken !== currentAccessToken) {
         return this.requestBlob(path, options, true);
+      }
+
+      if (this.onUnauthorized) {
+        const refreshed = await this.refreshAfterUnauthorized();
+        if (refreshed) {
+          return this.requestBlob(path, options, true);
+        }
       }
     }
 
@@ -182,6 +193,38 @@ export class HttpClient {
     }
 
     throw new HttpError(response.status, message, apiError);
+  }
+
+  private refreshAfterUnauthorized(): Promise<boolean> {
+    if (this.unauthorizedRefreshPromise) {
+      return this.unauthorizedRefreshPromise;
+    }
+
+    const handler = this.onUnauthorized;
+    if (!handler) {
+      return Promise.resolve(false);
+    }
+
+    const refreshPromise = Promise.resolve().then(() => handler());
+    const trackedPromise = refreshPromise.then(
+      (refreshed) => {
+        if (this.unauthorizedRefreshPromise === trackedPromise) {
+          this.unauthorizedRefreshPromise = null;
+        }
+
+        return refreshed;
+      },
+      (error: unknown) => {
+        if (this.unauthorizedRefreshPromise === trackedPromise) {
+          this.unauthorizedRefreshPromise = null;
+        }
+
+        throw error;
+      },
+    );
+
+    this.unauthorizedRefreshPromise = trackedPromise;
+    return trackedPromise;
   }
 
   private async parseResponse<TResponse>(response: Response): Promise<TResponse> {
