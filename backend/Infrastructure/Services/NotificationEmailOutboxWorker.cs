@@ -1,6 +1,4 @@
 using Application.Interfaces;
-using Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -31,7 +29,9 @@ public sealed class NotificationEmailOutboxWorker : BackgroundService
         {
             try
             {
-                await ProcessPendingMessagesAsync(stoppingToken);
+                using var scope = _scopeFactory.CreateScope();
+                var processor = scope.ServiceProvider.GetRequiredService<INotificationEmailOutboxProcessor>();
+                await processor.ProcessPendingMessagesAsync(stoppingToken);
                 _healthState.ReportSuccess(WorkerName);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -45,54 +45,6 @@ public sealed class NotificationEmailOutboxWorker : BackgroundService
             }
 
             await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken);
-        }
-    }
-
-    private async Task ProcessPendingMessagesAsync(CancellationToken cancellationToken)
-    {
-        using var scope = _scopeFactory.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var sender = scope.ServiceProvider.GetRequiredService<INotificationEmailSender>();
-        var now = DateTime.UtcNow;
-        var messages = await dbContext.NotificationEmailOutboxMessages
-            .Include(message => message.Notification)
-            .Include(message => message.User)
-            .Where(message => message.ProcessedAt == null
-                && message.AttemptCount < MaxAttempts
-                && message.NextAttemptAt <= now)
-            .OrderBy(message => message.CreatedAt)
-            .Take(20)
-            .ToListAsync(cancellationToken);
-
-        foreach (var message in messages)
-        {
-            try
-            {
-                await sender.SendAsync(
-                    message.User.Email.Value,
-                    message.User.DisplayName.Value,
-                    message.Notification.Title,
-                    message.Notification.Message,
-                    cancellationToken);
-                message.ProcessedAt = DateTime.UtcNow;
-                message.LastError = null;
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception exception)
-            {
-                message.AttemptCount += 1;
-                message.LastError = exception.Message[..Math.Min(exception.Message.Length, 2000)];
-                message.NextAttemptAt = DateTime.UtcNow.AddMinutes(message.AttemptCount);
-                _logger.LogWarning(exception, "Notification email delivery failed for outbox message {OutboxMessageId}", message.Id);
-            }
-        }
-
-        if (messages.Count > 0)
-        {
-            await dbContext.SaveChangesAsync(cancellationToken);
         }
     }
 }

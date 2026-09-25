@@ -11,7 +11,12 @@ public sealed class NotificationEmailOutboxMessageConfiguration : IEntityTypeCon
         builder.ToTable("NotificationEmailOutboxMessages");
         builder.HasKey(message => message.Id);
         builder.Property(message => message.LastError).HasMaxLength(2000);
-        builder.HasIndex(message => new { message.ProcessedAt, message.NextAttemptAt });
+        builder.HasIndex(message => new
+        {
+            message.ProcessedAt,
+            message.NextAttemptAt,
+            message.ProcessingLeaseExpiresAt
+        });
         builder.HasIndex(message => message.NotificationId).IsUnique();
         builder.HasOne(message => message.Notification)
             .WithMany()

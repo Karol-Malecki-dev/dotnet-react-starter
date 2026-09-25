@@ -9,7 +9,7 @@ using Testcontainers.PostgreSql;
 
 namespace IntegrationTests;
 
-public sealed class PostgreSqlWebApplicationFactory : CustomWebApplicationFactory, IAsyncLifetime
+public class PostgreSqlWebApplicationFactory : CustomWebApplicationFactory, IAsyncLifetime
 {
     private readonly PostgreSqlContainer _database = new PostgreSqlBuilder("postgres:16-alpine")
         .WithDatabase("starter_tests")

@@ -10,6 +10,15 @@ public sealed class NotificationEmailOutboxMessage
     public int AttemptCount { get; set; }
     public DateTime? ProcessedAt { get; set; }
     public string? LastError { get; set; }
+    /// <summary>
+    /// Identifies the worker currently allowed to finalize this message.
+    /// </summary>
+    public Guid? ProcessingLeaseId { get; set; }
+
+    /// <summary>
+    /// UTC time after which another worker may reclaim the message.
+    /// </summary>
+    public DateTime? ProcessingLeaseExpiresAt { get; set; }
 
     public Notification Notification { get; set; } = null!;
     public User User { get; set; } = null!;

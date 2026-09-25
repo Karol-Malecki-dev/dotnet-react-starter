@@ -351,6 +351,7 @@ namespace API.Services
                     ? serviceProvider.GetRequiredService<MailKitNotificationEmailSender>()
                     : serviceProvider.GetRequiredService<LoggingNotificationEmailSender>();
             });
+            services.AddScoped<INotificationEmailOutboxProcessor, NotificationEmailOutboxProcessor>();
             services.AddHostedService<NotificationEmailOutboxWorker>();
             services.AddScoped<IAdminService, DatabaseAdminService>();
             services.AddScoped<ISearchWorkspaceHandler, SearchWorkspaceHandler>();
