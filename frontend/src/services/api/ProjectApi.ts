@@ -54,7 +54,7 @@ export class ProjectApi {
     return this.client.delete<ProjectOperationResponse>(`/projects/${projectId}`);
   }
 
-  getTasks(projectId: string, request: ProjectTaskQuery = {}): Promise<ProjectTasksResponse> {
+  getTasks(projectId: string, request: ProjectTaskQuery = {}, signal?: AbortSignal): Promise<ProjectTasksResponse> {
     const query = new URLSearchParams({
       pageNumber: String(request.pageNumber ?? 1),
       pageSize: String(request.pageSize ?? 20),
@@ -67,7 +67,7 @@ export class ProjectApi {
     if (request.dueBefore) query.set('dueBefore', request.dueBefore);
     if (request.sortBy) query.set('sortBy', request.sortBy);
     if (request.sortDirection) query.set('sortDirection', request.sortDirection);
-    return this.client.get<ProjectTasksResponse>(`/projects/${projectId}/tasks?${query.toString()}`);
+    return this.client.get<ProjectTasksResponse>(`/projects/${projectId}/tasks?${query.toString()}`, { signal });
   }
 
   getTask(projectId: string, taskId: string): Promise<ProjectTaskResponse> {

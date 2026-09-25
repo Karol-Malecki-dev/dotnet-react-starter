@@ -74,11 +74,15 @@ Ten klient odpowiada za:
 - retry po `401`, jeśli da się odświeżyć sesję
 - współdzielenie jednego refreshu przez równoległe requesty oraz pomijanie
   refreshu dla requestów `skipAuth`
+- przekazywanie `AbortSignal` dla odczytów, które mogą zostać zastąpione przez
+  nowsze zapytanie
 - mapowanie błędów i generowanie globalnych notice
 
 Na nim opierają się konkretne klienty, np. auth, users i runtime config.
 Szczegółowy kontrakt współbieżnego refreshu opisuje
 `doc/V6_FRONTEND_REQUEST_COORDINATION.md`.
+Kontrakt anulowania listy zadań opisuje
+`doc/V6_FRONTEND_REQUEST_CANCELLATION.md`.
 
 ## Authentication on the Frontend
 
