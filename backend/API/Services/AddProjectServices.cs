@@ -8,6 +8,7 @@ using FluentValidation;
 using FluentValidation.AspNetCore;
 using Domain.Interfaces;
 using Infrastructure.Data;
+using Infrastructure.Dispatching;
 using Infrastructure.Modules.Notifications;
 using Infrastructure.Modules.ProjectTasks;
 using Infrastructure.Modules.Projects;
@@ -52,6 +53,7 @@ namespace API.Services
             services.AddForwardedHeadersInfrastructure(configuration, isProduction);
             services.AddPersistence(configuration);
             services.AddAuthenticationInfrastructure();
+            services.AddApplicationDispatch();
             services.AddApplicationServices();
             services.AddScoped<IAccountSecurityAuditWriter, AccountSecurityAuditWriter>();
             services.AddCorsPolicy(configuration);

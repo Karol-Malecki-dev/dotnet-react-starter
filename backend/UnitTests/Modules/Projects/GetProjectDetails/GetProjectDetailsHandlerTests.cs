@@ -22,7 +22,7 @@ public sealed class GetProjectDetailsHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((ProjectView?)null);
 
-        var result = await CreateHandler().HandleAsync(query);
+        var result = await CreateHandler().Handle(query, CancellationToken.None);
 
         Assert.Equal(ProjectOperationStatus.NotFound, result.Status);
         Assert.Equal("Project not found", result.Message);
@@ -50,7 +50,7 @@ public sealed class GetProjectDetailsHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(project);
 
-        var result = await CreateHandler().HandleAsync(query);
+        var result = await CreateHandler().Handle(query, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(project, result.Value);
@@ -70,7 +70,7 @@ public sealed class GetProjectDetailsHandlerTests
                 cancellationToken))
             .ReturnsAsync((ProjectView?)null);
 
-        await CreateHandler().HandleAsync(query, cancellationToken);
+        await CreateHandler().Handle(query, cancellationToken);
 
         _store.Verify(store => store.QueryAsync(
             query.UserId,

@@ -55,7 +55,6 @@ public static class ProjectsModule
         services.AddScoped<ICreateProjectStore, EfCreateProjectStore>();
         services.AddScoped<ICreateProjectHandler, CreateProjectHandler>();
         services.AddScoped<IGetProjectDetailsStore, EfGetProjectDetailsStore>();
-        services.AddScoped<IGetProjectDetailsHandler, GetProjectDetailsHandler>();
         services.AddScoped<IGetProjectActivityStore, EfGetProjectActivityStore>();
         services.AddScoped<IGetProjectActivityHandler, GetProjectActivityHandler>();
         services.AddScoped<IGetProjectDashboardStore, EfGetProjectDashboardStore>();

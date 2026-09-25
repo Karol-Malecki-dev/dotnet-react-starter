@@ -1,12 +1,14 @@
 using Application.Features.Projects;
 using Application.Modules.Projects.GetProjectDetails;
+using MediatR;
 
 namespace Infrastructure.Modules.Projects.GetProjectDetails;
 
 /// <summary>
 /// Coordinates the project-details query and maps inaccessible projects to not found.
 /// </summary>
-public sealed class GetProjectDetailsHandler : IGetProjectDetailsHandler
+public sealed class GetProjectDetailsHandler
+    : IRequestHandler<GetProjectDetailsQuery, ProjectOperationResult<ProjectView>>
 {
     private readonly IGetProjectDetailsStore _store;
 
@@ -15,9 +17,9 @@ public sealed class GetProjectDetailsHandler : IGetProjectDetailsHandler
         _store = store;
     }
 
-    public async Task<ProjectOperationResult<ProjectView>> HandleAsync(
+    public async Task<ProjectOperationResult<ProjectView>> Handle(
         GetProjectDetailsQuery query,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var project = await _store.QueryAsync(
             query.UserId,
