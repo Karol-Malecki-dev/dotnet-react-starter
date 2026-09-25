@@ -1,4 +1,5 @@
 using Application.DTOs.Notification;
+using MediatR;
 using Shared.Responses;
 
 namespace Application.Modules.Notifications.ListNotifications;
@@ -10,17 +11,8 @@ public sealed record ListNotificationsQuery(
     Guid UserId,
     int PageNumber = 1,
     int PageSize = 20,
-    bool UnreadOnly = false);
-
-/// <summary>
-/// Executes the list-notifications use case.
-/// </summary>
-public interface IListNotificationsHandler
-{
-    Task<ApiResponse<NotificationPageDto>> HandleAsync(
-        ListNotificationsQuery query,
-        CancellationToken cancellationToken = default);
-}
+    bool UnreadOnly = false)
+    : IRequest<ApiResponse<NotificationPageDto>>;
 
 /// <summary>
 /// Provides the notification projection required by the list-notifications slice.

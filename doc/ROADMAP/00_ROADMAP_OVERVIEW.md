@@ -68,10 +68,10 @@ Procent opisuje realizację głównych obszarów danego etapu, a nie liczbę lin
 | V4 | 78% | Domykanie kontraktów i dowodów | Account security audit, autoryzowany workspace search, produkcyjny lifecycle załączników oraz bazowa macierz browser E2E są zaimplementowane. Najbliższa luka to pełny kontrakt Notifications po obu stronach API oraz domknięcie pozostałych scenariuszy. |
 | V5 | 80% | W toku | Implementacja deploymentu VPS, migracji, szyfrowanego backupu, rollbacku, monitoringu i protected staging smoke jest gotowa; formalny gate czeka na realny staging, off-host backup, restore drill i rollback evidence. |
 | V6 | 13% | Planowany | Istnieją podstawy EF, PostgreSQL i workerów; brak baseline'ów, load testów i pomiarów. |
-| V7 | 50% | Pilot MediatR i standard nowych slice'ów ukończone; migracja modułów w toku | `GetProjectDetails`, `CreateProjectTask` i bezpieczny telemetry behavior są wdrożone; kolejne migracje zaczynają się od `Notifications`. |
+| V7 | 67% | Pilot MediatR, standard nowych slice'ów i migracja Notifications ukończone; migracja modułów w toku | `GetProjectDetails`, `CreateProjectTask`, bezpieczny telemetry behavior oraz wszystkie sześć Notifications slices używają kanonicznego dispatchu; kolejne migracje dotyczą `Projects` i `ProjectTasks`. |
 | V8 | 0% | Odroczony; fundamenty częściowo gotowe | Trzy moduły i pierwsze guardrails istnieją, ale generator, wybór modułów i strategia aktualizacji wymagają najpierw pomiaru kolejnych ręcznych slice'ów. |
 
-**Postęp bazowej roadmapy V1-V7: 69%**.
+**Postęp bazowej roadmapy V1-V7: 71%**.
 
 ## Aktualna strategia wykonania
 

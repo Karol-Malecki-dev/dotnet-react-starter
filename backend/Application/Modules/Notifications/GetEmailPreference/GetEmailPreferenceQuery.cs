@@ -1,14 +1,11 @@
 using Application.DTOs.Notification;
+using MediatR;
 using Shared.Responses;
 
 namespace Application.Modules.Notifications.GetEmailPreference;
 
-public sealed record GetEmailPreferenceQuery(Guid UserId);
-
-public interface IGetEmailPreferenceHandler
-{
-    Task<ApiResponse<NotificationEmailPreferenceDto>> HandleAsync(GetEmailPreferenceQuery query, CancellationToken cancellationToken = default);
-}
+public sealed record GetEmailPreferenceQuery(Guid UserId)
+    : IRequest<ApiResponse<NotificationEmailPreferenceDto>>;
 
 public interface IGetEmailPreferenceStore
 {
