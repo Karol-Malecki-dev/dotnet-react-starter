@@ -1,6 +1,6 @@
 # ADR: Incremental MediatR Adoption for Modular VSA
 
-- Status: Accepted; pilot and new-slice standard implemented, module migration in progress
+- Status: Accepted; pilot, new-slice standard and Notifications migration implemented
 - Date: 2026-09-21
 - Scope: in-process command/query dispatch in backend vertical slices
 
@@ -176,7 +176,7 @@ Current checkpoint status as of **2026-09-25**:
 - [x] Query foundation
 - [x] Command and telemetry
 - [x] New-slice default
-- [ ] Notifications migration
+- [x] Notifications migration
 - [ ] Projects migration
 - [ ] ProjectTasks migration
 
@@ -197,6 +197,20 @@ use case when a real authentication or account-security change requires touching
 
 Each checkpoint is independently reversible and must finish without leaving two
 active dispatch paths for a migrated slice.
+
+### Checkpoint 4 implementation notes
+
+All Notifications command and query slices now use the canonical MediatR flow:
+`ISender -> IRequestHandler`. The migration covered `GetUnreadCount`,
+`ListNotifications`, `GetEmailPreference`, `MarkNotificationAsRead`,
+`MarkAllNotificationsAsRead` and `UpdateNotificationEmailPreference`.
+
+The migration removed the corresponding direct handler interfaces and module-level
+handler registrations. Routes, response DTOs, status codes, authorization and
+focused persistence ports remain unchanged. Architecture tests enforce handler
+uniqueness, DI resolution and `ISender` usage for every Notifications controller.
+The Notifications API integration suite remains green for paging, authorization,
+read state transitions and email preferences.
 
 ## Options rejected
 

@@ -1,13 +1,10 @@
+using MediatR;
 using Shared.Responses;
 
 namespace Application.Modules.Notifications.GetUnreadCount;
 
-public sealed record GetUnreadCountQuery(Guid UserId);
-
-public interface IGetUnreadCountHandler
-{
-    Task<ApiResponse<int>> HandleAsync(GetUnreadCountQuery query, CancellationToken cancellationToken = default);
-}
+public sealed record GetUnreadCountQuery(Guid UserId)
+    : IRequest<ApiResponse<int>>;
 
 public interface IGetUnreadCountStore
 {

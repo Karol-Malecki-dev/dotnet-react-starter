@@ -1,4 +1,5 @@
 using Application.Modules.Notifications.GetUnreadCount;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Responses;
@@ -12,9 +13,9 @@ namespace API.Modules.Notifications.GetUnreadCount;
 [Authorize]
 public sealed class GetUnreadCountController : ControllerBase
 {
-    private readonly IGetUnreadCountHandler _handler;
+    private readonly ISender _sender;
 
-    public GetUnreadCountController(IGetUnreadCountHandler handler) => _handler = handler;
+    public GetUnreadCountController(ISender sender) => _sender = sender;
 
     [HttpGet]
     public async Task<IActionResult> Get(CancellationToken cancellationToken = default)
@@ -26,7 +27,7 @@ public sealed class GetUnreadCountController : ControllerBase
             return Unauthorized(ApiResponse<int>.Error(401, "User not authenticated"));
         }
 
-        var result = await _handler.HandleAsync(new GetUnreadCountQuery(userId), cancellationToken);
+        var result = await _sender.Send(new GetUnreadCountQuery(userId), cancellationToken);
         return StatusCode(result.StatusCode, result);
     }
 }

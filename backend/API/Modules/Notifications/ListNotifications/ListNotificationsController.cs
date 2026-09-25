@@ -1,5 +1,6 @@
 using Application.DTOs.Notification;
 using Application.Modules.Notifications.ListNotifications;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Responses;
@@ -16,11 +17,11 @@ namespace API.Modules.Notifications.ListNotifications;
 [Authorize]
 public sealed class ListNotificationsController : ControllerBase
 {
-    private readonly IListNotificationsHandler _handler;
+    private readonly ISender _sender;
 
-    public ListNotificationsController(IListNotificationsHandler handler)
+    public ListNotificationsController(ISender sender)
     {
-        _handler = handler;
+        _sender = sender;
     }
 
     /// <summary>
@@ -38,7 +39,7 @@ public sealed class ListNotificationsController : ControllerBase
             return Unauthorized(ApiResponse<NotificationPageDto>.Error(401, "User not authenticated"));
         }
 
-        var result = await _handler.HandleAsync(
+        var result = await _sender.Send(
             new ListNotificationsQuery(userId, pageNumber, pageSize, unreadOnly),
             cancellationToken);
 

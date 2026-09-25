@@ -14,15 +14,15 @@ Stan na: **2026-09-25**.
 
 | Obszar | Postęp | Status |
 |---|---:|---|
-| Dispatch VSA / MediatR | 50% | Query i command pilot oraz kanoniczny standard nowych slice'ów są zaimplementowane; migracja istniejących modułów pozostaje zaplanowana. |
+| Dispatch VSA / MediatR | 67% | Query i command pilot, kanoniczny standard nowych slice'ów oraz migracja Notifications są zaimplementowane; migracje Projects i ProjectTasks pozostają zaplanowane. |
 | Tożsamość | 0% | Brak kierunku V7 wymagającego obecnie implementacji. |
 | Model produktu | 0% | Brak potwierdzonej potrzeby multi-tenancy, API keys lub wersjonowania publicznego API. |
 | Architektura rozproszona | 0% | Brak zmierzonego problemu uzasadniającego wyodrębnianie usług. |
 | Operacje | 0% | Multi-region i disaster recovery pozostają opcjonalnymi kierunkami przyszłości. |
 
-**Postęp implementacji V7: 50% w zaakceptowanym torze MediatR**.
+**Postęp implementacji V7: 67% w zaakceptowanym torze MediatR**.
 
-Pierwsze trzy checkpointy MediatR mają kod, testy, guardrails DI i dokumentację.
+Pierwsze cztery checkpointy MediatR mają kod, testy, guardrails DI i dokumentację.
 Pozostałe kierunki V7 nadal wymagają konkretnego problemu i zaakceptowanego ADR-u.
 
 ## Możliwe kierunki

@@ -1,5 +1,6 @@
 using Application.DTOs.Notification;
 using Application.Modules.Notifications.GetEmailPreference;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Responses;
@@ -13,9 +14,9 @@ namespace API.Modules.Notifications.GetEmailPreference;
 [Authorize]
 public sealed class GetEmailPreferenceController : ControllerBase
 {
-    private readonly IGetEmailPreferenceHandler _handler;
+    private readonly ISender _sender;
 
-    public GetEmailPreferenceController(IGetEmailPreferenceHandler handler) => _handler = handler;
+    public GetEmailPreferenceController(ISender sender) => _sender = sender;
 
     [HttpGet]
     public async Task<IActionResult> Get(CancellationToken cancellationToken = default)
@@ -27,7 +28,7 @@ public sealed class GetEmailPreferenceController : ControllerBase
             return Unauthorized(ApiResponse<NotificationEmailPreferenceDto>.Error(401, "User not authenticated"));
         }
 
-        var result = await _handler.HandleAsync(new GetEmailPreferenceQuery(userId), cancellationToken);
+        var result = await _sender.Send(new GetEmailPreferenceQuery(userId), cancellationToken);
         return StatusCode(result.StatusCode, result);
     }
 }
