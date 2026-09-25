@@ -158,6 +158,7 @@ services:
       EmailDelivery__Enabled: "true"
       EmailDelivery__Host: ${SMTP_HOST:?Set SMTP_HOST}
       EmailDelivery__Port: ${SMTP_PORT:-587}
+      EmailDelivery__TimeoutSeconds: ${SMTP_TIMEOUT_SECONDS:-30}
       EmailDelivery__FromAddress: ${SMTP_FROM_ADDRESS:?Set SMTP_FROM_ADDRESS}
       EmailDelivery__FromName: ${SMTP_FROM_NAME:-Dotnet React Starter}
       EmailDelivery__Username: ${SMTP_USERNAME:-}

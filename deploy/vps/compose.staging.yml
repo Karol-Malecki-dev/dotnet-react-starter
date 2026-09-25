@@ -3,6 +3,7 @@ services:
     environment:
       EmailDelivery__Host: mailpit
       EmailDelivery__Port: "1025"
+      EmailDelivery__TimeoutSeconds: "30"
       EmailDelivery__Username: ""
       EmailDelivery__Password: ""
       EmailDelivery__UseStartTls: "false"

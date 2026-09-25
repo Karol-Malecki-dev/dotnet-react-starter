@@ -89,6 +89,7 @@ public class MailKitAccountEmailSender : IAccountEmailSender
         try
         {
             using var client = new SmtpClient();
+            client.Timeout = checked(_settings.TimeoutSeconds * 1000);
             var socketOptions = _settings.UseStartTls
                 ? SecureSocketOptions.StartTls
                 : SecureSocketOptions.Auto;

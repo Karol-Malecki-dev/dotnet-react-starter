@@ -39,6 +39,7 @@ public sealed class MailKitNotificationEmailSender : INotificationEmailSender
         try
         {
             using var client = new SmtpClient();
+            client.Timeout = checked(_settings.TimeoutSeconds * 1000);
             var socketOptions = _settings.UseStartTls ? SecureSocketOptions.StartTls : SecureSocketOptions.Auto;
             await client.ConnectAsync(_settings.Host, _settings.Port, socketOptions, cancellationToken);
             if (!string.IsNullOrWhiteSpace(_settings.Username))
