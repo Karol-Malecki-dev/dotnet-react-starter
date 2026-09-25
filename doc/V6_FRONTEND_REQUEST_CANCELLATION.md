@@ -42,4 +42,6 @@ request after it has been aborted. The test verifies that:
 - Mutations such as create, update, delete, upload, and invitation operations
   are not automatically canceled because canceling a server-side command can
   leave an ambiguous outcome.
-- Offline retry policy and broader cancellation UX remain separate scenarios.
+- Offline status is surfaced globally by `NetworkStatusBanner`. The task-list
+  read keeps its error state and exposes `retryTasks`; mutations remain
+  user-driven and are not automatically retried.

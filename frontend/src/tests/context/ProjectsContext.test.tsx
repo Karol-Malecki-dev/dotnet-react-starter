@@ -74,8 +74,12 @@ function ContextConsumer() {
     <>
       <div data-testid="task">{context.tasks[0]?.title ?? 'none'}</div>
       <div data-testid="tasks-loading">{context.tasksLoading ? 'loading' : 'idle'}</div>
+      {context.tasksError ? <div data-testid="tasks-error">{context.tasksError}</div> : null}
       <button type="button" onClick={() => context.setTaskSearch?.('fresh query')}>
         Search
+      </button>
+      <button type="button" onClick={() => void context.retryTasks()}>
+        Retry tasks
       </button>
     </>
   );
@@ -158,5 +162,26 @@ describe('ProjectsContext task request cancellation', () => {
     await waitFor(() => expect(screen.getByTestId('task')).toHaveTextContent('Fresh task'));
     expect(screen.getByTestId('task')).not.toHaveTextContent('Old task');
     expect(screen.getByTestId('tasks-loading')).toHaveTextContent('idle');
+  });
+
+  it('keeps the task read retryable after a transient failure', async () => {
+    mockedProjectApi.getTasks
+      .mockRejectedValueOnce(new Error('Network unavailable'))
+      .mockResolvedValueOnce(createTasksResponse('Recovered task'));
+
+    render(
+      <ProjectsProvider>
+        <ContextConsumer />
+      </ProjectsProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('tasks-error')).toHaveTextContent('Network unavailable'));
+
+    await act(async () => {
+      screen.getByRole('button', { name: 'Retry tasks' }).click();
+    });
+
+    await waitFor(() => expect(screen.getByTestId('task')).toHaveTextContent('Recovered task'));
+    expect(screen.queryByTestId('tasks-error')).not.toBeInTheDocument();
   });
 });

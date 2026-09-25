@@ -68,6 +68,7 @@ function createContextValue(overrides = {}) {
     tasks: [task],
     loading: false,
     tasksLoading: false,
+    tasksError: null,
     error: null,
     members: [ownerMember],
     availableMembers: [],
@@ -84,6 +85,7 @@ function createContextValue(overrides = {}) {
     includeArchived: false,
     setIncludeArchived: jest.fn().mockResolvedValue(undefined),
     refreshProjects: jest.fn().mockResolvedValue(undefined),
+    retryTasks: jest.fn().mockResolvedValue(undefined),
     selectProject: jest.fn().mockResolvedValue(undefined),
     createProject: jest.fn().mockResolvedValue(project),
     updateProject: jest.fn().mockResolvedValue(project),
@@ -140,6 +142,21 @@ describe('Projects page', () => {
     expect(screen.getByRole('heading', { name: 'Website refresh' })).toBeInTheDocument();
     expect(screen.getByText('Prepare wireframes')).toBeInTheDocument();
     expect(screen.getByText('High', { selector: 'span.priority' })).toBeInTheDocument();
+  });
+
+  it('offers an explicit retry when the task list fails', async () => {
+    const retryTasks = jest.fn().mockResolvedValue(undefined);
+    mockedUseProjects.mockReturnValue(createContextValue({
+      tasksError: 'Network unavailable',
+      retryTasks,
+    }));
+
+    render(<Projects />);
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Network unavailable');
+    fireEvent.click(screen.getByRole('button', { name: 'Retry tasks' }));
+
+    await waitFor(() => expect(retryTasks).toHaveBeenCalledTimes(1));
   });
 
   it('scrolls to a task requested through the project navigation URL', () => {
