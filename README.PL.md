@@ -195,6 +195,7 @@ restore i rollbacku. Szczegóły znajdują się w [doc/CI_CD.md](doc/CI_CD.md).
 - [doc/CI_CD.md](doc/CI_CD.md)
 - [doc/ROADMAP/06_V6_PERFORMANCE_AND_RELIABILITY.md](doc/ROADMAP/06_V6_PERFORMANCE_AND_RELIABILITY.md)
 - [doc/V6_RELEASE_GATE.md](doc/V6_RELEASE_GATE.md)
+- [doc/V6_RELEASE_EVIDENCE.md](doc/V6_RELEASE_EVIDENCE.md)
 - [docker/DOCKER_COMPOSE.md](docker/DOCKER_COMPOSE.md)
 
 ## Licencja

@@ -14,15 +14,18 @@ Stan na: **2026-09-25**.
 | 2. EF Core i PostgreSQL | 70% | Istnieją plany PostgreSQL, rzeczywisty wygenerowany SQL EF, liczba round-tripów i rozdzielenie czasu EF od czasu HTTP; pierwszy indeks paginacji został dodany dopiero po pozytywnym pomiarze before/after. |
 | 3. Cache | 0% | Brak uzasadnionego przypadku cache wymagającego implementacji. |
 | 4. Idempotencja i retry | 55% | Powiadomienia mają jawny kontrakt `userId + deduplicationKey`, ochronę przed wyścigiem zapisu oraz outbox z warunkowym claim/lease, retry i dead-letter po trzeciej porażce; HTTP idempotency keys oraz provider-level email idempotency pozostają poza zakresem. |
-| 5. Background processing | 80% | Outbox ma atomowy claim PostgreSQL, pięciominutowy lease, odzyskiwanie wygasłych rekordów, warunkowe finalizowanie, jawny dead-letter status oraz trzy gauge metrics dla kolejki; provider delivery receipts pozostają do wykonania. |
-| 6. Frontend request coordination | 65% | `HttpClient` ma single-flight refresh, a lista zadań anuluje poprzednie requesty i odrzuca spóźnione odpowiedzi; scenariusze offline, retry UI i pozostałe read flows pozostają do walidacji. |
+| 5. Background processing | 85% | Outbox ma atomowy claim PostgreSQL, pięciominutowy lease, odzyskiwanie wygasłych rekordów, warunkowe finalizowanie, jawny dead-letter status oraz trzy gauge metrics dla kolejki; SMTP ma jawnie ograniczony timeout 1–300 sekund; provider delivery receipts pozostają do wykonania. |
+| 6. Frontend request coordination | 85% | `HttpClient` ma single-flight refresh, lista zadań anuluje poprzednie requesty i odrzuca spóźnione odpowiedzi, a aplikacja pokazuje offline status i retry dla task-list read; automatyczne retry mutacji oraz pozostałe read flows pozostają poza kontraktem. |
 
-**Postęp V6: 30%**.
+**Postęp V6: 70% — release candidate dla zdefiniowanego zakresu; elementy wymienione jako explicit exclusions nie są ukrytymi blockerami.**
 
 Formalny checklist release'u, wymagane dowody oraz świadomie odłożone elementy
 opisuje [`doc/V6_RELEASE_GATE.md`](../V6_RELEASE_GATE.md).
+Zapis wykonanych kontroli i zmergowanych slice'ów znajduje się w
+[`doc/V6_RELEASE_EVIDENCE.md`](../V6_RELEASE_EVIDENCE.md).
 
-V6 powinien ruszyć dopiero po wybraniu scenariuszy, danych testowych i mierzalnego kryterium sukcesu.
+V6 rozpoczęto od wyboru scenariuszy, danych testowych i mierzalnego kryterium
+sukcesu; kolejne slice'y zachowały tę samą zasadę measurement-first.
 
 Pierwszy slice V6 definiuje trzy read-only scenariusze API, fixture danych i powtarzalny
 runner baseline'u. Test dużego fixture łączy authenticated HTTP p95, rzeczywisty
@@ -70,6 +73,17 @@ strony, wyszukiwania lub filtrów przerywa poprzedni request przez
 stanu. Spóźniona odpowiedź nie może już nadpisać nowszych wyników ani zgłosić
 błędu zamierzonego anulowania. Kontrakt i dowód opisuje
 `doc/V6_FRONTEND_REQUEST_CANCELLATION.md`.
+
+Ósmy slice V6 dodaje jawny recovery path dla chwilowej utraty połączenia.
+`NetworkStatusBanner` reaguje na zdarzenia przeglądarki `online`/`offline`,
+a `ProjectsContext` zachowuje błąd odczytu listy zadań i udostępnia przycisk
+`Retry tasks`. Mutacje nie są automatycznie ponawiane, ponieważ połączenie
+może zostać utracone po stronie serwera i pozostawić niejednoznaczny rezultat.
+
+Dziewiąty slice V6 domyka timeout boundary dla SMTP. `EmailDeliverySettings`
+waliduje `TimeoutSeconds` w zakresie 1–300 sekund, a limit jest stosowany
+zarówno przez sender wiadomości konta, jak i sender notification outbox.
+Wartość jest jawna w konfiguracji lokalnej, stagingowej i produkcyjnej.
 
 ## Zakres implementacyjny
 
