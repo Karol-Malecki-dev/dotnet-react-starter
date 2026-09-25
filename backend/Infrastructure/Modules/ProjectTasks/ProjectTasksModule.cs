@@ -115,7 +115,6 @@ public static class ProjectTasksModule
                 : serviceProvider.GetRequiredService<ClamAvProjectTaskAttachmentMalwareScanner>();
         });
         services.AddSingleton<ClamAvProjectTaskAttachmentMalwareScanner>();
-        services.AddScoped<ICreateProjectTaskHandler, CreateProjectTaskHandler>();
         services.AddScoped<ICreateProjectTaskAttachmentHandler, CreateProjectTaskAttachmentHandler>();
         services.AddScoped<ICreateProjectTaskCommentHandler, CreateProjectTaskCommentHandler>();
         services.AddScoped<IDeleteProjectTaskHandler, DeleteProjectTaskHandler>();

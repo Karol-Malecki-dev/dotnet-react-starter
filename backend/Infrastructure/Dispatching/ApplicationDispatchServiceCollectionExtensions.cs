@@ -14,8 +14,11 @@ public static class ApplicationDispatchServiceCollectionExtensions
     public static IServiceCollection AddApplicationDispatch(this IServiceCollection services)
     {
         services.AddMediatR(configuration =>
+        {
             configuration.RegisterServicesFromAssembly(
-                typeof(ApplicationDispatchServiceCollectionExtensions).Assembly));
+                typeof(ApplicationDispatchServiceCollectionExtensions).Assembly);
+            configuration.AddOpenBehavior(typeof(MediatRTelemetryBehavior<,>));
+        });
 
         return services;
     }

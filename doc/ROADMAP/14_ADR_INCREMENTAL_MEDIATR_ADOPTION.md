@@ -171,6 +171,18 @@ revisited before a future major upgrade.
 | 5. Projects migration | `refactor/mediatr-projects` | Migrate project lifecycle, membership, invitations, activity and dashboard incrementally. | Project API and PostgreSQL concurrency/transaction tests remain green. |
 | 6. ProjectTasks migration | `refactor/mediatr-project-tasks` | Migrate task, comment and attachment slices without changing workers or durable side effects. | Task, attachment, worker and architecture suites remain green. |
 
+### Checkpoint 2 implementation notes
+
+`ProjectTasks/CreateProjectTask` now uses the same MediatR dispatch path as the
+query pilot. The migration keeps authorization, domain task creation, activity
+staging, assignment notification preparation and the single final
+`SaveChangesAsync` call inside the handler.
+
+`MediatRTelemetryBehavior` records only the request type, elapsed time, outcome,
+correlation identifier and exception type. It does not serialize request objects
+or exception messages, and it rethrows cancellation and failure exceptions so
+the existing HTTP and transaction error paths remain authoritative.
+
 `Identity` is intentionally absent from the batch sequence. It migrates use case by
 use case when a real authentication or account-security change requires touching it.
 

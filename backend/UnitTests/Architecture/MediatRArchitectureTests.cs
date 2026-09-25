@@ -1,5 +1,9 @@
+using Application.Features.ProjectManagement.Tasks;
 using Application.Features.Projects;
+using Application.Modules.ProjectTasks.AssignmentNotifications;
+using Application.Modules.ProjectTasks.CreateProjectTask;
 using Application.Modules.Projects.GetProjectDetails;
+using API.Modules.ProjectTasks.CreateProjectTask;
 using API.Modules.Projects.GetProjectDetails;
 using Infrastructure.Dispatching;
 using Infrastructure.Modules.Projects.GetProjectDetails;
@@ -39,11 +43,17 @@ public sealed class MediatRArchitectureTests
     }
 
     [Fact]
-    public void Application_dispatch_registers_the_query_handler_and_sender()
+    public void Application_dispatch_registers_migrated_handlers_sender_and_telemetry()
     {
         var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddHttpContextAccessor();
         services.AddApplicationDispatch();
         services.AddSingleton<IGetProjectDetailsStore>(new Mock<IGetProjectDetailsStore>().Object);
+        services.AddSingleton<IProjectTaskAccess>(new Mock<IProjectTaskAccess>().Object);
+        services.AddSingleton<IProjectTaskCommandStore>(new Mock<IProjectTaskCommandStore>().Object);
+        services.AddSingleton<IProjectTaskAssignmentNotificationWriter>(
+            new Mock<IProjectTaskAssignmentNotificationWriter>().Object);
 
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
@@ -51,15 +61,29 @@ public sealed class MediatRArchitectureTests
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<ISender>());
         Assert.NotNull(scope.ServiceProvider
             .GetRequiredService<IRequestHandler<GetProjectDetailsQuery, ProjectOperationResult<ProjectView>>>());
+        Assert.NotNull(scope.ServiceProvider
+            .GetRequiredService<IRequestHandler<CreateProjectTaskCommand, ProjectOperationResult<ProjectTaskView>>>());
+        Assert.Contains(
+            scope.ServiceProvider.GetServices<IPipelineBehavior<GetProjectDetailsQuery, ProjectOperationResult<ProjectView>>>(),
+            behavior => behavior.GetType().IsGenericType
+                && behavior.GetType().GetGenericTypeDefinition() == typeof(MediatRTelemetryBehavior<,>));
     }
 
     [Fact]
     public void Get_project_details_controller_dispatches_through_ISender()
     {
-        var constructor = typeof(GetProjectDetailsController)
-            .GetConstructors()
-            .Single();
+        AssertControllerUsesSender(typeof(GetProjectDetailsController));
+    }
 
+    [Fact]
+    public void Create_project_task_controller_dispatches_through_ISender()
+    {
+        AssertControllerUsesSender(typeof(CreateProjectTaskController));
+    }
+
+    private static void AssertControllerUsesSender(Type controllerType)
+    {
+        var constructor = controllerType.GetConstructors().Single();
         Assert.Contains(
             constructor.GetParameters(),
             parameter => parameter.ParameterType == typeof(ISender));

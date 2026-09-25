@@ -960,7 +960,7 @@ public sealed class PostgreSqlIntegrationTests
                 new EfProjectTaskCommandStore(responseContext),
                 new InvalidAssignmentNotificationWriter(responseContext));
 
-            await Assert.ThrowsAsync<DbUpdateException>(() => handler.HandleAsync(
+            await Assert.ThrowsAsync<DbUpdateException>(() => handler.Handle(
                 new CreateProjectTaskCommand(
                     ownerId,
                     projectId,
@@ -969,7 +969,8 @@ public sealed class PostgreSqlIntegrationTests
                     ProjectTaskPriority.Normal,
                     null,
                     assigneeId,
-                    [])));
+                    []),
+                CancellationToken.None));
         }
 
         await using var verificationScope = _factory.Services.CreateAsyncScope();
