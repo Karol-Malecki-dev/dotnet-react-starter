@@ -6,25 +6,31 @@ V6 uczy optymalizacji na podstawie pomiarów oraz projektowania odporności na r
 
 ## Status realizacji
 
-Stan na: **2026-09-22**.
+Stan na: **2026-09-25**.
 
 | Obszar | Postęp | Status i dowód |
 |---|---:|---|
-| 1. Baseline i pomiary | 60% | Protokół, runner oraz opt-in test authenticated API baseline'u są przygotowane w `doc/V6_BASELINE.md`, `scripts/Measure-ApiBaseline.ps1` i `doc/V6_LARGE_FIXTURE_API_BASELINE.md`; istnieje pomiar 10 000 zadań z p50/p95/p99, error rate, payloadem i throughputem. |
-| 2. EF Core i PostgreSQL | 35% | Istnieją pierwszy raport planów oraz większy fixture z planami dla tych samych ścieżek API; przed zmianą indeksów nadal wymagane są wygenerowane SQL, hipoteza i porównanie before/after. |
+| 1. Baseline i pomiary | 85% | Protokół, runner oraz opt-in test authenticated API baseline'u są przygotowane w `doc/V6_BASELINE.md`, `scripts/Measure-ApiBaseline.ps1` i `doc/V6_LARGE_FIXTURE_API_BASELINE.md`; istnieje powtarzalny pomiar 10 000 zadań z p50/p95/p99, error rate, payloadem, throughputem, czasem EF oraz raportem before/after dla pierwszego indeksu. |
+| 2. EF Core i PostgreSQL | 70% | Istnieją plany PostgreSQL, rzeczywisty wygenerowany SQL EF, liczba round-tripów i rozdzielenie czasu EF od czasu HTTP; pierwszy indeks paginacji został dodany dopiero po pozytywnym pomiarze before/after. |
 | 3. Cache | 0% | Brak uzasadnionego przypadku cache wymagającego implementacji. |
 | 4. Idempotencja i retry | 10% | Outbox i retry workerów są fundamentem; brak jawnych idempotency keys i pełnego testu powtórzeń. |
 | 5. Background processing | 35% | Outbox, workery i graceful shutdown działają; brak koordynacji multi-instance, lease i pełnej strategii dead-letter. |
 | 6. Frontend request coordination | 10% | Istnieje centralny HttpClient i obsługa sesji; single-flight refresh oraz pełne scenariusze offline/retry nie są jeszcze zwalidowane. |
 
-**Postęp V6: 18%**.
+**Postęp V6: 30%**.
 
 V6 powinien ruszyć dopiero po wybraniu scenariuszy, danych testowych i mierzalnego kryterium sukcesu.
 
 Pierwszy slice V6 definiuje trzy read-only scenariusze API, fixture danych i powtarzalny
-runner baseline'u. Test dużego fixture łączy authenticated HTTP p95 z planami
-PostgreSQL dla 10 000 zadań. Nie wprowadza jeszcze cache, Redis ani zmian
-optymalizacyjnych przed zebraniem pomiarów.
+runner baseline'u. Test dużego fixture łączy authenticated HTTP p95, rzeczywisty
+SQL EF i plany PostgreSQL dla 10 000 zadań. Nie wprowadza cache ani Redis;
+zmiana schematu została dodana dopiero po zebraniu pomiarów.
+
+Pierwsza zmiana schematu została wdrożona dopiero po eksperymencie na tym
+fixture: `ProjectTasks(ProjectId, CreatedAt DESC)` skrócił task-page p95 z
+`22.272 ms` do `19.060 ms` i zmienił plan z pełnego odczytu tasków na odczyt
+pierwszych 20 rekordów przez indeks. Wynik i ograniczenia opisuje
+`doc/V6_QUERY_PLAN_FINDINGS.md`.
 
 ## Zakres implementacyjny
 
@@ -131,6 +137,7 @@ koszt bez ochrony realnej granicy, powinien zostać uproszczony.
 - benchmark endpointu przed i po projekcji SQL;
 - test dużego zbioru danych;
 - test planów zapytań i indeksów;
+- before/after test dla zmierzonego indeksu paginacji;
 - load test najważniejszych scenariuszy;
 - test retry bez duplikowania efektu;
 - test dwóch workerów przetwarzających ten sam rekord;

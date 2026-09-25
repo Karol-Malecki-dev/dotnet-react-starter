@@ -11,6 +11,8 @@ public sealed class ProjectTaskConfiguration : IEntityTypeConfiguration<ProjectT
         builder.ToTable("ProjectTasks");
         builder.HasKey(task => task.Id);
         builder.HasIndex(task => task.ProjectId);
+        builder.HasIndex(task => new { task.ProjectId, task.CreatedAt })
+            .IsDescending(false, true);
         builder.HasIndex(task => new { task.ProjectId, task.Status, task.DueDate });
         builder.HasIndex(task => task.AssignedUserId);
         builder.HasIndex(task => task.CreatedByUserId);

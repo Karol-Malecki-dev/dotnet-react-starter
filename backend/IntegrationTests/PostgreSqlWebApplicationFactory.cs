@@ -17,6 +17,8 @@ public sealed class PostgreSqlWebApplicationFactory : CustomWebApplicationFactor
         .WithPassword("postgres")
         .Build();
 
+    public EfCommandCapture CommandCapture { get; } = new();
+
     public Task InitializeAsync() => _database.StartAsync();
 
     public new async Task DisposeAsync()
@@ -47,7 +49,10 @@ public sealed class PostgreSqlWebApplicationFactory : CustomWebApplicationFactor
             services.RemoveAll<DbContextOptions<ApplicationDbContext>>();
             services.RemoveAll<DbContextOptions>();
             services.RemoveAll<IDbContextOptionsConfiguration<ApplicationDbContext>>();
-            services.AddDbContext<ApplicationDbContext>(options => options.UseNpgsql(connectionString));
+            services.AddDbContext<ApplicationDbContext>(options =>
+                options
+                    .UseNpgsql(connectionString)
+                    .AddInterceptors(CommandCapture));
         });
     }
 }

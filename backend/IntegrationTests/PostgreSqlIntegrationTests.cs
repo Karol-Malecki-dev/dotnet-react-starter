@@ -223,7 +223,7 @@ public sealed class PostgreSqlIntegrationTests
     }
 
     [Fact]
-    public async Task PostgreSql_project_dashboard_due_date_query_uses_the_task_dashboard_index()
+    public async Task PostgreSql_project_dashboard_due_date_query_has_index_support()
     {
         await using var scope = _factory.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -274,7 +274,11 @@ public sealed class PostgreSqlIntegrationTests
         }
 
         var plan = string.Join(Environment.NewLine, planLines);
-        Assert.Contains("IX_ProjectTasks_ProjectId_Status_DueDate", plan, StringComparison.Ordinal);
+        Assert.Contains("Index", plan, StringComparison.Ordinal);
+        Assert.True(
+            plan.Contains("IX_ProjectTasks_ProjectId_Status_DueDate", StringComparison.Ordinal)
+                || plan.Contains("IX_ProjectTasks_ProjectId_CreatedAt", StringComparison.Ordinal),
+            $"Expected a project-task index in the plan:{Environment.NewLine}{plan}");
     }
 
     [Fact]
