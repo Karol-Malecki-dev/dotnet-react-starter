@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { projectApi } from '../services/api/ProjectApi';
 import type {
   CreateProjectRequest,
@@ -104,6 +104,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
   const [taskSearch, setTaskSearch] = useState('');
   const [taskFilters, setTaskFiltersState] = useState<Omit<ProjectTaskQuery, 'pageNumber' | 'pageSize' | 'search'>>({});
   const [taskTotalPages, setTaskTotalPages] = useState(0);
+  const tasksRequestController = useRef<AbortController | null>(null);
 
   const loadProjects = useCallback(async (loadArchived = includeArchived, scope = projectScope) => {
     setLoading(true);
@@ -126,6 +127,9 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
   }, [includeArchived, projectScope]);
 
   const loadTasks = useCallback(async (projectId: string) => {
+    tasksRequestController.current?.abort();
+    const controller = new AbortController();
+    tasksRequestController.current = controller;
     setTasksLoading(true);
     setError(null);
 
@@ -135,14 +139,25 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
         pageSize: 20,
         search: taskSearch,
         ...taskFilters,
-      });
+      }, controller.signal);
+      if (controller.signal.aborted) {
+        return;
+      }
+
       setTasks(response.data?.items ?? []);
       setTaskTotalPages(response.data?.totalPages ?? 0);
     } catch (caughtError) {
+      if (controller.signal.aborted) {
+        return;
+      }
+
       setTasks([]);
       setError(caughtError instanceof Error ? caughtError.message : 'Unable to load tasks');
     } finally {
-      setTasksLoading(false);
+      if (tasksRequestController.current === controller) {
+        tasksRequestController.current = null;
+        setTasksLoading(false);
+      }
     }
   }, [taskFilters, taskPage, taskSearch]);
 
@@ -239,7 +254,15 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
       setTaskAttachments({});
       setProjectInvitations([]);
     }
+
+    return () => {
+      tasksRequestController.current?.abort();
+    };
   }, [loadActivities, loadDashboard, loadMembers, loadTasks, selectedProjectId]);
+
+  useEffect(() => () => {
+    tasksRequestController.current?.abort();
+  }, []);
 
   const selectedProject = projects.find((project) => project.id === selectedProjectId) ?? null;
 

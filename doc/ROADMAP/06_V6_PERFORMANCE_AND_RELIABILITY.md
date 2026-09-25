@@ -15,7 +15,7 @@ Stan na: **2026-09-25**.
 | 3. Cache | 0% | Brak uzasadnionego przypadku cache wymagającego implementacji. |
 | 4. Idempotencja i retry | 55% | Powiadomienia mają jawny kontrakt `userId + deduplicationKey`, ochronę przed wyścigiem zapisu oraz outbox z warunkowym claim/lease, retry i dead-letter po trzeciej porażce; HTTP idempotency keys oraz provider-level email idempotency pozostają poza zakresem. |
 | 5. Background processing | 80% | Outbox ma atomowy claim PostgreSQL, pięciominutowy lease, odzyskiwanie wygasłych rekordów, warunkowe finalizowanie, jawny dead-letter status oraz trzy gauge metrics dla kolejki; provider delivery receipts pozostają do wykonania. |
-| 6. Frontend request coordination | 45% | `HttpClient` ma single-flight refresh, ochronę przed powtórnym refresh przy podmienionym tokenie oraz testy równoległych `401`; scenariusze cancellation/offline/retry UI pozostają do walidacji. |
+| 6. Frontend request coordination | 65% | `HttpClient` ma single-flight refresh, a lista zadań anuluje poprzednie requesty i odrzuca spóźnione odpowiedzi; scenariusze offline, retry UI i pozostałe read flows pozostają do walidacji. |
 
 **Postęp V6: 30%**.
 
@@ -60,6 +60,13 @@ został już podmieniony przez inny request, kolejny request jest ponawiany bez
 uruchamiania drugiego refresh. Publiczne requesty z `skipAuth` nie uruchamiają
 mechanizmu odświeżania. Kontrakt i dowody opisuje
 `doc/V6_FRONTEND_REQUEST_COORDINATION.md`.
+
+Siódmy slice V6 anuluje nieaktualne odczyty listy zadań. Zmiana projektu,
+strony, wyszukiwania lub filtrów przerywa poprzedni request przez
+`AbortController`, a provider sprawdza sygnał przed zapisaniem odpowiedzi do
+stanu. Spóźniona odpowiedź nie może już nadpisać nowszych wyników ani zgłosić
+błędu zamierzonego anulowania. Kontrakt i dowód opisuje
+`doc/V6_FRONTEND_REQUEST_CANCELLATION.md`.
 
 ## Zakres implementacyjny
 
