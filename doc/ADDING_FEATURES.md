@@ -84,6 +84,43 @@ autoryzację ani publiczny kontrakt.
 integration eventu. Szczegóły i bramki znajdują się w
 [`ROADMAP/14_ADR_INCREMENTAL_MEDIATR_ADOPTION.md`](ROADMAP/14_ADR_INCREMENTAL_MEDIATR_ADOPTION.md).
 
+## V8 Scaffolding
+
+Jeśli pracujesz w nowym consumerze utworzonym z V8, możesz użyć generatora
+wyłącznie do technicznego skeletonu. Najpierw ustal właściciela reguły, moduł,
+aktora, rezultat i najtańszy test obalający decyzję. Dopiero potem uruchom:
+
+```powershell
+.\scripts\New-V8StarterProject.ps1 `
+  -Destination .\artifacts\v8\consumer `
+  -Variant Minimal
+
+.\scripts\New-VsaSlice.ps1 `
+  -RootPath .\artifacts\v8\consumer `
+  -Module Projects `
+  -UseCase GetSummary `
+  -Kind Query
+```
+
+Generator tworzy `IRequest<TResult>`, `IRequestHandler<TRequest, TResult>`,
+kontroler z `ISender`, test jednostkowy, test integracyjny i manifest. Wygenerowany
+handler jest jawnie oznaczonym skeletonem z `NotImplementedException`. Przed
+wystawieniem endpointu musisz samodzielnie dodać:
+
+- regułę domenową i jej właściciela;
+- autoryzację zasobową;
+- focused port oraz adapter persistence/integracji;
+- transakcję, optimistic concurrency i wymagane constrainty;
+- mapowanie błędów, request input i walidację;
+- migrację, jeśli zmienia się schemat;
+- frontendowy kontrakt i UI, jeśli przypadek użycia jest publiczny.
+
+Nie używaj generatora do tworzenia pustych repository, eventów, workerów ani
+migracji „na zapas”. Aktualizacje consumerów są jawne i działają według polityki
+`regenerate-and-review`; runtime feature flags nie wybierają kodu generowanego
+projektu. Pełny proof V8 znajduje się w
+[`V8_RELEASE_GATE.md`](V8_RELEASE_GATE.md).
+
 ## Adding a New Frontend Feature
 
 Jeśli dodajesz nowy feature po stronie UI:

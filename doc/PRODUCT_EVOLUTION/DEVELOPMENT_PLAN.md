@@ -20,7 +20,7 @@ od biblioteki dispatchingu. Następnym zaakceptowanym krokiem edukacyjnym i
 architektonicznym jest inkrementalna adopcja MediatR bez generycznego repozytorium,
 osobnych baz i masowego przepisywania rozwiązania.
 
-Największym problemem nie jest dziś brak kolejnej warstwy architektonicznej. Problemem
+Największym problemem nie jest brak kolejnej warstwy architektonicznej. Problemem
 jest koszt poznawczy dodania kompletnego feature'a:
 
 - jeden slice jest rozłożony między `Application`, `API`, `Infrastructure` i testy;
@@ -29,9 +29,10 @@ jest koszt poznawczy dodania kompletnego feature'a:
 - backlog miesza funkcje już zaimplementowane z rzeczywiście nowymi kandydatami;
 - brakowało jednego krótkiego golden path od pomysłu do zwalidowanego slice'a.
 
-Nie należy rozwiązywać tego teraz własnym frameworkiem albo generatorem. Najpierw
-trzeba uprościć instrukcję, zastosować ją w kolejnych rzeczywistych feature'ach i
-zmierzyć powtarzalny koszt.
+Przed V8.0 nie należało rozwiązywać tego własnym frameworkiem albo generatorem.
+Najpierw uprościliśmy instrukcję, zastosowaliśmy ją w rzeczywistych feature'ach i
+zebraliśmy strukturalny proof powtarzalnego wzorca. V8.0 dodaje cienki generator
+technicznego skeletonu, ale nie ukrywa decyzji domenowych.
 
 ## Decyzja architektoniczna
 
@@ -72,7 +73,7 @@ Szczegółową decyzję i kolejność migracji opisuje
 | --- | --- | --- |
 | Produkt i VSA | Dostarczać małe funkcje oraz wdrożyć MediatR bez naruszenia granic slice'a. | Jeden spójny use case lub jeden krok migracji na branch. |
 | Dowody operacyjne V5 | Potwierdzić staging, backup off-host, restore drill, rollback i alerty. | Nie blokuje lokalnej pracy produktowej, ale blokuje deklarację production-ready. |
-| Platformizacja V8 | Automatyzować wyłącznie wzorce potwierdzone i zmierzone w kilku modułach. | Generator dopiero po zebraniu kosztu ręcznego workflowu. |
+| Platformizacja V8 | Automatyzować wyłącznie wzorce potwierdzone i zmierzone w kilku modułach. | V8.0 obejmuje ograniczony source-template; bogatsze automatyzacje dopiero po pomiarze dalszego użycia. |
 
 Etapy V3-V8 pozostają mapą dojrzałości, ale nie powinny działać jak jedna długa kolejka,
 w której brak zewnętrznego VPS blokuje lokalny feature.
@@ -214,24 +215,37 @@ tego jednego slice'a, nie do każdego endpointu w starterze.
 
 ### M7: ergonomia startera i scaffolding
 
-Ten etap zaczyna się dopiero po zmierzeniu co najmniej kilku kolejnych command i query
-slices. Kolejność:
+V8.0 domknął pierwszy, ograniczony increment tego etapu. Source-template i cienki
+generator są już sprawdzone na dwóch niezależnych consumerach, ale nie udają jeszcze
+stabilnego pakietu modułów. Kolejny increment powinien zacząć się dopiero po użyciu
+startera w kilku nowych slice'ach.
 
-1. zebrać czas, liczbę ręcznych kroków i najczęstsze pomyłki;
-2. usunąć zbędną ceremonię w istniejącym standardzie;
-3. dodać mały generator pojedynczego slice'a;
-4. sprawdzić build i test wygenerowanego kodu;
-5. dopiero później ocenić `dotnet new`, wybór modułów i aktualizacje wielu projektów.
+Zakres wykonany w V8.0:
+
+- `templates/v8-consumer/Common` jako kanoniczny source-template;
+- warianty `Minimal` i `Full`;
+- generator projektu i generator pojedynczego query/command slice'a;
+- manifest wersji, modułów i polityki `regenerate-and-review`;
+- proof restore/build/test backendu i build frontendu bez ręcznych poprawek;
+- guardrails composition root, handler uniqueness, `ISender` i zależności `Domain`.
+
+Kolejny increment:
+
+1. zebrać wall-clock, liczbę ręcznych kroków i najczęstsze pomyłki z kilku realnych
+   slice'ów;
+2. sprawdzić, czy source-copy nadal jest tańsze i bardziej przejrzyste niż
+   `dotnet new`;
+3. dopiero później ocenić pakiety, wybór modułów i aktualizacje wielu projektów.
 
 Generator nie może tworzyć pustych repozytoriów, eventów, workerów ani migracji.
 
 ## Kolejność rekomendowana
 
 ```text
-TERAZ       M0 -> M1
-NASTĘPNIE   M2 MediatR -> M3 permission matrix
+TERAZ       utrzymanie V5/V6/V7 oraz użycie V8.0 w realnym slice'ie
+NASTĘPNIE   M3 permission matrix albo potwierdzony workflow produktu
 PÓŹNIEJ     M4 real-time -> M5 task workflow -> M6 reliability
-PO DOWODACH M7 scaffolding
+PO POMIARACH V8.1: ergonomia aktualizacji, ewentualne `dotnet new` lub pakiety
 
 RÓWNOLEGLE  V5 staging -> off-host backup -> restore drill -> rollback -> alert test
 ```
@@ -260,7 +274,8 @@ Feature jest gotowy dopiero, gdy:
 
 Przy kolejnych slice'ach warto zapisywać:
 
-- czas od pustego katalogu do zielonego testu integracyjnego;
+- czas od pustego katalogu do zielonego testu integracyjnego (manualny i
+  generator, jeśli oba zostaną wykonane w tym samym slice);
 - liczbę ręcznych punktów rejestracji;
 - liczbę plików wymaganych dla command i query;
 - błędy wykryte przez guardrails architektoniczne;
@@ -268,8 +283,9 @@ Przy kolejnych slice'ach warto zapisywać:
 - narzut dispatchingu i czas startu po rejestracji MediatR;
 - elementy skopiowane mechanicznie bez decyzji biznesowej.
 
-Scaffolding ma sens dopiero wtedy, gdy te dane pokażą powtarzalny koszt. W przeciwnym
-razie generator tylko utrwali zbyt ciężki wzorzec.
+V8.0 dostarcza generator jako ograniczony, jawny skeleton. Dalsza automatyzacja ma
+sens dopiero wtedy, gdy te dane pokażą powtarzalny koszt aktualizacji lub ręcznego
+workflowu. W przeciwnym razie generator tylko utrwali zbyt ciężki wzorzec.
 
 ## Wnioski z ProcureFlow
 
