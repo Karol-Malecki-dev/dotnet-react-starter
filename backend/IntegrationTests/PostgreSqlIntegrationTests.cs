@@ -328,10 +328,10 @@ public sealed class PostgreSqlIntegrationTests
         await using var firstScope = _factory.Services.CreateAsyncScope();
         await using var secondScope = _factory.Services.CreateAsyncScope();
         var firstHandler = new AcceptProjectInvitationHandler(
-            firstScope.ServiceProvider.GetRequiredService<EfProjectInvitationResponseStore>(),
+            firstScope.ServiceProvider.GetRequiredService<IProjectInvitationResponseStore>(),
             firstScope.ServiceProvider.GetRequiredService<IProjectInvitationNotificationWriter>());
         var secondHandler = new AcceptProjectInvitationHandler(
-            secondScope.ServiceProvider.GetRequiredService<EfProjectInvitationResponseStore>(),
+            secondScope.ServiceProvider.GetRequiredService<IProjectInvitationResponseStore>(),
             secondScope.ServiceProvider.GetRequiredService<IProjectInvitationNotificationWriter>());
 
         var results = await Task.WhenAll(
