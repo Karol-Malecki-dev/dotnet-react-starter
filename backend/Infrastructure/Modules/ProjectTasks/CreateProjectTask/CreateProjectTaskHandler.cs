@@ -30,7 +30,7 @@ public sealed class CreateProjectTaskHandler
 
     public async Task<ProjectOperationResult<ProjectTaskView>> Handle(
         CreateProjectTaskCommand command,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken = default)
     {
         var role = await _projectTaskAccess.GetActiveProjectRoleAsync(
             command.OwnerId,
@@ -103,7 +103,7 @@ public sealed class CreateProjectTaskHandler
     private async Task<string?> ValidateAssignedUserAsync(
         Guid projectId,
         Guid? assignedUserId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken = default)
     {
         if (!assignedUserId.HasValue)
         {
@@ -121,7 +121,7 @@ public sealed class CreateProjectTaskHandler
     private async Task PrepareAssigneeNotificationAsync(
         ProjectTask task,
         Guid actorUserId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken = default)
     {
         if (!task.AssignedUserId.HasValue || task.AssignedUserId == actorUserId)
         {

@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using MediatR;
 using Application.Modules.Projects.ChangeProjectMemberRole;
 using Application.Interfaces;
 using Domain.Entities;
@@ -9,7 +10,7 @@ namespace Infrastructure.Modules.Projects.ChangeProjectMemberRole;
 /// <summary>
 /// Coordinates project-member role changes through the project aggregate.
 /// </summary>
-public sealed class ChangeProjectMemberRoleHandler : IChangeProjectMemberRoleHandler
+public sealed class ChangeProjectMemberRoleHandler : IRequestHandler<ChangeProjectMemberRoleCommand, ProjectOperationResult<ProjectMemberView>>
 {
     private readonly IChangeProjectMemberRoleStore _store;
     private readonly ICollaborationNotificationWriter? _notificationWriter;
@@ -22,13 +23,13 @@ public sealed class ChangeProjectMemberRoleHandler : IChangeProjectMemberRoleHan
         _notificationWriter = notificationWriter;
     }
 
-    public async Task<ProjectOperationResult<ProjectMemberView>> HandleAsync(
-        ChangeProjectMemberRoleCommand command,
+    public async Task<ProjectOperationResult<ProjectMemberView>> Handle(
+        ChangeProjectMemberRoleCommand request,
         CancellationToken cancellationToken = default)
     {
         var project = await _store.GetOwnedProjectWithMembersAsync(
-            command.OwnerId,
-            command.ProjectId,
+            request.OwnerId,
+            request.ProjectId,
             cancellationToken);
 
         if (project is null)
@@ -38,21 +39,21 @@ public sealed class ChangeProjectMemberRoleHandler : IChangeProjectMemberRoleHan
                 "Project not found");
         }
 
-        if (command.UserId == command.OwnerId || command.Role == ProjectMemberRole.Owner)
+        if (request.UserId == request.OwnerId || request.Role == ProjectMemberRole.Owner)
         {
             return ProjectOperationResult<ProjectMemberView>.Failure(
                 ProjectOperationStatus.Conflict,
                 "The project owner role cannot be changed");
         }
 
-        if (command.Role is not ProjectMemberRole.Member and not ProjectMemberRole.Viewer)
+        if (request.Role is not ProjectMemberRole.Member and not ProjectMemberRole.Viewer)
         {
             return ProjectOperationResult<ProjectMemberView>.Failure(
                 ProjectOperationStatus.ValidationError,
                 "Invalid project member role");
         }
 
-        if (!project.Members.Any(member => member.UserId == command.UserId))
+        if (!project.Members.Any(member => member.UserId == request.UserId))
         {
             return ProjectOperationResult<ProjectMemberView>.Failure(
                 ProjectOperationStatus.NotFound,
@@ -62,7 +63,7 @@ public sealed class ChangeProjectMemberRoleHandler : IChangeProjectMemberRoleHan
         ProjectMember member;
         try
         {
-            member = project.ChangeMemberRole(command.UserId, command.Role);
+            member = project.ChangeMemberRole(request.UserId, request.Role);
         }
         catch (InvalidOperationException)
         {
@@ -74,14 +75,14 @@ public sealed class ChangeProjectMemberRoleHandler : IChangeProjectMemberRoleHan
         if (_notificationWriter is not null)
         {
             await _notificationWriter.StageAsync(
-                command.UserId,
+                request.UserId,
                 NotificationType.ProjectMemberRoleChanged,
                 "Project role changed",
                 $"Your role in '{project.Name}' changed to {member.Role}.",
                 "project",
                 project.Id,
                 project.Id,
-                $"project:{project.Id}:member:{command.UserId}:role:{member.Role}",
+                $"project:{project.Id}:member:{request.UserId}:role:{member.Role}",
                 cancellationToken);
         }
 

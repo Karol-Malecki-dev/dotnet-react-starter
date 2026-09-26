@@ -115,19 +115,7 @@ public static class ProjectTasksModule
                 : serviceProvider.GetRequiredService<ClamAvProjectTaskAttachmentMalwareScanner>();
         });
         services.AddSingleton<ClamAvProjectTaskAttachmentMalwareScanner>();
-        services.AddScoped<ICreateProjectTaskAttachmentHandler, CreateProjectTaskAttachmentHandler>();
-        services.AddScoped<ICreateProjectTaskCommentHandler, CreateProjectTaskCommentHandler>();
-        services.AddScoped<IDeleteProjectTaskHandler, DeleteProjectTaskHandler>();
-        services.AddScoped<IDeleteProjectTaskAttachmentHandler, DeleteProjectTaskAttachmentHandler>();
-        services.AddScoped<IDeleteProjectTaskCommentHandler, DeleteProjectTaskCommentHandler>();
         services.AddScoped<IProjectTaskDashboardReader, EfProjectTaskDashboardReader>();
-        services.AddScoped<IDownloadProjectTaskAttachmentHandler, DownloadProjectTaskAttachmentHandler>();
-        services.AddScoped<IGetProjectTaskDetailsHandler, GetProjectTaskDetailsHandler>();
-        services.AddScoped<IListProjectTasksHandler, ListProjectTasksHandler>();
-        services.AddScoped<IListProjectTaskAttachmentsHandler, ListProjectTaskAttachmentsHandler>();
-        services.AddScoped<IListProjectTaskCommentsHandler, ListProjectTaskCommentsHandler>();
-        services.AddScoped<IUpdateProjectTaskHandler, UpdateProjectTaskHandler>();
-        services.AddScoped<IUpdateProjectTaskStatusHandler, UpdateProjectTaskStatusHandler>();
 
         return services;
     }

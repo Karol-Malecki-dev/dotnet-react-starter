@@ -1,21 +1,14 @@
 using Application.Features.Projects;
+using MediatR;
 
 namespace Application.Modules.Projects.GetProjectDashboard;
 
 /// <summary>
 /// Requests the dashboard visible to one project participant.
 /// </summary>
-public sealed record GetProjectDashboardQuery(Guid UserId, Guid ProjectId);
+public sealed record GetProjectDashboardQuery(Guid UserId, Guid ProjectId)
+    : IRequest<ProjectOperationResult<ProjectDashboardView>>;
 
-/// <summary>
-/// Executes the get-project-dashboard use case.
-/// </summary>
-public interface IGetProjectDashboardHandler
-{
-    Task<ProjectOperationResult<ProjectDashboardView>> HandleAsync(
-        GetProjectDashboardQuery query,
-        CancellationToken cancellationToken = default);
-}
 
 /// <summary>
 /// Provides project-owned data needed to compose the dashboard.

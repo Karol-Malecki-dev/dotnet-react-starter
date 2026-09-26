@@ -22,7 +22,7 @@ public sealed class ListProjectInvitationsHandlerTests
             .ReturnsAsync(false);
         var handler = new ListProjectInvitationsHandler(store.Object);
 
-        var result = await handler.HandleAsync(query);
+        var result = await handler.Handle(query);
 
         Assert.Equal(ProjectOperationStatus.NotFound, result.Status);
         store.Verify(candidate => candidate.QueryAsync(
@@ -50,7 +50,7 @@ public sealed class ListProjectInvitationsHandlerTests
             .ReturnsAsync(invitations);
         var handler = new ListProjectInvitationsHandler(store.Object);
 
-        var result = await handler.HandleAsync(query, cancellationToken);
+        var result = await handler.Handle(query, cancellationToken);
 
         Assert.True(result.IsSuccess);
         Assert.Same(invitations, result.Value);
@@ -70,7 +70,7 @@ public sealed class ListProjectInvitationsHandlerTests
             .ReturnsAsync(invitations);
         var handler = new ListMyProjectInvitationsHandler(store.Object);
 
-        var result = await handler.HandleAsync(query, cancellationToken);
+        var result = await handler.Handle(query, cancellationToken);
 
         Assert.True(result.IsSuccess);
         Assert.Same(invitations, result.Value);

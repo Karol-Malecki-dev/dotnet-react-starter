@@ -39,7 +39,7 @@ public sealed class CreateProjectInvitationHandlerTests
             .ReturnsAsync((ProjectInvitationCreationContext?)null);
         var handler = CreateHandler();
 
-        var result = await handler.HandleAsync(command);
+        var result = await handler.Handle(command);
 
         Assert.Equal(ProjectOperationStatus.NotFound, result.Status);
         _store.Verify(candidate => candidate.GetActiveUserByEmailAsync(
@@ -54,7 +54,7 @@ public sealed class CreateProjectInvitationHandlerTests
         SetupOwnedProject(command);
         var handler = CreateHandler();
 
-        var result = await handler.HandleAsync(command);
+        var result = await handler.Handle(command);
 
         Assert.Equal(ProjectOperationStatus.ValidationError, result.Status);
         _store.Verify(candidate => candidate.GetActiveUserByEmailAsync(
@@ -69,7 +69,7 @@ public sealed class CreateProjectInvitationHandlerTests
         SetupOwnedProject(command);
         var handler = CreateHandler();
 
-        var result = await handler.HandleAsync(command);
+        var result = await handler.Handle(command);
 
         Assert.Equal(ProjectOperationStatus.ValidationError, result.Status);
         _store.Verify(candidate => candidate.GetActiveUserByEmailAsync(
@@ -88,7 +88,7 @@ public sealed class CreateProjectInvitationHandlerTests
             .ReturnsAsync((User?)null);
         var handler = CreateHandler();
 
-        var result = await handler.HandleAsync(command);
+        var result = await handler.Handle(command);
 
         Assert.Equal(ProjectOperationStatus.NotFound, result.Status);
         _store.Verify(candidate => candidate.SaveChangesAsync(
@@ -109,7 +109,7 @@ public sealed class CreateProjectInvitationHandlerTests
             .ReturnsAsync(true);
         var handler = CreateHandler();
 
-        var result = await handler.HandleAsync(command);
+        var result = await handler.Handle(command);
 
         Assert.Equal(ProjectOperationStatus.Conflict, result.Status);
         _store.Verify(candidate => candidate.GetPendingInvitationsAsync(
@@ -140,7 +140,7 @@ public sealed class CreateProjectInvitationHandlerTests
             ]);
         var handler = CreateHandler();
 
-        var result = await handler.HandleAsync(command);
+        var result = await handler.Handle(command);
 
         Assert.Equal(ProjectOperationStatus.Conflict, result.Status);
         _store.Verify(candidate => candidate.AddInvitation(
@@ -168,7 +168,7 @@ public sealed class CreateProjectInvitationHandlerTests
             .ReturnsAsync([staleInvitation]);
         var handler = CreateHandler();
 
-        var result = await handler.HandleAsync(command);
+        var result = await handler.Handle(command);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(ProjectInvitationStatus.Expired, staleInvitation.Status);
@@ -197,7 +197,7 @@ public sealed class CreateProjectInvitationHandlerTests
                 postgresException));
         var handler = CreateHandler();
 
-        var result = await handler.HandleAsync(command);
+        var result = await handler.Handle(command);
 
         Assert.Equal(ProjectOperationStatus.Conflict, result.Status);
         Assert.Equal("User already has a pending invitation", result.Message);
@@ -216,7 +216,7 @@ public sealed class CreateProjectInvitationHandlerTests
                 "Invitation state changed concurrently"));
         var handler = CreateHandler();
 
-        var result = await handler.HandleAsync(command);
+        var result = await handler.Handle(command);
 
         Assert.Equal(ProjectOperationStatus.Conflict, result.Status);
         Assert.Equal("User already has a pending invitation", result.Message);
@@ -235,7 +235,7 @@ public sealed class CreateProjectInvitationHandlerTests
             .Callback<ProjectInvitation>(invitation => stagedInvitation = invitation);
         var handler = CreateHandler();
 
-        var result = await handler.HandleAsync(command, cancellationToken);
+        var result = await handler.Handle(command, cancellationToken);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(201, result.CreatedStatusCode);
@@ -278,7 +278,7 @@ public sealed class CreateProjectInvitationHandlerTests
             .ThrowsAsync(new InvalidOperationException("Notification staging failed"));
         var handler = CreateHandler();
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => handler.HandleAsync(command));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(command));
 
         _store.Verify(candidate => candidate.SaveChangesAsync(
             It.IsAny<CancellationToken>()), Times.Never);

@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using MediatR;
 using Domain.Entities;
 
 namespace Application.Modules.Projects.UpdateProject;
@@ -11,17 +12,9 @@ public sealed record UpdateProjectCommand(
     Guid ProjectId,
     string Name,
     string? Description,
-    string? ExpectedConcurrencyStamp = null);
+    string? ExpectedConcurrencyStamp = null)
+    : IRequest<ProjectOperationResult<ProjectView>>;
 
-/// <summary>
-/// Executes the update-project use case.
-/// </summary>
-public interface IUpdateProjectHandler
-{
-    Task<ProjectOperationResult<ProjectView>> HandleAsync(
-        UpdateProjectCommand command,
-        CancellationToken cancellationToken = default);
-}
 
 /// <summary>
 /// Provides the persistence operations required by the update-project slice.

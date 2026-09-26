@@ -1,5 +1,6 @@
 using API.Modules.Projects;
 using Application.Modules.Projects.RemoveProjectMember;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Responses;
@@ -14,11 +15,11 @@ namespace API.Modules.Projects.RemoveProjectMember;
 [Authorize]
 public sealed class RemoveProjectMemberController : ProjectControllerBase
 {
-    private readonly IRemoveProjectMemberHandler _handler;
+    private readonly ISender _sender;
 
-    public RemoveProjectMemberController(IRemoveProjectMemberHandler handler)
+    public RemoveProjectMemberController(ISender sender)
     {
-        _handler = handler;
+        _sender = sender;
     }
 
     /// <summary>
@@ -35,7 +36,7 @@ public sealed class RemoveProjectMemberController : ProjectControllerBase
             return Unauthorized(ApiResponse<bool>.Error(401, "User not authenticated"));
         }
 
-        var result = await _handler.HandleAsync(
+        var result = await _sender.Send(
             new RemoveProjectMemberCommand(ownerId, projectId, userId),
             cancellationToken);
 

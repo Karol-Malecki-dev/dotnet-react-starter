@@ -27,7 +27,7 @@ public sealed class UpdateProjectTaskHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((ProjectMemberRole?)null);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.NotFound, result.Status);
         _access.Verify(
@@ -55,7 +55,7 @@ public sealed class UpdateProjectTaskHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(task);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.Forbidden, result.Status);
         _commandStore.Verify(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
@@ -78,7 +78,7 @@ public sealed class UpdateProjectTaskHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(task);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.Forbidden, result.Status);
         _commandStore.Verify(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
@@ -91,7 +91,7 @@ public sealed class UpdateProjectTaskHandlerTests
         var command = scenarioCommand with { ExpectedConcurrencyStamp = null };
         ConfigureAuthorizedOwner(command, task);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.ValidationError, result.Status);
         Assert.Equal("Project task concurrency stamp is required", result.Message);
@@ -106,7 +106,7 @@ public sealed class UpdateProjectTaskHandlerTests
         var command = scenarioCommand with { ExpectedConcurrencyStamp = "stale-stamp" };
         ConfigureAuthorizedOwner(command, task);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.Conflict, result.Status);
         Assert.Equal("Task title", task.Title);
@@ -129,7 +129,7 @@ public sealed class UpdateProjectTaskHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.ValidationError, result.Status);
         Assert.Equal("Assigned user is not an active member of this project", result.Message);
@@ -159,7 +159,7 @@ public sealed class UpdateProjectTaskHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.True(result.IsSuccess);
         Assert.Equal("Project task updated", result.Message);
@@ -206,7 +206,7 @@ public sealed class UpdateProjectTaskHandlerTests
                 It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("notification preparation failed"));
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => CreateHandler().HandleAsync(command));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => CreateHandler().Handle(command));
 
         _commandStore.Verify(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -220,7 +220,7 @@ public sealed class UpdateProjectTaskHandlerTests
             .Setup(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new DbUpdateConcurrencyException());
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.Conflict, result.Status);
         _commandStore.Verify(store => store.ClearChangeTracker(), Times.Once);

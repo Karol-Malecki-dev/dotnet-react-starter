@@ -27,7 +27,7 @@ public sealed class DeleteProjectTaskHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((ProjectMemberRole?)null);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.NotFound, result.Status);
         _access.Verify(
@@ -44,7 +44,7 @@ public sealed class DeleteProjectTaskHandlerTests
         var (command, task) = CreateScenario();
         ConfigureTaskAccess(command, task, ProjectMemberRole.Viewer);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.Forbidden, result.Status);
         _commandStore.Verify(store => store.RemoveTask(It.IsAny<ProjectTask>()), Times.Never);
@@ -57,7 +57,7 @@ public sealed class DeleteProjectTaskHandlerTests
         var (command, task) = CreateScenario(Guid.NewGuid());
         ConfigureTaskAccess(command, task, ProjectMemberRole.Member);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.Forbidden, result.Status);
         _commandStore.Verify(store => store.RemoveTask(It.IsAny<ProjectTask>()), Times.Never);
@@ -70,7 +70,7 @@ public sealed class DeleteProjectTaskHandlerTests
         var command = scenarioCommand with { ExpectedConcurrencyStamp = null };
         ConfigureTaskAccess(command, task, ProjectMemberRole.Owner);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.ValidationError, result.Status);
         Assert.Equal("Project task concurrency stamp is required", result.Message);
@@ -84,7 +84,7 @@ public sealed class DeleteProjectTaskHandlerTests
         var command = scenarioCommand with { ExpectedConcurrencyStamp = "stale-stamp" };
         ConfigureTaskAccess(command, task, ProjectMemberRole.Owner);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.Conflict, result.Status);
         _commandStore.Verify(store => store.RemoveTask(It.IsAny<ProjectTask>()), Times.Never);
@@ -97,7 +97,7 @@ public sealed class DeleteProjectTaskHandlerTests
         var (command, task) = CreateScenario();
         ConfigureTaskAccess(command, task, ProjectMemberRole.Owner);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.True(result.IsSuccess);
         Assert.True(result.Value);
@@ -118,7 +118,7 @@ public sealed class DeleteProjectTaskHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(["first.bin", "second.bin", "first.bin"]);
 
-        var result = await handler.HandleAsync(command);
+        var result = await handler.Handle(command);
 
         Assert.True(result.IsSuccess);
         _cleanupQueue.Verify(queue => queue.Enqueue("first.bin"), Times.Once);
@@ -136,7 +136,7 @@ public sealed class DeleteProjectTaskHandlerTests
             .Setup(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new DbUpdateConcurrencyException());
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.Conflict, result.Status);
         _commandStore.Verify(store => store.ClearChangeTracker(), Times.Once);

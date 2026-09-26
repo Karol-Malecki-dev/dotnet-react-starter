@@ -23,7 +23,7 @@ public sealed class ChangeProjectMemberRoleHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((Project?)null);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.NotFound, result.Status);
         _store.Verify(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
@@ -47,7 +47,7 @@ public sealed class ChangeProjectMemberRoleHandlerTests
             role);
         SetupProject(command, project);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.Conflict, result.Status);
         _store.Verify(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
@@ -67,7 +67,7 @@ public sealed class ChangeProjectMemberRoleHandlerTests
             (ProjectMemberRole)999);
         SetupProject(command, project);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.ValidationError, result.Status);
         _store.Verify(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
@@ -85,7 +85,7 @@ public sealed class ChangeProjectMemberRoleHandlerTests
             ProjectMemberRole.Viewer);
         SetupProject(command, project);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.NotFound, result.Status);
         _store.Verify(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
@@ -109,7 +109,7 @@ public sealed class ChangeProjectMemberRoleHandlerTests
             .Setup(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(ProjectMemberRole.Viewer, member.Role);
@@ -144,7 +144,7 @@ public sealed class ChangeProjectMemberRoleHandlerTests
             .Setup(store => store.SaveChangesAsync(cancellationToken))
             .Returns(Task.CompletedTask);
 
-        await CreateHandler().HandleAsync(command, cancellationToken);
+        await CreateHandler().Handle(command, cancellationToken);
 
         _store.Verify(store => store.GetOwnedProjectWithMembersAsync(
             ownerId,

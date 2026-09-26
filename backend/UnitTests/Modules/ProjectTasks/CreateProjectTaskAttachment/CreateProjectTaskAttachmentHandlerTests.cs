@@ -25,7 +25,7 @@ public sealed class CreateProjectTaskAttachmentHandlerTests
         var command = CreateCommand();
         ConfigureAccess(command, ProjectMemberRole.Viewer);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.Forbidden, result.Status);
         _storage.Verify(
@@ -46,7 +46,7 @@ public sealed class CreateProjectTaskAttachmentHandlerTests
         };
         ConfigureAccess(command, ProjectMemberRole.Owner);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.ValidationError, result.Status);
         _storage.Verify(
@@ -70,7 +70,7 @@ public sealed class CreateProjectTaskAttachmentHandlerTests
         };
         ConfigureAccess(command, ProjectMemberRole.Owner);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.ValidationError, result.Status);
         _storage.Verify(
@@ -87,7 +87,7 @@ public sealed class CreateProjectTaskAttachmentHandlerTests
         var command = CreateCommand() with { SizeBytes = 1 };
         ConfigureAccess(command, ProjectMemberRole.Owner);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.ValidationError, result.Status);
         _storage.Verify(
@@ -109,7 +109,7 @@ public sealed class CreateProjectTaskAttachmentHandlerTests
         };
         ConfigureAccess(command, ProjectMemberRole.Owner);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.ValidationError, result.Status);
         _storage.Verify(
@@ -159,7 +159,7 @@ public sealed class CreateProjectTaskAttachmentHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(expected);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.True(result.IsSuccess);
         Assert.Same(expected, result.Value);
@@ -198,7 +198,7 @@ public sealed class CreateProjectTaskAttachmentHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(expected);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(201, result.CreatedStatusCode);
@@ -235,7 +235,7 @@ public sealed class CreateProjectTaskAttachmentHandlerTests
             .Returns(Task.CompletedTask);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => CreateHandler().HandleAsync(command));
+            () => CreateHandler().Handle(command));
 
         _storage.Verify(
             storage => storage.DeleteAsync(
@@ -267,7 +267,7 @@ public sealed class CreateProjectTaskAttachmentHandlerTests
                 CancellationToken.None))
             .Returns(Task.CompletedTask);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.Conflict, result.Status);
         Assert.Equal("Attachment quota exceeded.", result.Message);
@@ -295,7 +295,7 @@ public sealed class CreateProjectTaskAttachmentHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(scanStatus);
 
-        var result = await CreateHandler(requireMalwareScan: true).HandleAsync(command);
+        var result = await CreateHandler(requireMalwareScan: true).Handle(command);
 
         Assert.Equal(expectedStatus, result.Status);
         _storage.Verify(
@@ -341,7 +341,7 @@ public sealed class CreateProjectTaskAttachmentHandlerTests
                 command.SizeBytes,
                 DateTime.UtcNow));
 
-        var result = await CreateHandler(requireMalwareScan: true).HandleAsync(command);
+        var result = await CreateHandler(requireMalwareScan: true).Handle(command);
 
         Assert.True(result.IsSuccess);
     }

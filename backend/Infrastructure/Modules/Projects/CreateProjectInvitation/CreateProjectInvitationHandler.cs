@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using MediatR;
 using Application.Modules.Projects.CreateProjectInvitation;
 using Application.Modules.Projects.Invitations;
 using Domain.Entities;
@@ -14,7 +15,7 @@ namespace Infrastructure.Modules.Projects.CreateProjectInvitation;
 /// <summary>
 /// Coordinates secure invitation creation and atomic notification staging.
 /// </summary>
-public sealed class CreateProjectInvitationHandler : ICreateProjectInvitationHandler
+public sealed class CreateProjectInvitationHandler : IRequestHandler<CreateProjectInvitationCommand, ProjectOperationResult<CreatedProjectInvitationView>>
 {
     private readonly ICreateProjectInvitationStore _store;
     private readonly IProjectInvitationNotificationWriter _notificationWriter;
@@ -27,7 +28,7 @@ public sealed class CreateProjectInvitationHandler : ICreateProjectInvitationHan
         _notificationWriter = notificationWriter;
     }
 
-    public async Task<ProjectOperationResult<CreatedProjectInvitationView>> HandleAsync(
+    public async Task<ProjectOperationResult<CreatedProjectInvitationView>> Handle(
         CreateInvitationCommand command,
         CancellationToken cancellationToken = default)
     {

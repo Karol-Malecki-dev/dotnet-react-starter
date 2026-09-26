@@ -26,7 +26,7 @@ public sealed class DownloadProjectTaskAttachmentHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((ProjectMemberRole?)null);
 
-        var result = await CreateHandler().HandleAsync(query);
+        var result = await CreateHandler().Handle(query);
 
         Assert.Equal(ProjectOperationStatus.NotFound, result.Status);
         _attachmentStore.Verify(
@@ -52,7 +52,7 @@ public sealed class DownloadProjectTaskAttachmentHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((Stream?)null);
 
-        var result = await CreateHandler().HandleAsync(query);
+        var result = await CreateHandler().Handle(query);
 
         Assert.Equal(ProjectOperationStatus.NotFound, result.Status);
         Assert.Equal("Project task attachment file not found", result.Message);
@@ -77,7 +77,7 @@ public sealed class DownloadProjectTaskAttachmentHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(stream);
 
-        var result = await CreateHandler().HandleAsync(query);
+        var result = await CreateHandler().Handle(query);
 
         Assert.True(result.IsSuccess);
         Assert.Same(stream, result.Value!.Content);

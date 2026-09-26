@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using MediatR;
 using Application.Modules.ProjectTasks.Attachments;
 
 namespace Application.Modules.ProjectTasks.ListProjectTaskAttachments;
@@ -9,17 +10,8 @@ namespace Application.Modules.ProjectTasks.ListProjectTaskAttachments;
 public sealed record ListProjectTaskAttachmentsQuery(
     Guid UserId,
     Guid ProjectId,
-    Guid TaskId);
-
-/// <summary>
-/// Executes the list-project-task-attachments use case.
-/// </summary>
-public interface IListProjectTaskAttachmentsHandler
-{
-    Task<ProjectOperationResult<IReadOnlyList<ProjectTaskAttachmentView>>> HandleAsync(
-        ListProjectTaskAttachmentsQuery query,
-        CancellationToken cancellationToken = default);
-}
+    Guid TaskId)
+    : IRequest<ProjectOperationResult<IReadOnlyList<ProjectTaskAttachmentView>>>;
 
 /// <summary>
 /// Provides the focused persistence operation needed by the list-attachments slice.

@@ -25,7 +25,7 @@ public sealed class ListProjectTaskAttachmentsHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((ProjectMemberRole?)null);
 
-        var result = await CreateHandler().HandleAsync(query);
+        var result = await CreateHandler().Handle(query);
 
         Assert.Equal(ProjectOperationStatus.NotFound, result.Status);
         _queryStore.Verify(
@@ -53,7 +53,7 @@ public sealed class ListProjectTaskAttachmentsHandlerTests
             .Setup(store => store.QueryAsync(query.TaskId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(expected);
 
-        var result = await CreateHandler().HandleAsync(query);
+        var result = await CreateHandler().Handle(query);
 
         Assert.True(result.IsSuccess);
         Assert.Same(expected, result.Value);

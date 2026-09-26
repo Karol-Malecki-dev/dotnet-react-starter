@@ -24,7 +24,7 @@ public sealed class GetProjectDashboardHandlerTests
             .ReturnsAsync(false);
         var handler = CreateHandler();
 
-        var result = await handler.HandleAsync(query);
+        var result = await handler.Handle(query);
 
         Assert.Equal(ProjectOperationStatus.NotFound, result.Status);
         _taskReader.Verify(reader => reader.ReadAsync(
@@ -71,7 +71,7 @@ public sealed class GetProjectDashboardHandlerTests
             .ReturnsAsync([activity]);
         var handler = CreateHandler();
 
-        var result = await handler.HandleAsync(query, cancellationToken);
+        var result = await handler.Handle(query, cancellationToken);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);

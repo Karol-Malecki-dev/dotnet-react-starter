@@ -14,16 +14,17 @@ Stan na: **2026-09-25**.
 
 | Obszar | Postęp | Status |
 |---|---:|---|
-| Dispatch VSA / MediatR | 67% | Query i command pilot, kanoniczny standard nowych slice'ów oraz migracja Notifications są zaimplementowane; migracje Projects i ProjectTasks pozostają zaplanowane. |
+| Dispatch VSA / MediatR | 100% | Pilot, kanoniczny standard nowych slice'ów oraz migracje Notifications, Projects i ProjectTasks są zaimplementowane i objęte guardrails. |
 | Tożsamość | 0% | Brak kierunku V7 wymagającego obecnie implementacji. |
 | Model produktu | 0% | Brak potwierdzonej potrzeby multi-tenancy, API keys lub wersjonowania publicznego API. |
 | Architektura rozproszona | 0% | Brak zmierzonego problemu uzasadniającego wyodrębnianie usług. |
 | Operacje | 0% | Multi-region i disaster recovery pozostają opcjonalnymi kierunkami przyszłości. |
 
-**Postęp implementacji V7: 67% w zaakceptowanym torze MediatR**.
+**Postęp implementacji V7: 100% w zaakceptowanym torze MediatR**.
 
-Pierwsze cztery checkpointy MediatR mają kod, testy, guardrails DI i dokumentację.
-Pozostałe kierunki V7 nadal wymagają konkretnego problemu i zaakceptowanego ADR-u.
+Wszystkie sześć checkpointów MediatR ma kod, testy, guardrails DI i dokumentację.
+Pozostałe kierunki V7 nadal wymagają konkretnego problemu i zaakceptowanego ADR-u;
+nie są ukrytym zakresem ukończonej migracji.
 
 ## Możliwe kierunki
 
@@ -41,8 +42,9 @@ Pierwszy etap obejmuje:
   `Domain -> MediatR`.
 
 Po przejściu checkpointu pilota nowe slice'y używają MediatR domyślnie. Istniejące
-moduły są migrowane w kolejności `Notifications`, `Projects`, `ProjectTasks`;
-`Identity` tylko przy realnej zmianie konkretnego use case'a.
+moduły `Notifications`, `Projects` i `ProjectTasks` zostały zmigrowane bez zmiany
+kontraktów publicznych; `Identity` pozostaje poza zakresem i migruje się tylko przy
+realnej zmianie konkretnego use case'a.
 
 MediatR nie przejmuje:
 
@@ -146,4 +148,6 @@ Dla adopcji MediatR dodatkowo:
 - bezpieczny telemetry behavior ma testy;
 - każdy request ma dokładnie jeden handler;
 - nowe slice'y używają zaakceptowanego standardu;
-- migracja modułów odbywa się bez dwóch aktywnych dispatch paths dla jednego slice'a.
+- migracja modułów odbyła się bez dwóch aktywnych dispatch paths dla jednego slice'a;
+- `Notifications`, `Projects` i `ProjectTasks` mają zakończoną migrację, a release gate
+  opisuje wymagane potwierdzenie CI i środowiska Docker.

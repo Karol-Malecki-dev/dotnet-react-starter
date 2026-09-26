@@ -27,7 +27,7 @@ public sealed class UpdateProjectTaskStatusHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((ProjectMemberRole?)null);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.NotFound, result.Status);
         _access.Verify(
@@ -44,7 +44,7 @@ public sealed class UpdateProjectTaskStatusHandlerTests
         var (command, task) = CreateScenario();
         ConfigureTaskAccess(command, task, ProjectMemberRole.Viewer);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.Forbidden, result.Status);
         Assert.Equal(ProjectTaskStatus.Todo, task.Status);
@@ -57,7 +57,7 @@ public sealed class UpdateProjectTaskStatusHandlerTests
         var (command, task) = CreateScenario(Guid.NewGuid());
         ConfigureTaskAccess(command, task, ProjectMemberRole.Member);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.Forbidden, result.Status);
         Assert.Equal(ProjectTaskStatus.Todo, task.Status);
@@ -71,7 +71,7 @@ public sealed class UpdateProjectTaskStatusHandlerTests
         var command = scenarioCommand with { ExpectedConcurrencyStamp = null };
         ConfigureTaskAccess(command, task, ProjectMemberRole.Owner);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.ValidationError, result.Status);
         Assert.Equal("Project task concurrency stamp is required", result.Message);
@@ -86,7 +86,7 @@ public sealed class UpdateProjectTaskStatusHandlerTests
         var command = scenarioCommand with { ExpectedConcurrencyStamp = "stale-stamp" };
         ConfigureTaskAccess(command, task, ProjectMemberRole.Owner);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.Conflict, result.Status);
         Assert.Equal(ProjectTaskStatus.Todo, task.Status);
@@ -100,7 +100,7 @@ public sealed class UpdateProjectTaskStatusHandlerTests
         var command = scenarioCommand with { Status = ProjectTaskStatus.InProgress };
         ConfigureTaskAccess(command, task, ProjectMemberRole.Owner);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.True(result.IsSuccess);
         Assert.Equal("Project task status updated", result.Message);
@@ -137,7 +137,7 @@ public sealed class UpdateProjectTaskStatusHandlerTests
             task.ConcurrencyStamp);
         ConfigureTaskAccess(command, task, ProjectMemberRole.Owner);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.True(result.IsSuccess);
         _notificationWriter.Verify(writer => writer.StageAsync(
@@ -158,7 +158,7 @@ public sealed class UpdateProjectTaskStatusHandlerTests
         var (command, task) = CreateScenario();
         ConfigureTaskAccess(command, task, ProjectMemberRole.Owner);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(ProjectTaskStatus.Todo, result.Value?.Status);
@@ -175,7 +175,7 @@ public sealed class UpdateProjectTaskStatusHandlerTests
             .Setup(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new DbUpdateConcurrencyException());
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.Conflict, result.Status);
         _commandStore.Verify(store => store.ClearChangeTracker(), Times.Once);

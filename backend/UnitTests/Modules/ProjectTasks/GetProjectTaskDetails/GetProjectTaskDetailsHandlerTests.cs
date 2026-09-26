@@ -23,7 +23,7 @@ public sealed class GetProjectTaskDetailsHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((ProjectMemberRole?)null);
 
-        var result = await CreateHandler().HandleAsync(query);
+        var result = await CreateHandler().Handle(query);
 
         Assert.Equal(ProjectOperationStatus.NotFound, result.Status);
         Assert.Equal("Project task not found", result.Message);
@@ -52,7 +52,7 @@ public sealed class GetProjectTaskDetailsHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((ProjectTask?)null);
 
-        var result = await CreateHandler().HandleAsync(query);
+        var result = await CreateHandler().Handle(query);
 
         Assert.Equal(ProjectOperationStatus.NotFound, result.Status);
         Assert.Equal("Project task not found", result.Message);
@@ -86,7 +86,7 @@ public sealed class GetProjectTaskDetailsHandlerTests
                 cancellationToken))
             .ReturnsAsync(task);
 
-        var result = await CreateHandler().HandleAsync(query, cancellationToken);
+        var result = await CreateHandler().Handle(query, cancellationToken);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);

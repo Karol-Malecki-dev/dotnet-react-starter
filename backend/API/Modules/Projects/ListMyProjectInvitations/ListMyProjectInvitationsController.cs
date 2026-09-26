@@ -1,6 +1,7 @@
 using API.Contracts.Projects;
 using Application.Features.Projects;
 using Application.Modules.Projects.ListMyProjectInvitations;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Responses;
@@ -15,11 +16,11 @@ namespace API.Modules.Projects.ListMyProjectInvitations;
 [Route("api/project-invitations/mine")]
 public sealed class ListMyProjectInvitationsController : ProjectControllerBase
 {
-    private readonly IListMyProjectInvitationsHandler _handler;
+    private readonly ISender _sender;
 
-    public ListMyProjectInvitationsController(IListMyProjectInvitationsHandler handler)
+    public ListMyProjectInvitationsController(ISender sender)
     {
-        _handler = handler;
+        _sender = sender;
     }
 
     /// <summary>
@@ -39,7 +40,7 @@ public sealed class ListMyProjectInvitationsController : ProjectControllerBase
                 "User not authenticated"));
         }
 
-        var result = await _handler.HandleAsync(
+        var result = await _sender.Send(
             new ListMyProjectInvitationsQuery(userId),
             cancellationToken);
 

@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using MediatR;
 using Application.Modules.ProjectTasks.Attachments;
 using Domain.Entities;
 
@@ -11,17 +12,10 @@ public sealed record DownloadProjectTaskAttachmentQuery(
     Guid UserId,
     Guid ProjectId,
     Guid TaskId,
-    Guid AttachmentId);
+    Guid AttachmentId)
+    : IRequest<ProjectOperationResult<ProjectTaskAttachmentDownload>>;
 
-/// <summary>
-/// Executes the download-project-task-attachment use case.
-/// </summary>
-public interface IDownloadProjectTaskAttachmentHandler
-{
-    Task<ProjectOperationResult<ProjectTaskAttachmentDownload>> HandleAsync(
-        DownloadProjectTaskAttachmentQuery query,
-        CancellationToken cancellationToken = default);
-}
+
 
 /// <summary>
 /// Provides the focused metadata lookup needed by the download-attachment slice.

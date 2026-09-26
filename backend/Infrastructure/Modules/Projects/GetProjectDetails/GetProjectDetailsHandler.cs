@@ -18,13 +18,13 @@ public sealed class GetProjectDetailsHandler
     }
 
     public async Task<ProjectOperationResult<ProjectView>> Handle(
-        GetProjectDetailsQuery query,
-        CancellationToken cancellationToken)
+        GetProjectDetailsQuery request,
+        CancellationToken cancellationToken = default)
     {
         var project = await _store.QueryAsync(
-            query.UserId,
-            query.ProjectId,
-            query.IncludeArchived,
+            request.UserId,
+            request.ProjectId,
+            request.IncludeArchived,
             cancellationToken);
 
         return project is null

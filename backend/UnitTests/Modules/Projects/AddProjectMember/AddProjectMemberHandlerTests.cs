@@ -24,7 +24,7 @@ public sealed class AddProjectMemberHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((Project?)null);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.NotFound, result.Status);
         _store.Verify(store => store.GetActiveUserAsync(
@@ -49,7 +49,7 @@ public sealed class AddProjectMemberHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((User?)null);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.NotFound, result.Status);
         _store.Verify(store => store.IsMemberAsync(
@@ -81,7 +81,7 @@ public sealed class AddProjectMemberHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.Conflict, result.Status);
         _store.Verify(store => store.AddMember(It.IsAny<ProjectMember>()), Times.Never);
@@ -121,7 +121,7 @@ public sealed class AddProjectMemberHandlerTests
             .Setup(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(201, result.CreatedStatusCode);
@@ -176,7 +176,7 @@ public sealed class AddProjectMemberHandlerTests
             .ThrowsAsync(new InvalidOperationException("Notification persistence failed."));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            CreateHandler().HandleAsync(command));
+            CreateHandler().Handle(command));
 
         _store.Verify(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -205,7 +205,7 @@ public sealed class AddProjectMemberHandlerTests
             .Setup(store => store.SaveChangesAsync(cancellationToken))
             .Returns(Task.CompletedTask);
 
-        await CreateHandler().HandleAsync(command, cancellationToken);
+        await CreateHandler().Handle(command, cancellationToken);
 
         _store.Verify(store => store.GetOwnedProjectWithMembersAsync(
             command.OwnerId,

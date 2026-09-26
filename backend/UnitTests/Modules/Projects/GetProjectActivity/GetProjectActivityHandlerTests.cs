@@ -20,7 +20,7 @@ public sealed class GetProjectActivityHandlerTests
             .ReturnsAsync(false);
         var handler = new GetProjectActivityHandler(_store.Object);
 
-        var result = await handler.HandleAsync(query);
+        var result = await handler.Handle(query);
 
         Assert.Equal(ProjectOperationStatus.NotFound, result.Status);
         _store.Verify(candidate => candidate.QueryAsync(
@@ -60,7 +60,7 @@ public sealed class GetProjectActivityHandlerTests
             .ReturnsAsync(page);
         var handler = new GetProjectActivityHandler(_store.Object);
 
-        var result = await handler.HandleAsync(query, cancellationToken);
+        var result = await handler.Handle(query, cancellationToken);
 
         Assert.True(result.IsSuccess);
         Assert.Same(page, result.Value);

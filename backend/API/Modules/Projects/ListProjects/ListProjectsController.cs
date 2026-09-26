@@ -1,6 +1,7 @@
 using API.Contracts.Projects;
 using API.Modules.Projects;
 using Application.Modules.Projects.ListProjects;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Responses;
@@ -15,11 +16,11 @@ namespace API.Modules.Projects.ListProjects;
 [Authorize]
 public sealed class ListProjectsController : ProjectControllerBase
 {
-    private readonly IListProjectsHandler _handler;
+    private readonly ISender _sender;
 
-    public ListProjectsController(IListProjectsHandler handler)
+    public ListProjectsController(ISender sender)
     {
-        _handler = handler;
+        _sender = sender;
     }
 
     /// <summary>
@@ -36,7 +37,7 @@ public sealed class ListProjectsController : ProjectControllerBase
             return Unauthorized(ApiResponse<List<ProjectResponse>>.Error(401, "User not authenticated"));
         }
 
-        var result = await _handler.HandleAsync(
+        var result = await _sender.Send(
             new ListProjectsQuery(userId, includeArchived, scope),
             cancellationToken);
 

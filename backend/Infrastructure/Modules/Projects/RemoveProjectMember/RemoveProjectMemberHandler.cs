@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using MediatR;
 using Application.Modules.Projects.RemoveProjectMember;
 using Application.Modules.ProjectTasks.Assignments;
 using Application.Interfaces;
@@ -10,7 +11,7 @@ namespace Infrastructure.Modules.Projects.RemoveProjectMember;
 /// <summary>
 /// Coordinates member removal and task unassignment in one unit of work.
 /// </summary>
-public sealed class RemoveProjectMemberHandler : IRemoveProjectMemberHandler
+public sealed class RemoveProjectMemberHandler : IRequestHandler<RemoveProjectMemberCommand, ProjectOperationResult<bool>>
 {
     private readonly IRemoveProjectMemberStore _store;
     private readonly IProjectTaskMemberAssignmentWriter _taskAssignmentWriter;
@@ -26,13 +27,13 @@ public sealed class RemoveProjectMemberHandler : IRemoveProjectMemberHandler
         _notificationWriter = notificationWriter;
     }
 
-    public async Task<ProjectOperationResult<bool>> HandleAsync(
-        RemoveProjectMemberCommand command,
+    public async Task<ProjectOperationResult<bool>> Handle(
+        RemoveProjectMemberCommand request,
         CancellationToken cancellationToken = default)
     {
         var project = await _store.GetOwnedProjectWithMembersAsync(
-            command.OwnerId,
-            command.ProjectId,
+            request.OwnerId,
+            request.ProjectId,
             cancellationToken);
 
         if (project is null)
@@ -42,14 +43,14 @@ public sealed class RemoveProjectMemberHandler : IRemoveProjectMemberHandler
                 "Project not found");
         }
 
-        if (command.UserId == command.OwnerId)
+        if (request.UserId == request.OwnerId)
         {
             return ProjectOperationResult<bool>.Failure(
                 ProjectOperationStatus.Conflict,
                 "Project owner cannot be removed");
         }
 
-        var member = project.Members.FirstOrDefault(candidate => candidate.UserId == command.UserId);
+        var member = project.Members.FirstOrDefault(candidate => candidate.UserId == request.UserId);
         if (member is null)
         {
             return ProjectOperationResult<bool>.Failure(
@@ -58,16 +59,16 @@ public sealed class RemoveProjectMemberHandler : IRemoveProjectMemberHandler
         }
 
         await _taskAssignmentWriter.UnassignAllAsync(
-            command.ProjectId,
-            command.UserId,
+            request.ProjectId,
+            request.UserId,
             cancellationToken);
 
-        project.RemoveMember(command.UserId);
+        project.RemoveMember(request.UserId);
         _store.RemoveMember(member);
         _store.AddActivity(new ProjectActivity
         {
-            ProjectId = command.ProjectId,
-            ActorUserId = command.OwnerId,
+            ProjectId = request.ProjectId,
+            ActorUserId = request.OwnerId,
             Type = "member.removed",
             Description = "removed a project member."
         });
@@ -75,14 +76,14 @@ public sealed class RemoveProjectMemberHandler : IRemoveProjectMemberHandler
         if (_notificationWriter is not null)
         {
             await _notificationWriter.StageAsync(
-                command.UserId,
+                request.UserId,
                 NotificationType.ProjectMemberRemoved,
                 "Removed from project",
                 $"You were removed from '{project.Name}'.",
                 "project",
                 project.Id,
                 project.Id,
-                $"project:{project.Id}:member:{command.UserId}:removed",
+                $"project:{project.Id}:member:{request.UserId}:removed",
                 cancellationToken);
         }
 

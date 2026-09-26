@@ -28,7 +28,7 @@ public sealed class ProjectInvitationResponseHandlerTests
         SetupInvitation(token, invitation);
         var handler = CreateAcceptHandler();
 
-        var result = await handler.HandleAsync(
+        var result = await handler.Handle(
             new AcceptProjectInvitationCommand(invitation.InvitedUserId, token),
             cancellationToken);
 
@@ -63,7 +63,7 @@ public sealed class ProjectInvitationResponseHandlerTests
         SetupInvitation(token, invitation);
         var handler = CreateDeclineHandler();
 
-        var result = await handler.HandleAsync(
+        var result = await handler.Handle(
             new DeclineProjectInvitationCommand(invitation.InvitedUserId, token));
 
         Assert.True(result.IsSuccess);
@@ -83,7 +83,7 @@ public sealed class ProjectInvitationResponseHandlerTests
         SetupInvitation(token, invitation);
         var handler = CreateAcceptHandler();
 
-        var result = await handler.HandleAsync(
+        var result = await handler.Handle(
             new AcceptProjectInvitationCommand(Guid.NewGuid(), token));
 
         Assert.Equal(ProjectOperationStatus.NotFound, result.Status);
@@ -101,7 +101,7 @@ public sealed class ProjectInvitationResponseHandlerTests
         SetupInvitation(token, invitation);
         var handler = CreateAcceptHandler();
 
-        var result = await handler.HandleAsync(
+        var result = await handler.Handle(
             new AcceptProjectInvitationCommand(invitation.InvitedUserId, token));
 
         Assert.Equal(ProjectOperationStatus.Conflict, result.Status);
@@ -120,7 +120,7 @@ public sealed class ProjectInvitationResponseHandlerTests
         SetupInvitation(token, invitation);
         var handler = CreateAcceptHandler();
 
-        var result = await handler.HandleAsync(
+        var result = await handler.Handle(
             new AcceptProjectInvitationCommand(invitation.InvitedUserId, token));
 
         Assert.Equal(ProjectOperationStatus.Conflict, result.Status);
@@ -150,7 +150,7 @@ public sealed class ProjectInvitationResponseHandlerTests
             .ReturnsAsync(true);
         var handler = CreateAcceptHandler();
 
-        var result = await handler.HandleAsync(
+        var result = await handler.Handle(
             new AcceptProjectInvitationCommand(invitation.InvitedUserId, token));
 
         Assert.Equal(ProjectOperationStatus.Conflict, result.Status);
@@ -176,7 +176,7 @@ public sealed class ProjectInvitationResponseHandlerTests
             .ThrowsAsync(new InvalidOperationException("Notification staging failed"));
         var handler = CreateAcceptHandler();
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => handler.HandleAsync(
+        await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(
             new AcceptProjectInvitationCommand(invitation.InvitedUserId, token)));
 
         _store.Verify(candidate => candidate.SaveChangesAsync(
@@ -194,7 +194,7 @@ public sealed class ProjectInvitationResponseHandlerTests
             .ThrowsAsync(new DbUpdateConcurrencyException());
         var handler = CreateDeclineHandler();
 
-        var result = await handler.HandleAsync(
+        var result = await handler.Handle(
             new DeclineProjectInvitationCommand(invitation.InvitedUserId, token));
 
         Assert.Equal(ProjectOperationStatus.Conflict, result.Status);
@@ -206,7 +206,7 @@ public sealed class ProjectInvitationResponseHandlerTests
     {
         var handler = CreateAcceptHandler();
 
-        var result = await handler.HandleAsync(
+        var result = await handler.Handle(
             new AcceptProjectInvitationCommand(Guid.NewGuid(), " "));
 
         Assert.Equal(ProjectOperationStatus.ValidationError, result.Status);

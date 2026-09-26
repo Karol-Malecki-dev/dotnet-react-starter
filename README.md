@@ -264,14 +264,18 @@ For local Docker runs, transactional emails are delivered to Mailpit. Open http:
 - [doc/V6_RELEASE_GATE.md](doc/V6_RELEASE_GATE.md)
 - [doc/V6_RELEASE_EVIDENCE.md](doc/V6_RELEASE_EVIDENCE.md)
 - [doc/ROADMAP/14_ADR_INCREMENTAL_MEDIATR_ADOPTION.md](doc/ROADMAP/14_ADR_INCREMENTAL_MEDIATR_ADOPTION.md)
+- [doc/V7_RELEASE_GATE.md](doc/V7_RELEASE_GATE.md)
+- [doc/V7_RELEASE_EVIDENCE.md](doc/V7_RELEASE_EVIDENCE.md)
 - [doc/PRODUCT_EVOLUTION/DEVELOPMENT_PLAN.md](doc/PRODUCT_EVOLUTION/DEVELOPMENT_PLAN.md)
 - [backend/DEVELOPMENT_ROADMAP.md](backend/DEVELOPMENT_ROADMAP.md)
 
 ## Suggested Next Steps
 
-- Use the VSA golden path and close the backend/frontend Notifications contract.
-- Implement the accepted MediatR pilot for one query, one command and safe request
-  telemetry before migrating further slices.
+- Use the VSA golden path and keep the backend/frontend Notifications contract
+  explicit.
+- Use `ISender`/`IRequestHandler` as the canonical MediatR path for new slices; the
+  `Notifications`, `Projects` and `ProjectTasks` migrations are complete and should
+  not be reopened as a repository-wide rewrite.
 - Document and test the current `Owner`/`Member`/`Viewer` permission matrix before
   adding broader workflows.
 - Collect V5 staging, off-host backup, restore, rollback and alert evidence in

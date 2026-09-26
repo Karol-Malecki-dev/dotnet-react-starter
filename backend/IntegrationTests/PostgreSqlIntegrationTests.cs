@@ -34,6 +34,7 @@ using Infrastructure.ProjectManagement.Tasks;
 using Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Shared.Settings;
@@ -153,12 +154,12 @@ public sealed class PostgreSqlIntegrationTests
         await writerContext.SaveChangesAsync();
 
         var handler = new UpdateProjectHandler(new EfUpdateProjectStore(staleContext));
-        var result = await handler.HandleAsync(new Application.Modules.Projects.UpdateProject.UpdateProjectCommand(
+        var result = await handler.Handle(new Application.Modules.Projects.UpdateProject.UpdateProjectCommand(
             ownerId,
             projectId,
             "Stale update",
             null,
-            staleProject.ConcurrencyStamp));
+            staleProject.ConcurrencyStamp), default);
 
         Assert.Equal(ProjectOperationStatus.Conflict, result.Status);
         Assert.Contains("concurrently", result.Message, StringComparison.OrdinalIgnoreCase);
@@ -201,7 +202,7 @@ public sealed class PostgreSqlIntegrationTests
             new EfProjectTaskAccess(staleContext),
             new EfProjectTaskCommandStore(staleContext),
             staleScope.ServiceProvider.GetRequiredService<IProjectTaskAssignmentNotificationWriter>());
-        var result = await handler.HandleAsync(new Application.Modules.ProjectTasks.UpdateProjectTask.UpdateProjectTaskCommand(
+        var result = await handler.Handle(new Application.Modules.ProjectTasks.UpdateProjectTask.UpdateProjectTaskCommand(
             ownerId,
             projectId,
             staleTask.Id,
@@ -326,12 +327,16 @@ public sealed class PostgreSqlIntegrationTests
 
         await using var firstScope = _factory.Services.CreateAsyncScope();
         await using var secondScope = _factory.Services.CreateAsyncScope();
-        var firstHandler = firstScope.ServiceProvider.GetRequiredService<IAcceptProjectInvitationHandler>();
-        var secondHandler = secondScope.ServiceProvider.GetRequiredService<IAcceptProjectInvitationHandler>();
+        var firstHandler = new AcceptProjectInvitationHandler(
+            firstScope.ServiceProvider.GetRequiredService<IProjectInvitationResponseStore>(),
+            firstScope.ServiceProvider.GetRequiredService<IProjectInvitationNotificationWriter>());
+        var secondHandler = new AcceptProjectInvitationHandler(
+            secondScope.ServiceProvider.GetRequiredService<IProjectInvitationResponseStore>(),
+            secondScope.ServiceProvider.GetRequiredService<IProjectInvitationNotificationWriter>());
 
         var results = await Task.WhenAll(
-            firstHandler.HandleAsync(new AcceptProjectInvitationCommand(recipientId, token)),
-            secondHandler.HandleAsync(new AcceptProjectInvitationCommand(recipientId, token)));
+            firstHandler.Handle(new AcceptProjectInvitationCommand(recipientId, token), default),
+            secondHandler.Handle(new AcceptProjectInvitationCommand(recipientId, token), default));
 
         Assert.Single(results, result => result.IsSuccess);
         Assert.Single(results, result => result.Status == ProjectOperationStatus.Conflict);
@@ -390,9 +395,9 @@ public sealed class PostgreSqlIntegrationTests
 
         await using (var createScope = _factory.Services.CreateAsyncScope())
         {
-            var handler = createScope.ServiceProvider.GetRequiredService<ICreateProjectInvitationHandler>();
+            var sender = createScope.ServiceProvider.GetRequiredService<ISender>();
 
-            var result = await handler.HandleAsync(
+            var result = await sender.Send(
                 new CreateProjectInvitationCommand(
                     ownerId,
                     projectId,
@@ -520,7 +525,7 @@ public sealed class PostgreSqlIntegrationTests
                 new InvalidProjectInvitationNotificationWriter(responseContext));
 
             await Assert.ThrowsAsync<DbUpdateException>(() =>
-                handler.HandleAsync(new AcceptProjectInvitationCommand(recipientId, token)));
+                handler.Handle(new AcceptProjectInvitationCommand(recipientId, token), default));
         }
 
         await using var verificationScope = _factory.Services.CreateAsyncScope();
@@ -573,7 +578,7 @@ public sealed class PostgreSqlIntegrationTests
                 new FailingAddProjectMemberNotificationWriter());
 
             await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                handler.HandleAsync(new AddProjectMemberCommand(ownerId, projectId, memberId)));
+                handler.Handle(new AddProjectMemberCommand(ownerId, projectId, memberId), default));
         }
 
         await using var verificationScope = _factory.Services.CreateAsyncScope();
@@ -635,8 +640,9 @@ public sealed class PostgreSqlIntegrationTests
                 new EfRemoveProjectMemberStore(responseContext),
                 new EfProjectTaskMemberAssignmentWriter(responseContext));
 
-            var result = await handler.HandleAsync(
-                new RemoveProjectMemberCommand(ownerId, projectId, memberId));
+            var result = await handler.Handle(
+                new RemoveProjectMemberCommand(ownerId, projectId, memberId),
+                default);
 
             Assert.True(result.IsSuccess);
         }
@@ -715,7 +721,7 @@ public sealed class PostgreSqlIntegrationTests
                 new EfProjectTaskCommandStore(responseContext),
                 new EfProjectTaskAttachmentCleanupQueue(responseContext));
 
-            var result = await handler.HandleAsync(new DeleteProjectTaskCommand(
+            var result = await handler.Handle(new DeleteProjectTaskCommand(
                 ownerId,
                 projectId,
                 taskId,
@@ -1031,7 +1037,7 @@ public sealed class PostgreSqlIntegrationTests
                 .Select(task => task.ConcurrencyStamp)
                 .SingleAsync();
 
-            await Assert.ThrowsAsync<DbUpdateException>(() => handler.HandleAsync(
+            await Assert.ThrowsAsync<DbUpdateException>(() => handler.Handle(
                 new DeleteProjectTaskCommand(
                     ownerId,
                     projectId,

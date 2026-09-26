@@ -1,6 +1,7 @@
 using API.Contracts.Projects;
 using API.Modules.Projects;
 using Application.Modules.Projects.CreateProject;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Responses;
@@ -15,11 +16,11 @@ namespace API.Modules.Projects.CreateProject;
 [Authorize]
 public sealed class CreateProjectController : ProjectControllerBase
 {
-    private readonly ICreateProjectHandler _handler;
+    private readonly ISender _sender;
 
-    public CreateProjectController(ICreateProjectHandler handler)
+    public CreateProjectController(ISender sender)
     {
-        _handler = handler;
+        _sender = sender;
     }
 
     /// <summary>
@@ -35,7 +36,7 @@ public sealed class CreateProjectController : ProjectControllerBase
             return Unauthorized(ApiResponse<ProjectResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _handler.HandleAsync(
+        var result = await _sender.Send(
             new CreateProjectCommand(ownerId, request.Name, request.Description),
             cancellationToken);
 

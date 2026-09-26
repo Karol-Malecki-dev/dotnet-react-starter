@@ -29,7 +29,7 @@ Oceny są hipotezą roboczą:
 | --- | --- | --- | ---: | ---: | ---: | --- |
 | DX-001 | Prosty golden path VSA i pomiar kosztu slice'a | P0 | 5 | 5 | 2 | next |
 | CAP-001 | Domknięcie modułu Notifications i kontraktu zdarzeń | P0 | 5 | 5 | 3 | next |
-| DX-002 | Inkrementalna adopcja MediatR w VSA | P0 | 4 | 5 | 3 | accepted / planned after CAP-001 |
+| DX-002 | Inkrementalna adopcja MediatR w VSA | P0 | 4 | 5 | 3 | implemented / evidence pending |
 | CAP-002 | Account security audit | P0 | 5 | 5 | 3 | implemented / evidence review |
 | CAP-003 | Authorized workspace search | P0 | 4 | 4 | 3 | implemented / evidence review |
 | CAP-004 | Production-grade attachment lifecycle | P0 | 4 | 5 | 4 | implemented / V5 evidence pending |
@@ -149,8 +149,9 @@ modułów.
 publicznego kontraktu i cancellation. Bez globalnej transakcji, retry, cache,
 validation behavior i `MediatR.INotification`.
 
-**Kolejność dalszej migracji:** nowe slice'y, następnie `Notifications`, `Projects`
-i `ProjectTasks`; `Identity` tylko przy realnej zmianie use case'a.
+**Kolejność migracji:** nowe slice'y, następnie `Notifications`, `Projects` i
+`ProjectTasks` (zakres ukończony); `Identity` pozostaje poza zakresem i migruje się
+tylko przy realnej zmianie use case'a.
 
 **Dowody akceptacji:** publiczne kontrakty pilota są niezmienione, każdy request ma
 dokładnie jeden handler, `Domain` nie zależy od MediatR, logowanie nie zapisuje

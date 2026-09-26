@@ -26,7 +26,7 @@ Wersje `V1`, `V2` itd. nie są terminami kalendarzowymi ani obowiązkowymi relea
 | V4 | Kompletność produktu i pełniejsze przepływy użytkownika. |
 | V5 | Deployment, operacje i utrzymanie środowiska. |
 | V6 | Pomiar wydajności, niezawodność i zachowanie pod obciążeniem. |
-| V7 | Kontrolowana ewolucja architektury; MediatR jest zaplanowany, pozostałe kierunki zależą od potrzeb produktu. |
+| V7 | Kontrolowana ewolucja architektury; zaakceptowany tor MediatR jest ukończony, a pozostałe kierunki zależą od potrzeb produktu. |
 | V8 | Platformizacja sprawdzonych modułów i przygotowanie startera do wielokrotnego użycia. |
 
 Etap można uznać za ukończony dopiero wtedy, gdy istnieją kod, testy, dokumentacja i możliwość wyjaśnienia najważniejszych kompromisów.
@@ -48,7 +48,7 @@ Najważniejsze braki nie polegają obecnie na braku kolejnych endpointów. Dotyc
 
 - jednego prostego golden path dla kompletnego command/query slice'a;
 - spójności kontraktów Notifications między backendem i frontendem;
-- migracji kolejnych modułów do zaakceptowanego standardu MediatR bez utraty granic modułów;
+- potwierdzenia kosztu ręcznego tworzenia slice'ów przed rozpoczęciem platformizacji V8;
 - jawnej, testowalnej macierzy uprawnień przed dodaniem kolejnych workflowów;
 - zachowania klienta po reconnect, retry i konflikcie;
 - pomiarów wydajności oraz kosztu ręcznego tworzenia slice'ów;
@@ -68,17 +68,18 @@ Procent opisuje realizację głównych obszarów danego etapu, a nie liczbę lin
 | V4 | 78% | Domykanie kontraktów i dowodów | Account security audit, autoryzowany workspace search, produkcyjny lifecycle załączników oraz bazowa macierz browser E2E są zaimplementowane. Najbliższa luka to pełny kontrakt Notifications po obu stronach API oraz domknięcie pozostałych scenariuszy. |
 | V5 | 80% | W toku | Implementacja deploymentu VPS, migracji, szyfrowanego backupu, rollbacku, monitoringu i protected staging smoke jest gotowa; formalny gate czeka na realny staging, off-host backup, restore drill i rollback evidence. |
 | V6 | 13% | Planowany | Istnieją podstawy EF, PostgreSQL i workerów; brak baseline'ów, load testów i pomiarów. |
-| V7 | 67% | Pilot MediatR, standard nowych slice'ów i migracja Notifications ukończone; migracja modułów w toku | `GetProjectDetails`, `CreateProjectTask`, bezpieczny telemetry behavior oraz wszystkie sześć Notifications slices używają kanonicznego dispatchu; kolejne migracje dotyczą `Projects` i `ProjectTasks`. |
+| V7 | 100% | Zaakceptowany tor MediatR ukończony; opcjonalne kierunki pozostają odroczone | Wszystkie 36 request/handler pairs w `Notifications`, `Projects` i `ProjectTasks` używa kanonicznego dispatchu, a guardrails sprawdzają unikalność, DI i `ISender`. |
 | V8 | 0% | Odroczony; fundamenty częściowo gotowe | Trzy moduły i pierwsze guardrails istnieją, ale generator, wybór modułów i strategia aktualizacji wymagają najpierw pomiaru kolejnych ręcznych slice'ów. |
 
-**Postęp bazowej roadmapy V1-V7: 71%**.
+**Postęp bazowej roadmapy V1-V7: 76%**.
 
 ## Aktualna strategia wykonania
 
 Etapy pozostają mapą dojrzałości, ale praca przebiega w trzech torach:
 
-1. **Produkt i VSA:** najpierw prosty golden path i kontrakt Notifications, następnie
-   kolejne migracje MediatR, macierz uprawnień i pojedyncze workflowy.
+1. **Produkt i VSA:** utrzymywać prosty golden path i kontrakt Notifications,
+   następnie rozwijać macierz uprawnień i pojedyncze workflowy bez rozszerzania
+   zakresu zakończonej migracji MediatR.
 2. **Dowody V5:** staging, off-host backup, restore drill, rollback i alert test są
    zbierane równolegle. Nie blokują lokalnego feature development, lecz blokują
    deklarację production-ready.

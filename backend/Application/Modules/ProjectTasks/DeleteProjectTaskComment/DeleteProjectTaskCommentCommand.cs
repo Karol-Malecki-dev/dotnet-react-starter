@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using MediatR;
 using Domain.Entities;
 
 namespace Application.Modules.ProjectTasks.DeleteProjectTaskComment;
@@ -10,17 +11,10 @@ public sealed record DeleteProjectTaskCommentCommand(
     Guid UserId,
     Guid ProjectId,
     Guid ProjectTaskId,
-    Guid CommentId);
+    Guid CommentId)
+    : IRequest<ProjectOperationResult<bool>>;
 
-/// <summary>
-/// Executes the delete-project-task-comment use case.
-/// </summary>
-public interface IDeleteProjectTaskCommentHandler
-{
-    Task<ProjectOperationResult<bool>> HandleAsync(
-        DeleteProjectTaskCommentCommand command,
-        CancellationToken cancellationToken = default);
-}
+
 
 /// <summary>
 /// Provides the focused persistence operations needed by the delete-comment slice.

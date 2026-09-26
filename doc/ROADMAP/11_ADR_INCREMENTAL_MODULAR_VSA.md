@@ -144,8 +144,9 @@ The current backend modules are considered aligned with this ADR when:
 
 The `Notifications` module now follows the same incremental pattern. Its list,
 unread-count, email-preference, mark-as-read and mark-all-as-read use cases use
-focused handler and persistence contracts registered through
-`AddNotificationsModule`. Cross-module notification creation remains an explicit
+MediatR request/handler contracts dispatched through `ISender`, while focused
+persistence ports remain registered through `AddNotificationsModule`. Cross-module
+notification creation remains an explicit
 `INotificationWriter` port for Auth and deadline reminders, while project and task
 workflows keep their transaction-owned notification writers.
 
@@ -158,9 +159,9 @@ workflows keep their transaction-owned notification writers.
 - Move task-specific ports into the module namespace once no transitional consumer
   depends on the old location.
 - Keep the module registration, route uniqueness and dependency guardrails in CI.
-- Adopt MediatR incrementally according to
-  [`14_ADR_INCREMENTAL_MEDIATR_ADOPTION.md`](14_ADR_INCREMENTAL_MEDIATR_ADOPTION.md),
-  starting with one query and one command.
+- Maintain the MediatR dispatch and module-boundary guardrails according to
+  [`14_ADR_INCREMENTAL_MEDIATR_ADOPTION.md`](14_ADR_INCREMENTAL_MEDIATR_ADOPTION.md);
+  do not reopen a repository-wide rewrite.
 - Migrate the frontend to feature-first organization only after the backend
   contracts remain stable.
 - Revisit a small slice generator before a full `dotnet new` template, and only after

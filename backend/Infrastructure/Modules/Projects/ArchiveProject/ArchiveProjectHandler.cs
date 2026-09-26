@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using MediatR;
 using Application.Modules.Projects.ArchiveProject;
 using Microsoft.EntityFrameworkCore;
 
@@ -7,7 +8,7 @@ namespace Infrastructure.Modules.Projects.ArchiveProject;
 /// <summary>
 /// Coordinates owner authorization, archive mutation, and optimistic concurrency handling.
 /// </summary>
-public sealed class ArchiveProjectHandler : IArchiveProjectHandler
+public sealed class ArchiveProjectHandler : IRequestHandler<ArchiveProjectCommand, ProjectOperationResult<bool>>
 {
     private const string ConcurrencyConflictMessage = "Project was modified concurrently; refresh and retry";
 
@@ -18,13 +19,13 @@ public sealed class ArchiveProjectHandler : IArchiveProjectHandler
         _store = store;
     }
 
-    public async Task<ProjectOperationResult<bool>> HandleAsync(
-        ArchiveProjectCommand command,
+    public async Task<ProjectOperationResult<bool>> Handle(
+        ArchiveProjectCommand request,
         CancellationToken cancellationToken = default)
     {
         var project = await _store.GetOwnedProjectAsync(
-            command.OwnerId,
-            command.ProjectId,
+            request.OwnerId,
+            request.ProjectId,
             cancellationToken);
 
         if (project is null)

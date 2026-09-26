@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using MediatR;
 using Domain.Entities;
 
 namespace Application.Modules.ProjectTasks.DeleteProjectTaskAttachment;
@@ -10,17 +11,10 @@ public sealed record DeleteProjectTaskAttachmentCommand(
     Guid UserId,
     Guid ProjectId,
     Guid TaskId,
-    Guid AttachmentId);
+    Guid AttachmentId)
+    : IRequest<ProjectOperationResult<bool>>;
 
-/// <summary>
-/// Executes the delete-project-task-attachment use case.
-/// </summary>
-public interface IDeleteProjectTaskAttachmentHandler
-{
-    Task<ProjectOperationResult<bool>> HandleAsync(
-        DeleteProjectTaskAttachmentCommand command,
-        CancellationToken cancellationToken = default);
-}
+
 
 /// <summary>
 /// Provides the focused metadata operations needed by the delete-attachment slice.

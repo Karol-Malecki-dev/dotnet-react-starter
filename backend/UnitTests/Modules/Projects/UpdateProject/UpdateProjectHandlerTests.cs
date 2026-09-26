@@ -23,7 +23,7 @@ public sealed class UpdateProjectHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((Project?)null);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.NotFound, result.Status);
         _store.Verify(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
@@ -37,7 +37,7 @@ public sealed class UpdateProjectHandlerTests
         project.Archive();
         ConfigureProject(command, project);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.Conflict, result.Status);
         Assert.Equal("Archived project cannot be updated", result.Message);
@@ -51,7 +51,7 @@ public sealed class UpdateProjectHandlerTests
         var project = Project.Create(command.OwnerId, "Original project", "Original description");
         ConfigureProject(command, project);
 
-        var result = await CreateHandler().HandleAsync(
+        var result = await CreateHandler().Handle(
             command with
             {
                 ExpectedConcurrencyStamp = "stale-stamp"
@@ -70,7 +70,7 @@ public sealed class UpdateProjectHandlerTests
         var project = Project.Create(command.OwnerId, "Original project", "Original description");
         ConfigureProject(command, project);
 
-        var result = await CreateHandler().HandleAsync(
+        var result = await CreateHandler().Handle(
             command with
             {
                 ExpectedConcurrencyStamp = project.ConcurrencyStamp
@@ -95,7 +95,7 @@ public sealed class UpdateProjectHandlerTests
             .Setup(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new DbUpdateConcurrencyException());
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.Conflict, result.Status);
         Assert.Contains("concurrently", result.Message, StringComparison.OrdinalIgnoreCase);

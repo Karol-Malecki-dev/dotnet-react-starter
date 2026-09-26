@@ -1,4 +1,5 @@
 using Application.Features.ProjectManagement.Tasks;
+using MediatR;
 using Application.Features.Projects;
 using Domain.Enums;
 
@@ -17,14 +18,6 @@ public sealed record UpdateProjectTaskCommand(
     DateTime? DueDate,
     Guid? AssignedUserId,
     IReadOnlyList<string> Labels,
-    string? ExpectedConcurrencyStamp = null);
+    string? ExpectedConcurrencyStamp = null)
+    : IRequest<ProjectOperationResult<ProjectTaskView>>;
 
-/// <summary>
-/// Executes the update-project-task use case without exposing persistence details to the API.
-/// </summary>
-public interface IUpdateProjectTaskHandler
-{
-    Task<ProjectOperationResult<ProjectTaskView>> HandleAsync(
-        UpdateProjectTaskCommand command,
-        CancellationToken cancellationToken = default);
-}

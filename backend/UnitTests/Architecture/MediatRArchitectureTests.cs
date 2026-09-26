@@ -124,6 +124,26 @@ public sealed class MediatRArchitectureTests
         AssertControllerUsesSender(typeof(NotificationCommandsController));
     }
 
+    [Fact]
+    public void Migrated_module_controllers_dispatch_through_ISender()
+    {
+        var apiAssembly = typeof(GetProjectDetailsController).Assembly;
+        var controllers = apiAssembly.ExportedTypes
+            .Where(type => !type.IsAbstract
+                && typeof(Microsoft.AspNetCore.Mvc.ControllerBase).IsAssignableFrom(type)
+                && (type.Namespace?.StartsWith("API.Modules.Projects", StringComparison.Ordinal) == true
+                    || type.Namespace?.StartsWith("API.Modules.ProjectTasks", StringComparison.Ordinal) == true
+                    || type.Namespace?.StartsWith("API.Modules.Notifications", StringComparison.Ordinal) == true))
+            .ToArray();
+
+        Assert.NotEmpty(controllers);
+
+        foreach (var controller in controllers)
+        {
+            AssertControllerUsesSender(controller);
+        }
+    }
+
     private static void AssertControllerUsesSender(Type controllerType)
     {
         var constructor = controllerType.GetConstructors().Single();

@@ -1,21 +1,14 @@
 using Application.Features.Projects;
+using MediatR;
 
 namespace Application.Modules.Projects.ListProjectInvitations;
 
 /// <summary>
 /// Requests invitations created for a project owned by the current user.
 /// </summary>
-public sealed record ListProjectInvitationsQuery(Guid OwnerId, Guid ProjectId);
+public sealed record ListProjectInvitationsQuery(Guid OwnerId, Guid ProjectId)
+    : IRequest<ProjectOperationResult<IReadOnlyList<ProjectInvitationView>>>;
 
-/// <summary>
-/// Executes the list-project-invitations use case.
-/// </summary>
-public interface IListProjectInvitationsHandler
-{
-    Task<ProjectOperationResult<IReadOnlyList<ProjectInvitationView>>> HandleAsync(
-        ListProjectInvitationsQuery query,
-        CancellationToken cancellationToken = default);
-}
 
 /// <summary>
 /// Provides the focused projection required by the list-project-invitations slice.

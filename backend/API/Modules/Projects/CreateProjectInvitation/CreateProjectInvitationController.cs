@@ -1,5 +1,6 @@
 using API.Contracts.Projects;
 using Application.Modules.Projects.CreateProjectInvitation;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Responses;
@@ -14,11 +15,11 @@ namespace API.Modules.Projects.CreateProjectInvitation;
 [Route("api/projects/{projectId:guid}/invitations")]
 public sealed class CreateProjectInvitationController : ProjectControllerBase
 {
-    private readonly ICreateProjectInvitationHandler _handler;
+    private readonly ISender _sender;
 
-    public CreateProjectInvitationController(ICreateProjectInvitationHandler handler)
+    public CreateProjectInvitationController(ISender sender)
     {
-        _handler = handler;
+        _sender = sender;
     }
 
     /// <summary>
@@ -51,7 +52,7 @@ public sealed class CreateProjectInvitationController : ProjectControllerBase
                 "User not authenticated"));
         }
 
-        var result = await _handler.HandleAsync(
+        var result = await _sender.Send(
             new CreateProjectInvitationCommand(
                 ownerId,
                 projectId,

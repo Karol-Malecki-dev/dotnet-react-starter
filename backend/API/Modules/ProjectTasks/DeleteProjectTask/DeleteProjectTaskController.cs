@@ -1,5 +1,6 @@
 using API.Modules.ProjectTasks;
 using Application.Modules.ProjectTasks.DeleteProjectTask;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Responses;
@@ -14,11 +15,11 @@ namespace API.Modules.ProjectTasks.DeleteProjectTask;
 [Authorize]
 public sealed class DeleteProjectTaskController : ProjectTaskControllerBase
 {
-    private readonly IDeleteProjectTaskHandler _handler;
+    private readonly ISender _sender;
 
-    public DeleteProjectTaskController(IDeleteProjectTaskHandler handler)
+    public DeleteProjectTaskController(ISender sender)
     {
-        _handler = handler;
+        _sender = sender;
     }
 
     /// <summary>
@@ -36,7 +37,7 @@ public sealed class DeleteProjectTaskController : ProjectTaskControllerBase
             return Unauthorized(ApiResponse<bool>.Error(401, "User not authenticated"));
         }
 
-        var result = await _handler.HandleAsync(
+        var result = await _sender.Send(
             new DeleteProjectTaskCommand(
                 userId,
                 projectId,

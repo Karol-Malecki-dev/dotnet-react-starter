@@ -19,7 +19,7 @@ public sealed class CreateProjectTaskCommentHandlerTests
     {
         var command = CreateCommand("  ");
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.ValidationError, result.Status);
         _access.Verify(
@@ -41,7 +41,7 @@ public sealed class CreateProjectTaskCommentHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((ProjectMemberRole?)null);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.NotFound, result.Status);
         _commentStore.Verify(
@@ -55,7 +55,7 @@ public sealed class CreateProjectTaskCommentHandlerTests
         var command = CreateCommand("A comment");
         ConfigureAccess(command, ProjectMemberRole.Viewer);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.Forbidden, result.Status);
         _commentStore.Verify(
@@ -81,7 +81,7 @@ public sealed class CreateProjectTaskCommentHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(expected);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(201, result.CreatedStatusCode);

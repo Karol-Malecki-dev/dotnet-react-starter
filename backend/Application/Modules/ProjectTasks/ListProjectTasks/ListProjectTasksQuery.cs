@@ -1,4 +1,5 @@
 using Application.Features.ProjectManagement.Tasks;
+using MediatR;
 using Application.Features.Projects;
 using Domain.Enums;
 
@@ -19,7 +20,8 @@ public sealed record ProjectTaskQuery(
     string? Label,
     DateTime? DueBefore,
     ProjectTaskSortBy SortBy,
-    SortDirection SortDirection);
+    SortDirection SortDirection)
+    : IRequest<ProjectOperationResult<PagedProjectTaskView>>;
 
 /// <summary>
 /// Defines the supported task list sort fields.
@@ -49,12 +51,3 @@ public sealed record PagedProjectTaskView(
     int PageSize,
     int TotalCount);
 
-/// <summary>
-/// Executes the list-project-tasks use case without exposing persistence details to the API.
-/// </summary>
-public interface IListProjectTasksHandler
-{
-    Task<ProjectOperationResult<PagedProjectTaskView>> HandleAsync(
-        ProjectTaskQuery query,
-        CancellationToken cancellationToken = default);
-}
