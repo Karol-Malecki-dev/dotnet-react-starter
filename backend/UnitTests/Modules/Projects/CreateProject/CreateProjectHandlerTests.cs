@@ -16,7 +16,7 @@ public sealed class CreateProjectHandlerTests
     {
         var command = CreateCommand();
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(201, result.CreatedStatusCode);
@@ -49,7 +49,7 @@ public sealed class CreateProjectHandlerTests
             .Setup(store => store.SaveChangesAsync(cancellationToken))
             .Returns(Task.CompletedTask);
 
-        await CreateHandler().HandleAsync(command, cancellationToken);
+        await CreateHandler().Handle(command, cancellationToken);
 
         _store.Verify(store => store.SaveChangesAsync(cancellationToken), Times.Once);
     }
@@ -64,7 +64,7 @@ public sealed class CreateProjectHandlerTests
             .ThrowsAsync(exception);
 
         var actualException = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => CreateHandler().HandleAsync(command));
+            () => CreateHandler().Handle(command));
 
         Assert.Same(exception, actualException);
     }

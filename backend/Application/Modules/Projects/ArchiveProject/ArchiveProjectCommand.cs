@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using MediatR;
 using Domain.Entities;
 
 namespace Application.Modules.Projects.ArchiveProject;
@@ -6,17 +7,9 @@ namespace Application.Modules.Projects.ArchiveProject;
 /// <summary>
 /// Represents the application input for archiving a project.
 /// </summary>
-public sealed record ArchiveProjectCommand(Guid OwnerId, Guid ProjectId);
+public sealed record ArchiveProjectCommand(Guid OwnerId, Guid ProjectId)
+    : IRequest<ProjectOperationResult<bool>>;
 
-/// <summary>
-/// Executes the archive-project use case.
-/// </summary>
-public interface IArchiveProjectHandler
-{
-    Task<ProjectOperationResult<bool>> HandleAsync(
-        ArchiveProjectCommand command,
-        CancellationToken cancellationToken = default);
-}
 
 /// <summary>
 /// Provides the persistence operations required by the archive-project slice.

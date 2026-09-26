@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using MediatR;
 using Application.Modules.Projects.ListProjectInvitations;
 
 namespace Infrastructure.Modules.Projects.ListProjectInvitations;
@@ -6,7 +7,7 @@ namespace Infrastructure.Modules.Projects.ListProjectInvitations;
 /// <summary>
 /// Coordinates the owner check and project invitation projection.
 /// </summary>
-public sealed class ListProjectInvitationsHandler : IListProjectInvitationsHandler
+public sealed class ListProjectInvitationsHandler : IRequestHandler<ListProjectInvitationsQuery, ProjectOperationResult<IReadOnlyList<ProjectInvitationView>>>
 {
     private readonly IListProjectInvitationsStore _store;
 
@@ -15,13 +16,13 @@ public sealed class ListProjectInvitationsHandler : IListProjectInvitationsHandl
         _store = store;
     }
 
-    public async Task<ProjectOperationResult<IReadOnlyList<ProjectInvitationView>>> HandleAsync(
-        ListProjectInvitationsQuery query,
+    public async Task<ProjectOperationResult<IReadOnlyList<ProjectInvitationView>>> Handle(
+        ListProjectInvitationsQuery request,
         CancellationToken cancellationToken = default)
     {
         if (!await _store.OwnedProjectExistsAsync(
-                query.OwnerId,
-                query.ProjectId,
+                request.OwnerId,
+                request.ProjectId,
                 cancellationToken))
         {
             return ProjectOperationResult<IReadOnlyList<ProjectInvitationView>>.Failure(
@@ -29,7 +30,7 @@ public sealed class ListProjectInvitationsHandler : IListProjectInvitationsHandl
                 "Project not found");
         }
 
-        var invitations = await _store.QueryAsync(query.ProjectId, cancellationToken);
+        var invitations = await _store.QueryAsync(request.ProjectId, cancellationToken);
         return ProjectOperationResult<IReadOnlyList<ProjectInvitationView>>.Success(invitations);
     }
 }

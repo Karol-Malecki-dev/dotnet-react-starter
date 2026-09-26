@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using MediatR;
 using Application.Modules.ProjectTasks.Comments;
 
 namespace Application.Modules.ProjectTasks.ListProjectTaskComments;
@@ -9,17 +10,8 @@ namespace Application.Modules.ProjectTasks.ListProjectTaskComments;
 public sealed record ListProjectTaskCommentsQuery(
     Guid UserId,
     Guid ProjectId,
-    Guid TaskId);
-
-/// <summary>
-/// Executes the list-project-task-comments use case.
-/// </summary>
-public interface IListProjectTaskCommentsHandler
-{
-    Task<ProjectOperationResult<IReadOnlyList<ProjectTaskCommentView>>> HandleAsync(
-        ListProjectTaskCommentsQuery query,
-        CancellationToken cancellationToken = default);
-}
+    Guid TaskId)
+    : IRequest<ProjectOperationResult<IReadOnlyList<ProjectTaskCommentView>>>;
 
 /// <summary>
 /// Provides the focused persistence operation needed by the list-comments slice.

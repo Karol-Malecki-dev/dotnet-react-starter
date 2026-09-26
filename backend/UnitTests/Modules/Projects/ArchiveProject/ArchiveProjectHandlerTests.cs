@@ -22,7 +22,7 @@ public sealed class ArchiveProjectHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((Project?)null);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.NotFound, result.Status);
         _store.Verify(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
@@ -36,7 +36,7 @@ public sealed class ArchiveProjectHandlerTests
         project.Archive();
         ConfigureProject(command, project);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.True(result.IsSuccess);
         Assert.Equal("Project already archived", result.Message);
@@ -50,7 +50,7 @@ public sealed class ArchiveProjectHandlerTests
         var project = Project.Create(command.OwnerId, "Active project");
         ConfigureProject(command, project);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.True(result.IsSuccess);
         Assert.Equal("Project archived", result.Message);
@@ -68,7 +68,7 @@ public sealed class ArchiveProjectHandlerTests
             .Setup(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new DbUpdateConcurrencyException());
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.Conflict, result.Status);
         Assert.Contains("concurrently", result.Message, StringComparison.OrdinalIgnoreCase);

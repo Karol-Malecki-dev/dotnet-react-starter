@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using MediatR;
 using Domain.Entities;
 
 namespace Application.Modules.Projects.AddProjectMember;
@@ -6,17 +7,9 @@ namespace Application.Modules.Projects.AddProjectMember;
 /// <summary>
 /// Adds an active user to a project owned by the current user.
 /// </summary>
-public sealed record AddProjectMemberCommand(Guid OwnerId, Guid ProjectId, Guid UserId);
+public sealed record AddProjectMemberCommand(Guid OwnerId, Guid ProjectId, Guid UserId)
+    : IRequest<ProjectOperationResult<ProjectMemberView>>;
 
-/// <summary>
-/// Executes the add-project-member use case.
-/// </summary>
-public interface IAddProjectMemberHandler
-{
-    Task<ProjectOperationResult<ProjectMemberView>> HandleAsync(
-        AddProjectMemberCommand command,
-        CancellationToken cancellationToken = default);
-}
 
 /// <summary>
 /// Provides the focused persistence operations required by the add-project-member slice.

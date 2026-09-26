@@ -1,6 +1,7 @@
 using API.Contracts.Projects;
 using API.Modules.Projects;
 using Application.Modules.Projects.AddProjectMember;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Responses;
@@ -15,11 +16,11 @@ namespace API.Modules.Projects.AddProjectMember;
 [Authorize]
 public sealed class AddProjectMemberController : ProjectControllerBase
 {
-    private readonly IAddProjectMemberHandler _handler;
+    private readonly ISender _sender;
 
-    public AddProjectMemberController(IAddProjectMemberHandler handler)
+    public AddProjectMemberController(ISender sender)
     {
-        _handler = handler;
+        _sender = sender;
     }
 
     /// <summary>
@@ -36,7 +37,7 @@ public sealed class AddProjectMemberController : ProjectControllerBase
             return Unauthorized(ApiResponse<ProjectMemberResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _handler.HandleAsync(
+        var result = await _sender.Send(
             new AddProjectMemberCommand(ownerId, projectId, request.UserId),
             cancellationToken);
 

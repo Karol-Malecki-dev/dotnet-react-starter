@@ -19,7 +19,7 @@ public sealed class ListProjectsHandlerTests
             .Setup(store => store.QueryAsync(query, It.IsAny<CancellationToken>()))
             .ReturnsAsync(expected);
 
-        var result = await CreateHandler().HandleAsync(query);
+        var result = await CreateHandler().Handle(query);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
@@ -39,7 +39,7 @@ public sealed class ListProjectsHandlerTests
             .Setup(store => store.QueryAsync(query, It.IsAny<CancellationToken>()))
             .ReturnsAsync(expected);
 
-        var result = await CreateHandler().HandleAsync(query);
+        var result = await CreateHandler().Handle(query);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(expected, result.Value);
@@ -55,7 +55,7 @@ public sealed class ListProjectsHandlerTests
             .Setup(store => store.QueryAsync(query, cancellationToken))
             .ReturnsAsync(Array.Empty<ProjectView>());
 
-        await CreateHandler().HandleAsync(query, cancellationToken);
+        await CreateHandler().Handle(query, cancellationToken);
 
         _store.Verify(store => store.QueryAsync(query, cancellationToken), Times.Once);
     }

@@ -1,6 +1,7 @@
 using API.Contracts.Projects;
 using API.Modules.ProjectTasks;
 using Application.Modules.ProjectTasks.UpdateProjectTaskStatus;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Responses;
@@ -15,11 +16,11 @@ namespace API.Modules.ProjectTasks.UpdateProjectTaskStatus;
 [Authorize]
 public sealed class UpdateProjectTaskStatusController : ProjectTaskControllerBase
 {
-    private readonly IUpdateProjectTaskStatusHandler _handler;
+    private readonly ISender _sender;
 
-    public UpdateProjectTaskStatusController(IUpdateProjectTaskStatusHandler handler)
+    public UpdateProjectTaskStatusController(ISender sender)
     {
-        _handler = handler;
+        _sender = sender;
     }
 
     /// <summary>
@@ -37,7 +38,7 @@ public sealed class UpdateProjectTaskStatusController : ProjectTaskControllerBas
             return Unauthorized(ApiResponse<ProjectTaskResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _handler.HandleAsync(
+        var result = await _sender.Send(
             new UpdateProjectTaskStatusCommand(
                 userId,
                 projectId,

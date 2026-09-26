@@ -21,7 +21,7 @@ public sealed class ListProjectMembersHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
-        var result = await CreateHandler().HandleAsync(query);
+        var result = await CreateHandler().Handle(query);
 
         Assert.Equal(ProjectOperationStatus.NotFound, result.Status);
         _store.Verify(store => store.QueryAsync(
@@ -48,7 +48,7 @@ public sealed class ListProjectMembersHandlerTests
             .Setup(store => store.QueryAsync(query.ProjectId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(members);
 
-        var result = await CreateHandler().HandleAsync(query);
+        var result = await CreateHandler().Handle(query);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(members, result.Value);
@@ -73,7 +73,7 @@ public sealed class ListProjectMembersHandlerTests
             .Setup(store => store.QueryAsync(query.ProjectId, cancellationToken))
             .ReturnsAsync(Array.Empty<ProjectMemberView>());
 
-        await CreateHandler().HandleAsync(query, cancellationToken);
+        await CreateHandler().Handle(query, cancellationToken);
 
         _store.Verify(store => store.HasProjectAccessAsync(
             query.UserId,

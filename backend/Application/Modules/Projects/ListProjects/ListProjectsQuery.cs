@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using MediatR;
 
 namespace Application.Modules.Projects.ListProjects;
 
@@ -8,17 +9,9 @@ namespace Application.Modules.Projects.ListProjects;
 public sealed record ListProjectsQuery(
     Guid UserId,
     bool IncludeArchived = false,
-    string Scope = "all");
+    string Scope = "all")
+    : IRequest<ProjectOperationResult<IReadOnlyList<ProjectView>>>;
 
-/// <summary>
-/// Executes the list-projects use case.
-/// </summary>
-public interface IListProjectsHandler
-{
-    Task<ProjectOperationResult<IReadOnlyList<ProjectView>>> HandleAsync(
-        ListProjectsQuery query,
-        CancellationToken cancellationToken = default);
-}
 
 /// <summary>
 /// Provides the persistence projection required by the list-projects slice.

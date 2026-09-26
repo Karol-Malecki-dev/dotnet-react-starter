@@ -1,6 +1,7 @@
 using API.Modules.Projects;
 using Application.Features.Projects;
 using Application.Modules.Projects.ArchiveProject;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Responses;
@@ -15,11 +16,11 @@ namespace API.Modules.Projects.ArchiveProject;
 [Authorize]
 public sealed class ArchiveProjectController : ProjectControllerBase
 {
-    private readonly IArchiveProjectHandler _handler;
+    private readonly ISender _sender;
 
-    public ArchiveProjectController(IArchiveProjectHandler handler)
+    public ArchiveProjectController(ISender sender)
     {
-        _handler = handler;
+        _sender = sender;
     }
 
     /// <summary>
@@ -35,7 +36,7 @@ public sealed class ArchiveProjectController : ProjectControllerBase
             return Unauthorized(ApiResponse<bool>.Error(401, "User not authenticated"));
         }
 
-        var result = await _handler.HandleAsync(
+        var result = await _sender.Send(
             new ArchiveProjectCommand(ownerId, projectId),
             cancellationToken);
 

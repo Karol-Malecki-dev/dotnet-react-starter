@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using MediatR;
 using Application.Modules.ProjectTasks.Comments;
 
 namespace Application.Modules.ProjectTasks.CreateProjectTaskComment;
@@ -10,17 +11,10 @@ public sealed record CreateProjectTaskCommentCommand(
     Guid AuthorUserId,
     Guid ProjectId,
     Guid ProjectTaskId,
-    string Content);
+    string Content)
+    : IRequest<ProjectOperationResult<ProjectTaskCommentView>>;
 
-/// <summary>
-/// Executes the create-project-task-comment use case.
-/// </summary>
-public interface ICreateProjectTaskCommentHandler
-{
-    Task<ProjectOperationResult<ProjectTaskCommentView>> HandleAsync(
-        CreateProjectTaskCommentCommand command,
-        CancellationToken cancellationToken = default);
-}
+
 
 /// <summary>
 /// Provides the focused persistence operation needed by the create-comment slice.

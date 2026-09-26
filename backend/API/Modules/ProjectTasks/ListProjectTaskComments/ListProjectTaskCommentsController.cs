@@ -1,6 +1,7 @@
 using API.Contracts.Projects;
 using API.Modules.ProjectTasks;
 using Application.Modules.ProjectTasks.ListProjectTaskComments;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Responses;
@@ -15,11 +16,11 @@ namespace API.Modules.ProjectTasks.ListProjectTaskComments;
 [Authorize]
 public sealed class ListProjectTaskCommentsController : ProjectTaskControllerBase
 {
-    private readonly IListProjectTaskCommentsHandler _handler;
+    private readonly ISender _sender;
 
-    public ListProjectTaskCommentsController(IListProjectTaskCommentsHandler handler)
+    public ListProjectTaskCommentsController(ISender sender)
     {
-        _handler = handler;
+        _sender = sender;
     }
 
     /// <summary>
@@ -38,7 +39,7 @@ public sealed class ListProjectTaskCommentsController : ProjectTaskControllerBas
                 "User not authenticated"));
         }
 
-        var result = await _handler.HandleAsync(
+        var result = await _sender.Send(
             new ListProjectTaskCommentsQuery(userId, projectId, taskId),
             cancellationToken);
         return ToActionResult(

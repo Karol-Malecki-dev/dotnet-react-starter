@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using MediatR;
 using Domain.Entities;
 
 namespace Application.Modules.Projects.CreateProject;
@@ -9,17 +10,9 @@ namespace Application.Modules.Projects.CreateProject;
 public sealed record CreateProjectCommand(
     Guid OwnerId,
     string Name,
-    string? Description);
+    string? Description)
+    : IRequest<ProjectOperationResult<ProjectView>>;
 
-/// <summary>
-/// Executes the create-project use case.
-/// </summary>
-public interface ICreateProjectHandler
-{
-    Task<ProjectOperationResult<ProjectView>> HandleAsync(
-        CreateProjectCommand command,
-        CancellationToken cancellationToken = default);
-}
 
 /// <summary>
 /// Provides the persistence operations required by the create-project slice.

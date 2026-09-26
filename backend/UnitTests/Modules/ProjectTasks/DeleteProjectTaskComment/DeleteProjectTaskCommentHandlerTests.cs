@@ -24,7 +24,7 @@ public sealed class DeleteProjectTaskCommentHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((ProjectMemberRole?)null);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.NotFound, result.Status);
         _commentStore.Verify(
@@ -44,7 +44,7 @@ public sealed class DeleteProjectTaskCommentHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((ProjectTaskComment?)null);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.NotFound, result.Status);
         _commentStore.Verify(store => store.Remove(It.IsAny<ProjectTaskComment>()), Times.Never);
@@ -63,7 +63,7 @@ public sealed class DeleteProjectTaskCommentHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(comment);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.Forbidden, result.Status);
         _commentStore.Verify(store => store.Remove(It.IsAny<ProjectTaskComment>()), Times.Never);
@@ -86,7 +86,7 @@ public sealed class DeleteProjectTaskCommentHandlerTests
             .Setup(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.True(result.IsSuccess);
         Assert.True(result.Value);

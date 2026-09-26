@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using MediatR;
 using Application.Modules.Projects.AcceptProjectInvitation;
 using Application.Modules.Projects.Invitations;
 using Domain.Enums;
@@ -9,7 +10,7 @@ namespace Infrastructure.Modules.Projects.AcceptProjectInvitation;
 /// <summary>
 /// Handles acceptance of a project invitation.
 /// </summary>
-public sealed class AcceptProjectInvitationHandler : ProjectInvitationResponseHandlerBase, IAcceptProjectInvitationHandler
+public sealed class AcceptProjectInvitationHandler : ProjectInvitationResponseHandlerBase, IRequestHandler<AcceptProjectInvitationCommand, ProjectOperationResult<ProjectInvitationView>>
 {
     public AcceptProjectInvitationHandler(
         IProjectInvitationResponseStore store,
@@ -18,12 +19,12 @@ public sealed class AcceptProjectInvitationHandler : ProjectInvitationResponseHa
     {
     }
 
-    public Task<ProjectOperationResult<ProjectInvitationView>> HandleAsync(
-        AcceptProjectInvitationCommand command,
+    public Task<ProjectOperationResult<ProjectInvitationView>> Handle(
+        AcceptProjectInvitationCommand request,
         CancellationToken cancellationToken = default)
         => HandleResponseAsync(
-            command.UserId,
-            command.Token,
+            request.UserId,
+            request.Token,
             ProjectInvitationStatus.Accepted,
             cancellationToken);
 }

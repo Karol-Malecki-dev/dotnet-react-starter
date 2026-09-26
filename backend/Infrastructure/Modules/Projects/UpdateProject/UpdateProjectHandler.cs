@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using MediatR;
 using Application.Modules.Projects.UpdateProject;
 using Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -8,7 +9,7 @@ namespace Infrastructure.Modules.Projects.UpdateProject;
 /// <summary>
 /// Coordinates owner authorization, project mutation, and optimistic concurrency handling.
 /// </summary>
-public sealed class UpdateProjectHandler : IUpdateProjectHandler
+public sealed class UpdateProjectHandler : IRequestHandler<UpdateProjectCommand, ProjectOperationResult<ProjectView>>
 {
     private const string ConcurrencyConflictMessage = "Project was modified concurrently; refresh and retry";
 
@@ -19,13 +20,13 @@ public sealed class UpdateProjectHandler : IUpdateProjectHandler
         _store = store;
     }
 
-    public async Task<ProjectOperationResult<ProjectView>> HandleAsync(
-        UpdateProjectCommand command,
+    public async Task<ProjectOperationResult<ProjectView>> Handle(
+        UpdateProjectCommand request,
         CancellationToken cancellationToken = default)
     {
         var project = await _store.GetOwnedProjectAsync(
-            command.OwnerId,
-            command.ProjectId,
+            request.OwnerId,
+            request.ProjectId,
             cancellationToken);
 
         if (project is null)
@@ -42,10 +43,10 @@ public sealed class UpdateProjectHandler : IUpdateProjectHandler
                 "Archived project cannot be updated");
         }
 
-        if (command.ExpectedConcurrencyStamp is not null
+        if (request.ExpectedConcurrencyStamp is not null
             && !string.Equals(
                 project.ConcurrencyStamp,
-                command.ExpectedConcurrencyStamp,
+                request.ExpectedConcurrencyStamp,
                 StringComparison.Ordinal))
         {
             return ProjectOperationResult<ProjectView>.Failure(
@@ -53,8 +54,8 @@ public sealed class UpdateProjectHandler : IUpdateProjectHandler
                 ConcurrencyConflictMessage);
         }
 
-        project.Rename(command.Name);
-        project.ChangeDescription(command.Description);
+        project.Rename(request.Name);
+        project.ChangeDescription(request.Description);
 
         try
         {

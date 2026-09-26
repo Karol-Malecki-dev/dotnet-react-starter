@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using MediatR;
 using Application.Modules.Projects.DeclineProjectInvitation;
 using Application.Modules.Projects.Invitations;
 using Domain.Enums;
@@ -9,7 +10,7 @@ namespace Infrastructure.Modules.Projects.DeclineProjectInvitation;
 /// <summary>
 /// Handles rejection of a project invitation.
 /// </summary>
-public sealed class DeclineProjectInvitationHandler : ProjectInvitationResponseHandlerBase, IDeclineProjectInvitationHandler
+public sealed class DeclineProjectInvitationHandler : ProjectInvitationResponseHandlerBase, IRequestHandler<DeclineProjectInvitationCommand, ProjectOperationResult<ProjectInvitationView>>
 {
     public DeclineProjectInvitationHandler(
         IProjectInvitationResponseStore store,
@@ -18,12 +19,12 @@ public sealed class DeclineProjectInvitationHandler : ProjectInvitationResponseH
     {
     }
 
-    public Task<ProjectOperationResult<ProjectInvitationView>> HandleAsync(
-        DeclineProjectInvitationCommand command,
+    public Task<ProjectOperationResult<ProjectInvitationView>> Handle(
+        DeclineProjectInvitationCommand request,
         CancellationToken cancellationToken = default)
         => HandleResponseAsync(
-            command.UserId,
-            command.Token,
+            request.UserId,
+            request.Token,
             ProjectInvitationStatus.Declined,
             cancellationToken);
 }

@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using MediatR;
 using Application.Modules.Projects.CreateProject;
 using Domain.Entities;
 using Domain.Enums;
@@ -8,7 +9,7 @@ namespace Infrastructure.Modules.Projects.CreateProject;
 /// <summary>
 /// Coordinates project creation and records the initial project activity.
 /// </summary>
-public sealed class CreateProjectHandler : ICreateProjectHandler
+public sealed class CreateProjectHandler : IRequestHandler<CreateProjectCommand, ProjectOperationResult<ProjectView>>
 {
     private readonly ICreateProjectStore _store;
 
@@ -17,16 +18,16 @@ public sealed class CreateProjectHandler : ICreateProjectHandler
         _store = store;
     }
 
-    public async Task<ProjectOperationResult<ProjectView>> HandleAsync(
-        CreateProjectCommand command,
+    public async Task<ProjectOperationResult<ProjectView>> Handle(
+        CreateProjectCommand request,
         CancellationToken cancellationToken = default)
     {
-        var project = Project.Create(command.OwnerId, command.Name, command.Description);
+        var project = Project.Create(request.OwnerId, request.Name, request.Description);
         _store.AddProject(project);
         _store.AddActivity(new ProjectActivity
         {
             ProjectId = project.Id,
-            ActorUserId = command.OwnerId,
+            ActorUserId = request.OwnerId,
             Type = "project.created",
             Description = $"created the project '{project.Name}'."
         });

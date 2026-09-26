@@ -139,7 +139,8 @@ Zakres:
 6. rozszerzyć testy architektoniczne o dokładnie jeden handler per request, DI,
    zależność `Domain` i propagację cancellation tokenu;
 7. po przejściu bramki używać MediatR w nowych slice'ach i migrować istniejące
-   moduły w kolejności `Notifications`, `Projects`, `ProjectTasks`;
+   moduły w kolejności `Notifications`, `Projects`, `ProjectTasks` (zakres
+   checkpointów został ukończony);
 8. migrować `Identity` tylko przy realnej zmianie konkretnego use case'a.
 
 Autoryzacja zasobowa, transakcja, finalny `SaveChangesAsync`, optimistic concurrency
@@ -151,8 +152,9 @@ i skutki w bazie, a test architektury wykrywa brak albo duplikat handlera.
 
 **Bramka adopcji:** decyzja o użyciu MediatR jest zaakceptowana. Pilot i standard
 nowych slice'ów rozstrzygnęły rejestrację, telemetrię i tempo migracji. Nowe
-slice'y używają MediatR domyślnie, a istniejące moduły są migrowane inkrementalnie;
-nie ma zgody na natychmiastowy rewrite ani na użycie biblioteki jako event busa.
+slice'y używają MediatR domyślnie, a `Notifications`, `Projects` i `ProjectTasks`
+zostały zmigrowane inkrementalnie; nie ma zgody na natychmiastowy rewrite ani na
+użycie biblioteki jako event busa.
 
 ### M3: jawna macierz uprawnień
 

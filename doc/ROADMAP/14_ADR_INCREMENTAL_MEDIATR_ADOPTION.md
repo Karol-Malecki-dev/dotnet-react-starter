@@ -1,6 +1,6 @@
 # ADR: Incremental MediatR Adoption for Modular VSA
 
-- Status: Accepted; pilot, new-slice standard and Notifications migration implemented
+- Status: Accepted; pilot, new-slice standard and all three planned module migrations implemented
 - Date: 2026-09-21
 - Scope: in-process command/query dispatch in backend vertical slices
 
@@ -177,8 +177,8 @@ Current checkpoint status as of **2026-09-25**:
 - [x] Command and telemetry
 - [x] New-slice default
 - [x] Notifications migration
-- [ ] Projects migration
-- [ ] ProjectTasks migration
+- [x] Projects migration
+- [x] ProjectTasks migration
 
 ### Checkpoint 2 implementation notes
 
@@ -211,6 +211,40 @@ focused persistence ports remain unchanged. Architecture tests enforce handler
 uniqueness, DI resolution and `ISender` usage for every Notifications controller.
 The Notifications API integration suite remains green for paging, authorization,
 read state transitions and email preferences.
+
+### Checkpoints 5 and 6 implementation notes
+
+The `Projects` migration covers all 17 project lifecycle, membership, invitation,
+activity, dashboard and listing request/handler pairs. The `ProjectTasks` migration
+covers all 13 task, comment and attachment request/handler pairs. Their controllers
+now dispatch through `ISender`, while module entry points register only focused
+ports, adapters and workers; MediatR discovers the handlers through the single
+application dispatch registration.
+
+The migrations deliberately preserve resource authorization, optimistic concurrency,
+explicit transaction ownership, the final `SaveChangesAsync`, durable notification
+and email-outbox staging, attachment cleanup, and worker behavior. No HTTP route,
+JSON response, status code or database schema was changed. Direct handler interfaces
+and their parallel dispatch paths were removed after their tests and consumers moved
+to the canonical MediatR path.
+
+### V7 implementation evidence
+
+The completed migration has the following repository evidence:
+
+| Check | Result |
+| --- | --- |
+| Backend Release build | Passed with 0 warnings and 0 errors |
+| Full backend unit suite | 347/347 passed |
+| Projects, ProjectTasks and ProjectInvitations API suites | 49/49 passed |
+| MediatR/module architecture integration checks | 3/3 passed |
+| Full integration suite without a local Docker daemon | 103 passed, 2 skipped; 26 PostgreSQL/Testcontainers cases were blocked by the unavailable Docker endpoint |
+
+The measured V7 change is structural and behavioral: 36 module request/handler
+pairs now use one dispatch path and the guardrails verify uniqueness and DI
+resolution. A separate request-latency benchmark is intentionally not introduced:
+V6 owns performance baselines, and this migration makes no performance claim or
+public contract change.
 
 ## Options rejected
 
@@ -267,6 +301,6 @@ behaviors.
 - targeted unit and API integration tests pass without contract changes;
 - architecture tests cover handler uniqueness, DI and the Domain dependency rule;
 - backend Release build has no new warnings;
-- measured costs and benefits are added to this ADR;
+- measured implementation cost and behavioral evidence are added to this ADR;
 - new slices use MediatR after the pilot gate;
 - existing modules have an explicit incremental migration order.

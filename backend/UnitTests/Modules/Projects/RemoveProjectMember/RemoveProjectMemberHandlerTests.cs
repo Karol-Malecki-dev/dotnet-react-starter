@@ -23,7 +23,7 @@ public sealed class RemoveProjectMemberHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((Project?)null);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.NotFound, result.Status);
         _taskAssignmentWriter.Verify(writer => writer.UnassignAllAsync(
@@ -41,7 +41,7 @@ public sealed class RemoveProjectMemberHandlerTests
         var command = new RemoveProjectMemberCommand(ownerId, project.Id, ownerId);
         SetupProject(command, project);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.Conflict, result.Status);
         _taskAssignmentWriter.Verify(writer => writer.UnassignAllAsync(
@@ -59,7 +59,7 @@ public sealed class RemoveProjectMemberHandlerTests
         var command = new RemoveProjectMemberCommand(ownerId, project.Id, Guid.NewGuid());
         SetupProject(command, project);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.NotFound, result.Status);
         _taskAssignmentWriter.Verify(writer => writer.UnassignAllAsync(
@@ -88,7 +88,7 @@ public sealed class RemoveProjectMemberHandlerTests
             .Setup(store => store.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.True(result.IsSuccess);
         Assert.True(result.Value);
@@ -118,7 +118,7 @@ public sealed class RemoveProjectMemberHandlerTests
             .ThrowsAsync(new InvalidOperationException("Task assignment update failed."));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            CreateHandler().HandleAsync(command));
+            CreateHandler().Handle(command));
 
         Assert.Contains(project.Members, candidate => candidate.UserId == memberId);
         _store.Verify(store => store.RemoveMember(It.IsAny<ProjectMember>()), Times.Never);
@@ -148,7 +148,7 @@ public sealed class RemoveProjectMemberHandlerTests
             .Setup(store => store.SaveChangesAsync(cancellationToken))
             .Returns(Task.CompletedTask);
 
-        await CreateHandler().HandleAsync(command, cancellationToken);
+        await CreateHandler().Handle(command, cancellationToken);
 
         _store.Verify(store => store.GetOwnedProjectWithMembersAsync(
             ownerId,

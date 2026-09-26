@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using MediatR;
 using Application.Modules.Projects.AddProjectMember;
 using Domain.Entities;
 using Infrastructure.Data;
@@ -9,7 +10,7 @@ namespace Infrastructure.Modules.Projects.AddProjectMember;
 /// <summary>
 /// Coordinates the add-project-member command without exposing persistence details to the API.
 /// </summary>
-public sealed class AddProjectMemberHandler : IAddProjectMemberHandler
+public sealed class AddProjectMemberHandler : IRequestHandler<AddProjectMemberCommand, ProjectOperationResult<ProjectMemberView>>
 {
     private readonly IAddProjectMemberStore _store;
     private readonly IAddProjectMemberNotificationWriter _notificationWriter;
@@ -22,13 +23,13 @@ public sealed class AddProjectMemberHandler : IAddProjectMemberHandler
         _notificationWriter = notificationWriter;
     }
 
-    public async Task<ProjectOperationResult<ProjectMemberView>> HandleAsync(
-        AddProjectMemberCommand command,
+    public async Task<ProjectOperationResult<ProjectMemberView>> Handle(
+        AddProjectMemberCommand request,
         CancellationToken cancellationToken = default)
     {
         var project = await _store.GetOwnedProjectWithMembersAsync(
-            command.OwnerId,
-            command.ProjectId,
+            request.OwnerId,
+            request.ProjectId,
             cancellationToken);
 
         if (project is null)
@@ -38,7 +39,7 @@ public sealed class AddProjectMemberHandler : IAddProjectMemberHandler
                 "Project not found");
         }
 
-        var user = await _store.GetActiveUserAsync(command.UserId, cancellationToken);
+        var user = await _store.GetActiveUserAsync(request.UserId, cancellationToken);
         if (user is null)
         {
             return ProjectOperationResult<ProjectMemberView>.Failure(
@@ -46,7 +47,7 @@ public sealed class AddProjectMemberHandler : IAddProjectMemberHandler
                 "User not found or inactive");
         }
 
-        if (await _store.IsMemberAsync(command.ProjectId, command.UserId, cancellationToken))
+        if (await _store.IsMemberAsync(request.ProjectId, request.UserId, cancellationToken))
         {
             return ProjectOperationResult<ProjectMemberView>.Failure(
                 ProjectOperationStatus.Conflict,
@@ -56,7 +57,7 @@ public sealed class AddProjectMemberHandler : IAddProjectMemberHandler
         ProjectMember member;
         try
         {
-            member = project.AddMember(command.UserId);
+            member = project.AddMember(request.UserId);
         }
         catch (InvalidOperationException)
         {
@@ -68,15 +69,15 @@ public sealed class AddProjectMemberHandler : IAddProjectMemberHandler
         _store.AddMember(member);
         _store.AddActivity(new ProjectActivity
         {
-            ProjectId = command.ProjectId,
-            ActorUserId = command.OwnerId,
+            ProjectId = request.ProjectId,
+            ActorUserId = request.OwnerId,
             Type = "member.added",
             Description = $"added {user.DisplayName.Value} to the project."
         });
 
         await _notificationWriter.AddProjectMemberNotificationAsync(
             user.Id,
-            command.ProjectId,
+            request.ProjectId,
             project.Name,
             cancellationToken);
 

@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using MediatR;
 
 namespace Application.Modules.Projects.GetProjectActivity;
 
@@ -9,17 +10,9 @@ public sealed record GetProjectActivityQuery(
     Guid UserId,
     Guid ProjectId,
     int PageNumber,
-    int PageSize);
+    int PageSize)
+    : IRequest<ProjectOperationResult<PagedProjectActivityView>>;
 
-/// <summary>
-/// Executes the get-project-activity use case.
-/// </summary>
-public interface IGetProjectActivityHandler
-{
-    Task<ProjectOperationResult<PagedProjectActivityView>> HandleAsync(
-        GetProjectActivityQuery query,
-        CancellationToken cancellationToken = default);
-}
 
 /// <summary>
 /// Provides access checks and the focused activity projection for one project.

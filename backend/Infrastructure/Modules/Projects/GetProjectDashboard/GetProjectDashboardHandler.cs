@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using MediatR;
 using Application.Modules.ProjectTasks.Dashboard;
 using Application.Modules.Projects.GetProjectDashboard;
 
@@ -7,7 +8,7 @@ namespace Infrastructure.Modules.Projects.GetProjectDashboard;
 /// <summary>
 /// Composes project-owned activity with a task snapshot obtained through the ProjectTasks port.
 /// </summary>
-public sealed class GetProjectDashboardHandler : IGetProjectDashboardHandler
+public sealed class GetProjectDashboardHandler : IRequestHandler<GetProjectDashboardQuery, ProjectOperationResult<ProjectDashboardView>>
 {
     private const int RecentActivityLimit = 5;
     private readonly IGetProjectDashboardStore _store;
@@ -21,13 +22,13 @@ public sealed class GetProjectDashboardHandler : IGetProjectDashboardHandler
         _taskDashboardReader = taskDashboardReader;
     }
 
-    public async Task<ProjectOperationResult<ProjectDashboardView>> HandleAsync(
-        GetProjectDashboardQuery query,
+    public async Task<ProjectOperationResult<ProjectDashboardView>> Handle(
+        GetProjectDashboardQuery request,
         CancellationToken cancellationToken = default)
     {
         if (!await _store.HasProjectAccessAsync(
-                query.UserId,
-                query.ProjectId,
+                request.UserId,
+                request.ProjectId,
                 cancellationToken))
         {
             return ProjectOperationResult<ProjectDashboardView>.Failure(
@@ -36,10 +37,10 @@ public sealed class GetProjectDashboardHandler : IGetProjectDashboardHandler
         }
 
         var taskSnapshot = await _taskDashboardReader.ReadAsync(
-            query.ProjectId,
+            request.ProjectId,
             cancellationToken);
         var recentActivity = await _store.GetRecentActivityAsync(
-            query.ProjectId,
+            request.ProjectId,
             RecentActivityLimit,
             cancellationToken);
 

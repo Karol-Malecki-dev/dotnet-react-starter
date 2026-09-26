@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using MediatR;
 using Application.Modules.Projects.Invitations;
 using Domain.Entities;
 using Domain.Enums;
@@ -12,7 +13,8 @@ public sealed record CreateProjectInvitationCommand(
     Guid OwnerId,
     Guid ProjectId,
     string Email,
-    ProjectMemberRole Role);
+    ProjectMemberRole Role)
+    : IRequest<ProjectOperationResult<CreatedProjectInvitationView>>;
 
 /// <summary>
 /// Contains project data required to create and describe an invitation.
@@ -21,15 +23,6 @@ public sealed record ProjectInvitationCreationContext(
     string ProjectName,
     string InviterDisplayName);
 
-/// <summary>
-/// Executes the create-project-invitation use case.
-/// </summary>
-public interface ICreateProjectInvitationHandler
-{
-    Task<ProjectOperationResult<CreatedProjectInvitationView>> HandleAsync(
-        CreateProjectInvitationCommand command,
-        CancellationToken cancellationToken = default);
-}
 
 /// <summary>
 /// Provides persistence operations required by the create-project-invitation slice.

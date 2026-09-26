@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using MediatR;
 using Domain.Entities;
 using Domain.Enums;
 
@@ -11,17 +12,9 @@ public sealed record ChangeProjectMemberRoleCommand(
     Guid OwnerId,
     Guid ProjectId,
     Guid UserId,
-    ProjectMemberRole Role);
+    ProjectMemberRole Role)
+    : IRequest<ProjectOperationResult<ProjectMemberView>>;
 
-/// <summary>
-/// Executes the change-project-member-role use case.
-/// </summary>
-public interface IChangeProjectMemberRoleHandler
-{
-    Task<ProjectOperationResult<ProjectMemberView>> HandleAsync(
-        ChangeProjectMemberRoleCommand command,
-        CancellationToken cancellationToken = default);
-}
 
 /// <summary>
 /// Provides persistence operations required by the change-project-member-role slice.

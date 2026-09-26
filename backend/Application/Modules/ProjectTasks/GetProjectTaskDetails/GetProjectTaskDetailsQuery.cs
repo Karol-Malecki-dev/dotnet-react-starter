@@ -1,4 +1,5 @@
 using Application.Features.ProjectManagement.Tasks;
+using MediatR;
 using Application.Features.Projects;
 
 namespace Application.Modules.ProjectTasks.GetProjectTaskDetails;
@@ -9,14 +10,6 @@ namespace Application.Modules.ProjectTasks.GetProjectTaskDetails;
 public sealed record GetProjectTaskDetailsQuery(
     Guid UserId,
     Guid ProjectId,
-    Guid TaskId);
+    Guid TaskId)
+    : IRequest<ProjectOperationResult<ProjectTaskView>>;
 
-/// <summary>
-/// Executes the get-project-task-details use case without exposing persistence details to the API.
-/// </summary>
-public interface IGetProjectTaskDetailsHandler
-{
-    Task<ProjectOperationResult<ProjectTaskView>> HandleAsync(
-        GetProjectTaskDetailsQuery query,
-        CancellationToken cancellationToken = default);
-}

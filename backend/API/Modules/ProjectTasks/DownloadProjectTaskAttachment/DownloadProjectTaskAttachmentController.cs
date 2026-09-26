@@ -1,6 +1,7 @@
 using API.Contracts.Projects;
 using API.Modules.ProjectTasks;
 using Application.Modules.ProjectTasks.DownloadProjectTaskAttachment;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Responses;
@@ -15,11 +16,11 @@ namespace API.Modules.ProjectTasks.DownloadProjectTaskAttachment;
 [Authorize]
 public sealed class DownloadProjectTaskAttachmentController : ProjectTaskControllerBase
 {
-    private readonly IDownloadProjectTaskAttachmentHandler _handler;
+    private readonly ISender _sender;
 
-    public DownloadProjectTaskAttachmentController(IDownloadProjectTaskAttachmentHandler handler)
+    public DownloadProjectTaskAttachmentController(ISender sender)
     {
-        _handler = handler;
+        _sender = sender;
     }
 
     /// <summary>
@@ -39,7 +40,7 @@ public sealed class DownloadProjectTaskAttachmentController : ProjectTaskControl
                 "User not authenticated"));
         }
 
-        var result = await _handler.HandleAsync(
+        var result = await _sender.Send(
             new DownloadProjectTaskAttachmentQuery(
                 userId,
                 projectId,

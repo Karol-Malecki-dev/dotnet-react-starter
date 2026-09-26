@@ -1,5 +1,6 @@
 using Application.Features.Projects;
 using Application.Modules.Projects.GetProjectActivity;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Responses;
@@ -14,11 +15,11 @@ namespace API.Modules.Projects.GetProjectActivity;
 [Route("api/projects/{projectId:guid}/activity")]
 public sealed class GetProjectActivityController : ProjectControllerBase
 {
-    private readonly IGetProjectActivityHandler _handler;
+    private readonly ISender _sender;
 
-    public GetProjectActivityController(IGetProjectActivityHandler handler)
+    public GetProjectActivityController(ISender sender)
     {
-        _handler = handler;
+        _sender = sender;
     }
 
     /// <summary>
@@ -46,7 +47,7 @@ public sealed class GetProjectActivityController : ProjectControllerBase
                 "User not authenticated"));
         }
 
-        var result = await _handler.HandleAsync(
+        var result = await _sender.Send(
             new GetProjectActivityQuery(userId, projectId, pageNumber, pageSize),
             cancellationToken);
         return ToActionResult(result, page => page);

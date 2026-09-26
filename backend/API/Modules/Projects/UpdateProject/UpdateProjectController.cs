@@ -1,6 +1,7 @@
 using API.Contracts.Projects;
 using API.Modules.Projects;
 using Application.Modules.Projects.UpdateProject;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Responses;
@@ -15,11 +16,11 @@ namespace API.Modules.Projects.UpdateProject;
 [Authorize]
 public sealed class UpdateProjectController : ProjectControllerBase
 {
-    private readonly IUpdateProjectHandler _handler;
+    private readonly ISender _sender;
 
-    public UpdateProjectController(IUpdateProjectHandler handler)
+    public UpdateProjectController(ISender sender)
     {
-        _handler = handler;
+        _sender = sender;
     }
 
     /// <summary>
@@ -36,7 +37,7 @@ public sealed class UpdateProjectController : ProjectControllerBase
             return Unauthorized(ApiResponse<ProjectResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _handler.HandleAsync(
+        var result = await _sender.Send(
             new UpdateProjectCommand(
                 ownerId,
                 projectId,

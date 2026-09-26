@@ -1,6 +1,7 @@
 using API.Contracts.Projects;
 using API.Modules.ProjectTasks;
 using Application.Modules.ProjectTasks.CreateProjectTaskComment;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Responses;
@@ -15,11 +16,11 @@ namespace API.Modules.ProjectTasks.CreateProjectTaskComment;
 [Authorize]
 public sealed class CreateProjectTaskCommentController : ProjectTaskControllerBase
 {
-    private readonly ICreateProjectTaskCommentHandler _handler;
+    private readonly ISender _sender;
 
-    public CreateProjectTaskCommentController(ICreateProjectTaskCommentHandler handler)
+    public CreateProjectTaskCommentController(ISender sender)
     {
-        _handler = handler;
+        _sender = sender;
     }
 
     /// <summary>
@@ -39,7 +40,7 @@ public sealed class CreateProjectTaskCommentController : ProjectTaskControllerBa
                 "User not authenticated"));
         }
 
-        var result = await _handler.HandleAsync(
+        var result = await _sender.Send(
             new CreateProjectTaskCommentCommand(userId, projectId, taskId, request.Content),
             cancellationToken);
         return ToActionResult(result, MapComment);

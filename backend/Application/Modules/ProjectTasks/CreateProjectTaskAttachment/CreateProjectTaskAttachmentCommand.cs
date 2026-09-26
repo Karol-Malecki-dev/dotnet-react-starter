@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using MediatR;
 using Application.Modules.ProjectTasks.Attachments;
 
 namespace Application.Modules.ProjectTasks.CreateProjectTaskAttachment;
@@ -13,17 +14,10 @@ public sealed record CreateProjectTaskAttachmentCommand(
     string OriginalFileName,
     string ContentType,
     long SizeBytes,
-    Stream Content);
+    Stream Content)
+    : IRequest<ProjectOperationResult<ProjectTaskAttachmentView>>;
 
-/// <summary>
-/// Executes the create-project-task-attachment use case.
-/// </summary>
-public interface ICreateProjectTaskAttachmentHandler
-{
-    Task<ProjectOperationResult<ProjectTaskAttachmentView>> HandleAsync(
-        CreateProjectTaskAttachmentCommand command,
-        CancellationToken cancellationToken = default);
-}
+
 
 /// <summary>
 /// Provides the focused persistence operation needed by the create-attachment slice.

@@ -47,38 +47,22 @@ public static class ProjectsModule
     {
         services.AddScoped<IAddProjectMemberStore, EfAddProjectMemberStore>();
         services.AddScoped<IAddProjectMemberNotificationWriter, EfAddProjectMemberNotificationWriter>();
-        services.AddScoped<IAddProjectMemberHandler, AddProjectMemberHandler>();
         services.AddScoped<IArchiveProjectStore, EfArchiveProjectStore>();
-        services.AddScoped<IArchiveProjectHandler, ArchiveProjectHandler>();
         services.AddScoped<IChangeProjectMemberRoleStore, EfChangeProjectMemberRoleStore>();
-        services.AddScoped<IChangeProjectMemberRoleHandler, ChangeProjectMemberRoleHandler>();
         services.AddScoped<ICreateProjectStore, EfCreateProjectStore>();
-        services.AddScoped<ICreateProjectHandler, CreateProjectHandler>();
         services.AddScoped<IGetProjectDetailsStore, EfGetProjectDetailsStore>();
         services.AddScoped<IGetProjectActivityStore, EfGetProjectActivityStore>();
-        services.AddScoped<IGetProjectActivityHandler, GetProjectActivityHandler>();
         services.AddScoped<IGetProjectDashboardStore, EfGetProjectDashboardStore>();
-        services.AddScoped<IGetProjectDashboardHandler, GetProjectDashboardHandler>();
         services.AddScoped<IListAvailableProjectMembersStore, EfListAvailableProjectMembersStore>();
-        services.AddScoped<IListAvailableProjectMembersHandler, ListAvailableProjectMembersHandler>();
         services.AddScoped<IListProjectsStore, EfListProjectsStore>();
-        services.AddScoped<IListProjectsHandler, ListProjectsHandler>();
         services.AddScoped<IListProjectMembersStore, EfListProjectMembersStore>();
-        services.AddScoped<IListProjectMembersHandler, ListProjectMembersHandler>();
         services.AddScoped<IRemoveProjectMemberStore, EfRemoveProjectMemberStore>();
-        services.AddScoped<IRemoveProjectMemberHandler, RemoveProjectMemberHandler>();
         services.AddScoped<IListProjectInvitationsStore, EfListProjectInvitationsStore>();
-        services.AddScoped<IListProjectInvitationsHandler, ListProjectInvitationsHandler>();
         services.AddScoped<IListMyProjectInvitationsStore, EfListMyProjectInvitationsStore>();
-        services.AddScoped<IListMyProjectInvitationsHandler, ListMyProjectInvitationsHandler>();
         services.AddScoped<ICreateProjectInvitationStore, EfCreateProjectInvitationStore>();
         services.AddScoped<IProjectInvitationNotificationWriter, EfProjectInvitationNotificationWriter>();
-        services.AddScoped<ICreateProjectInvitationHandler, CreateProjectInvitationHandler>();
         services.AddScoped<IProjectInvitationResponseStore, EfProjectInvitationResponseStore>();
-        services.AddScoped<IAcceptProjectInvitationHandler, AcceptProjectInvitationHandler>();
-        services.AddScoped<IDeclineProjectInvitationHandler, DeclineProjectInvitationHandler>();
         services.AddScoped<IUpdateProjectStore, EfUpdateProjectStore>();
-        services.AddScoped<IUpdateProjectHandler, UpdateProjectHandler>();
 
         return services;
     }

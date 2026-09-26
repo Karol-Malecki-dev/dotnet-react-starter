@@ -1,12 +1,13 @@
 using Application.Features.Projects;
+using MediatR;
 using Application.Modules.Projects.GetProjectActivity;
 
 namespace Infrastructure.Modules.Projects.GetProjectActivity;
 
 /// <summary>
-/// Applies project access and pagination rules to the activity query.
+/// Applies project access and pagination rules to the activity request.
 /// </summary>
-public sealed class GetProjectActivityHandler : IGetProjectActivityHandler
+public sealed class GetProjectActivityHandler : IRequestHandler<GetProjectActivityQuery, ProjectOperationResult<PagedProjectActivityView>>
 {
     private readonly IGetProjectActivityStore _store;
 
@@ -15,13 +16,13 @@ public sealed class GetProjectActivityHandler : IGetProjectActivityHandler
         _store = store;
     }
 
-    public async Task<ProjectOperationResult<PagedProjectActivityView>> HandleAsync(
-        GetProjectActivityQuery query,
+    public async Task<ProjectOperationResult<PagedProjectActivityView>> Handle(
+        GetProjectActivityQuery request,
         CancellationToken cancellationToken = default)
     {
         if (!await _store.HasProjectAccessAsync(
-                query.UserId,
-                query.ProjectId,
+                request.UserId,
+                request.ProjectId,
                 cancellationToken))
         {
             return ProjectOperationResult<PagedProjectActivityView>.Failure(
@@ -29,10 +30,10 @@ public sealed class GetProjectActivityHandler : IGetProjectActivityHandler
                 "Project not found");
         }
 
-        var pageNumber = Math.Max(query.PageNumber, 1);
-        var pageSize = Math.Clamp(query.PageSize, 1, 100);
+        var pageNumber = Math.Max(request.PageNumber, 1);
+        var pageSize = Math.Clamp(request.PageSize, 1, 100);
         var page = await _store.QueryAsync(
-            query.ProjectId,
+            request.ProjectId,
             pageNumber,
             pageSize,
             cancellationToken);

@@ -1,4 +1,5 @@
 using Application.Features.Projects;
+using MediatR;
 using Domain.Entities;
 
 namespace Application.Modules.Projects.RemoveProjectMember;
@@ -6,17 +7,9 @@ namespace Application.Modules.Projects.RemoveProjectMember;
 /// <summary>
 /// Removes a non-owner member from a project.
 /// </summary>
-public sealed record RemoveProjectMemberCommand(Guid OwnerId, Guid ProjectId, Guid UserId);
+public sealed record RemoveProjectMemberCommand(Guid OwnerId, Guid ProjectId, Guid UserId)
+    : IRequest<ProjectOperationResult<bool>>;
 
-/// <summary>
-/// Executes the remove-project-member use case.
-/// </summary>
-public interface IRemoveProjectMemberHandler
-{
-    Task<ProjectOperationResult<bool>> HandleAsync(
-        RemoveProjectMemberCommand command,
-        CancellationToken cancellationToken = default);
-}
 
 /// <summary>
 /// Provides persistence operations required by the remove-project-member slice.

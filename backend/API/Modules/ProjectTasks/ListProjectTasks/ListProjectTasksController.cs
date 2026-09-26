@@ -1,6 +1,7 @@
 using API.Contracts.Projects;
 using API.Modules.ProjectTasks;
 using Application.Modules.ProjectTasks.ListProjectTasks;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Responses;
@@ -15,11 +16,11 @@ namespace API.Modules.ProjectTasks.ListProjectTasks;
 [Authorize]
 public sealed class ListProjectTasksController : ProjectTaskControllerBase
 {
-    private readonly IListProjectTasksHandler _handler;
+    private readonly ISender _sender;
 
-    public ListProjectTasksController(IListProjectTasksHandler handler)
+    public ListProjectTasksController(ISender sender)
     {
-        _handler = handler;
+        _sender = sender;
     }
 
     /// <summary>
@@ -36,7 +37,7 @@ public sealed class ListProjectTasksController : ProjectTaskControllerBase
             return Unauthorized(ApiResponse<PagedProjectTaskResponse>.Error(401, "User not authenticated"));
         }
 
-        var result = await _handler.HandleAsync(
+        var result = await _sender.Send(
             new ProjectTaskQuery(
                 userId,
                 projectId,

@@ -26,7 +26,7 @@ public sealed class DeleteProjectTaskAttachmentHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(attachment);
 
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.Equal(ProjectOperationStatus.Forbidden, result.Status);
         _attachmentStore.Verify(
@@ -57,7 +57,7 @@ public sealed class DeleteProjectTaskAttachmentHandlerTests
                 command.UserId,
                 It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
-        var result = await CreateHandler().HandleAsync(command);
+        var result = await CreateHandler().Handle(command);
 
         Assert.True(result.IsSuccess);
         Assert.True(result.Value);

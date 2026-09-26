@@ -1,21 +1,14 @@
 using Application.Features.Projects;
+using MediatR;
 
 namespace Application.Modules.Projects.ListMyProjectInvitations;
 
 /// <summary>
 /// Requests pending invitations addressed to the current user.
 /// </summary>
-public sealed record ListMyProjectInvitationsQuery(Guid UserId);
+public sealed record ListMyProjectInvitationsQuery(Guid UserId)
+    : IRequest<ProjectOperationResult<IReadOnlyList<ProjectInvitationView>>>;
 
-/// <summary>
-/// Executes the list-my-project-invitations use case.
-/// </summary>
-public interface IListMyProjectInvitationsHandler
-{
-    Task<ProjectOperationResult<IReadOnlyList<ProjectInvitationView>>> HandleAsync(
-        ListMyProjectInvitationsQuery query,
-        CancellationToken cancellationToken = default);
-}
 
 /// <summary>
 /// Provides the focused projection required by the list-my-project-invitations slice.
