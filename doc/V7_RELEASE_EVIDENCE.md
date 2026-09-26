@@ -62,7 +62,9 @@ V7 intentionally does not add global transactions, validation or retry
 behaviors, cache/Redis, a message broker, microservices or provider-level
 email idempotency. Optional identity, product and distributed-operations
 directions remain separate ADR candidates. V8 begins only after measuring the
-manual cost of creating and maintaining additional slices.
+manual cost of creating and maintaining additional slices. V8.0 now provides a
+bounded source-template proof based on the already confirmed slice standard; the
+historical wall-clock manual measurement remains a V8.1 follow-up.
 
 ## Final release record
 

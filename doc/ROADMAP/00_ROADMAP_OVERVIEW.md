@@ -48,15 +48,16 @@ Najważniejsze braki nie polegają obecnie na braku kolejnych endpointów. Dotyc
 
 - jednego prostego golden path dla kompletnego command/query slice'a;
 - spójności kontraktów Notifications między backendem i frontendem;
-- potwierdzenia kosztu ręcznego tworzenia slice'ów przed rozpoczęciem platformizacji V8;
+- potwierdzenia wall-clock kosztu ręcznego tworzenia kolejnych slice'ów po
+  pierwszym proofie V8;
 - jawnej, testowalnej macierzy uprawnień przed dodaniem kolejnych workflowów;
 - zachowania klienta po reconnect, retry i konflikcie;
-- pomiarów wydajności oraz kosztu ręcznego tworzenia slice'ów;
+- dalszych pomiarów wydajności oraz kosztu ręcznego tworzenia slice'ów;
 - runtime evidence dla stagingu, backupu, restore, rollbacku i alertów.
 
 ## Status realizacji roadmapy
 
-Stan na: **2026-09-25**.
+Stan na: **2026-09-26**.
 
 Procent opisuje realizację głównych obszarów danego etapu, a nie liczbę linii kodu. `100%` oznacza spełniony obszar wraz z testem, dokumentacją albo zaakceptowaną decyzją. `50%` oznacza istniejący fundament bez pełnego Definition of Done, a `0%` oznacza brak rozpoczętej realizacji. Postęp bazowej roadmapy jest średnią arytmetyczną etapów V1-V7 i nie jest miarą gotowości produkcyjnej. V8 jest późniejszym etapem platformizacji i nie jest wliczany do postępu bazowej aplikacji.
 
@@ -67,11 +68,11 @@ Procent opisuje realizację głównych obszarów danego etapu, a nie liczbę lin
 | V3 | 65% | W toku; pilot VSA ukończony | `Projects`, `ProjectTasks` i `Notifications` potwierdzają backendowy standard slice'a, jawne porty, modułowe DI i guardrails. Pozostałe prace V3 dotyczą granic domenowych, starszych modeli i domknięcia kontraktów, nie masowej migracji folderów. |
 | V4 | 78% | Domykanie kontraktów i dowodów | Account security audit, autoryzowany workspace search, produkcyjny lifecycle załączników oraz bazowa macierz browser E2E są zaimplementowane. Najbliższa luka to pełny kontrakt Notifications po obu stronach API oraz domknięcie pozostałych scenariuszy. |
 | V5 | 80% | W toku | Implementacja deploymentu VPS, migracji, szyfrowanego backupu, rollbacku, monitoringu i protected staging smoke jest gotowa; formalny gate czeka na realny staging, off-host backup, restore drill i rollback evidence. |
-| V6 | 13% | Planowany | Istnieją podstawy EF, PostgreSQL i workerów; brak baseline'ów, load testów i pomiarów. |
+| V6 | 100% | Ukończony | Baseline'y API/EF/SQL, niezawodność outboxa, retry/dead-letter, metryki, timeouty SMTP, odporność frontendu i izolacja Compose zostały wydane w `v6.0.0`. |
 | V7 | 100% | Zaakceptowany tor MediatR ukończony; opcjonalne kierunki pozostają odroczone | Wszystkie 36 request/handler pairs w `Notifications`, `Projects` i `ProjectTasks` używa kanonicznego dispatchu, a guardrails sprawdzają unikalność, DI i `ISender`. |
-| V8 | 0% | Odroczony; fundamenty częściowo gotowe | Trzy moduły i pierwsze guardrails istnieją, ale generator, wybór modułów i strategia aktualizacji wymagają najpierw pomiaru kolejnych ręcznych slice'ów. |
+| V8 | 100% dla V8.0 | Source-template/scaffolding wydane; dalsza platformizacja jest opcjonalnym V8.1+ | Dwa niezależne warianty (`Minimal`/`Full`) przechodzą backend restore/build/test, frontend build, manifest validation i guardrails. NuGet, `dotnet new`, automatyczne aktualizacje i realne migracje pozostają poza V8.0. |
 
-**Postęp bazowej roadmapy V1-V7: 76%**.
+**Postęp bazowej roadmapy V1-V7: 88%**.
 
 ## Aktualna strategia wykonania
 
@@ -83,8 +84,9 @@ Etapy pozostają mapą dojrzałości, ale praca przebiega w trzech torach:
 2. **Dowody V5:** staging, off-host backup, restore drill, rollback i alert test są
    zbierane równolegle. Nie blokują lokalnego feature development, lecz blokują
    deklarację production-ready.
-3. **V8:** automatyzacja zaczyna się od pomiaru kosztu ręcznego slice'a. Generator i
-   template projektu nie są warunkiem obecnych funkcji.
+3. **V8:** source-template i minimalny scaffolding są już zweryfikowanym sposobem
+   tworzenia kolejnych consumerów. Dalsze automatyzowanie (pakiety, `dotnet new`,
+   aktualizacje wielu projektów) wymaga realnego użycia i nowych pomiarów.
 
 Szczegółowa kolejność znajduje się w
 [`../PRODUCT_EVOLUTION/DEVELOPMENT_PLAN.md`](../PRODUCT_EVOLUTION/DEVELOPMENT_PLAN.md).
@@ -174,9 +176,14 @@ Dokument: [07_V7_OPTIONAL_EVOLUTION.md](07_V7_OPTIONAL_EVOLUTION.md)
 
 ### V8: Reusable Modular Starter / Platformization
 
-Rozpoczyna się dopiero po potwierdzeniu standardu na kilku rzeczywistych modułach. Obejmuje automatyczne guardrails, scaffolding, wybór modułów podczas tworzenia projektu oraz strategię ich wersjonowania i aktualizacji. Nie jest wymagany do ukończenia bazowej aplikacji V1-V7.
+V8.0 potwierdził source-template, scaffolding, automatyczne guardrails, warianty
+projektu i strategię `regenerate-and-review` na dwóch niezależnych consumerach.
+Automatyczne aktualizacje, pakiety i pełne capability modułów pozostają opcjonalnym
+V8.1+. V8 nie jest wymagany do ukończenia bazowej aplikacji V1-V7.
 
 Dokument: [08_V8_REUSABLE_MODULAR_STARTER.md](08_V8_REUSABLE_MODULAR_STARTER.md)
+Gate: [V8_RELEASE_GATE.md](../V8_RELEASE_GATE.md), evidence:
+[V8_RELEASE_EVIDENCE.md](../V8_RELEASE_EVIDENCE.md)
 
 ## Ogólna Definition of Done
 

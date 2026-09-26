@@ -12,22 +12,26 @@ wcześniej potwierdzone w realnych przypadkach użycia.
 
 ## Status realizacji
 
-Stan na: **2026-09-21**.
+Stan na: **2026-09-26**.
 
 | Obszar | Postęp | Status |
 |---|---:|---|
-| Standard modułu i slice'a | 70% | ADR, checklista i backendowe moduły `Projects`, `ProjectTasks` oraz `Notifications` potwierdzają podstawowy standard command/query slice'a. |
-| Guardrails architektoniczne | 45% | Istnieją testy DI, unikalności tras i bezpośredniego dostępu do `ApplicationDbContext`; brakuje pełniejszych reguł zależności, kontraktów OpenAPI/TypeScript i testu wygenerowanego wariantu. |
-| Scaffolding | 0% | Brak generatora modułu albo slice'a. |
-| Wybór i instalacja modułów | 0% | Brak stabilnego mechanizmu tworzenia projektu z wybranym zestawem capability. |
-| Wersjonowanie i aktualizacje | 0% | Brak potwierdzonej strategii aktualizowania modułów w wielu projektach. |
-| Moduły referencyjne | 60% | `Projects`, `ProjectTasks` i `Notifications` dostarczają różne wzorce, ale nie są jeszcze niezależnie instalowanymi i wersjonowanymi capability. |
+| Standard modułu i slice'a | 100% | ADR, checklista, trzy moduły produkcyjne oraz consumer template potwierdzają kanoniczny przepływ `ISender -> IRequestHandler`. |
+| Guardrails architektoniczne | 85% | Template testuje composition root, unikalność handlerów, `ISender`, brak zależności `Domain` od MediatR i publiczny endpoint; pełne guardrails migracji bazy pozostają poza V8.0. |
+| Scaffolding | 100% | `New-VsaSlice.ps1` i `New-V8StarterProject.ps1` generują sprawdzony skeleton query oraz dwa warianty projektu. |
+| Wybór i instalacja modułów | 75% | Source-template obsługuje warianty `Minimal` i `Full`; dystrybucja NuGet i runtime installer są świadomie poza zakresem. |
+| Wersjonowanie i aktualizacje | 75% | Manifest zawiera wersję template'u i politykę `regenerate-and-review`, sprawdzoną na dwóch niezależnych consumerach. |
+| Moduły referencyjne | 70% | Template zawiera mały rdzeń `StarterHealth` oraz opcjonalny `Catalog`; produkcyjne `Projects`, `ProjectTasks` i `Notifications` pozostają wzorcami do ręcznej adaptacji. |
 
-**Gotowość fundamentów V8: 29%**. **Realizacja V8: 0%**.
+**Gotowość V8.0: 100%** dla zaakceptowanego zakresu source-template i scaffolding.
+Szersza platformizacja (automatyczne aktualizacje, stabilne pakiety i pełne moduły
+capability) pozostaje świadomym backlogiem V8.1+.
 
-Istniejące fundamenty pozwalają już poprawić manualny developer experience, ale nie
-uruchamiają jeszcze platformizacji. V8 rozpoczyna się dopiero po spełnieniu kryteriów
-wejścia i zebraniu pomiarów kolejnych slice'ów.
+Proof V8 zapisuje wynik w `artifacts\v8\generated-run\proof.json` (katalog jest
+ignorowany przez Git), a trwałe podsumowanie znajduje się w
+[`V8_RELEASE_EVIDENCE.md`](../V8_RELEASE_EVIDENCE.md).
+Decyzję o source-template i aktualizacjach zapisuje
+[`15_ADR_SOURCE_TEMPLATE_DISTRIBUTION.md`](15_ADR_SOURCE_TEMPLATE_DISTRIBUTION.md).
 
 ## Kryteria wejścia
 
@@ -40,9 +44,35 @@ Przed rozpoczęciem V8 wymagane są:
 - potwierdzone testami granice zależności między modułami
   (**częściowo spełnione**);
 - udokumentowany sposób współdzielenia jednej bazy i migracji;
-- zmierzony czas ręcznego tworzenia kolejnych slice'ów;
-- przynajmniej jeden przypadek użycia startera albo modułu w drugim projekcie;
+- zmierzony strukturalny koszt ręcznego workflowu oraz czas proofu generatora;
+- przynajmniej jeden przypadek użycia startera albo modułu w drugim projekcie
+  (spełnione przez niezależne warianty `Minimal` i `Full`);
 - lista elementów rzeczywiście powtarzalnych, a nie tylko przewidywanych.
+
+Historyczny wall-clock ręcznego tworzenia slice'a nie był rekonstruowany po fakcie.
+Nie jest udawany jako pomiar; zostaje metryką V8.1, jeśli dalsze użycie startera
+wykaże taką potrzebę.
+
+## Zakres wydania V8.0
+
+V8.0 jest pierwszym używalnym wydaniem platformizacji, a nie obietnicą
+uniwersalnego frameworka. Wydanie obejmuje:
+
+- `templates\v8-consumer\Common` jako kanoniczny source-template;
+- wariant `Minimal` z obowiązkowym rdzeniem oraz wariant `Full` z referencyjnym
+  modułem `Catalog`;
+- `New-V8StarterProject.ps1` z manifestem projektu i ochroną przed przypadkowym
+  nadpisaniem;
+- `New-VsaSlice.ps1` generujący query albo command, handler, adapter HTTP oraz
+  testy;
+- `Invoke-V8ScaffoldingProof.ps1`, który generuje oba warianty, dodaje query i
+  command slice, uruchamia backend restore/build/unit/integration tests oraz
+  frontend build;
+- manifesty z wersją template'u, listą modułów i polityką `regenerate-and-review`.
+
+Generator tworzy wyłącznie techniczny skeleton. Handler ma jawnie oznaczony
+`NotImplementedException`, a konsument musi samodzielnie ustalić regułę domenową,
+autoryzację, porty, transakcję, błędy i ewentualną migrację.
 
 ## Most V3/V4: ergonomia przed platformizacją
 
@@ -163,27 +193,44 @@ częścią obowiązkowego rdzenia startera.
 
 ## Test plan
 
-- utworzenie czystego projektu z minimalnym wspieranym zestawem modułów;
-- utworzenie projektu z pełnym zestawem modułów;
-- build i testy wygenerowanego rozwiązania bez ręcznych poprawek;
-- dodanie command i query slice'a przez generator;
-- uruchomienie migracji na pustej bazie i upgrade poprzedniego schematu;
-- wyłączenie opcjonalnego endpointu lub workera bez naruszenia pozostałych modułów;
-- aktualizacja jednego modułu w co najmniej dwóch projektach testowych;
-- wykrycie przykładowej niedozwolonej zależności przez test architektury;
-- porównanie czasu ręcznego i generowanego workflowu.
+- utworzenie czystego projektu z minimalnym wspieranym zestawem;
+- utworzenie projektu z pełnym zestawem referencyjnym;
+- build i testy backendu obu wariantów bez ręcznych poprawek;
+- build frontendu obu wariantów;
+- dodanie query i command slice'a przez generator;
+- wykrycie błędu rejestracji albo duplikatu handlera przez test architektury;
+- potwierdzenie, że output nie kopiuje katalogu źródłowych wariantów ani artefaktów
+  `bin`, `obj`, `node_modules` i `dist`;
+- sprawdzenie manifestu wersji, modułów i polityki aktualizacji w dwóch consumerach.
 
-## Definition of Done
+Migracje bazy są w V8.0 `N/A`: template nie zawiera schematu ani `DbContext`, więc
+nie może udawać, że testuje migrację. Właściciel danych w consumerze pozostaje
+odpowiedzialny za migrację i upgrade zgodnie z jego domeną.
 
-- istnieją co najmniej dwa sprawdzone warianty wygenerowanego projektu;
-- nowy slice można utworzyć z kanonicznego szablonu bez pomijania podstawowych elementów;
-- guardrails wykrywają niedozwolone zależności i błędy rejestracji;
-- moduły mają udokumentowane zależności, konfigurację, dane, endpointy, workery i testy;
-- strategia runtime enablement jest oddzielona od wyboru kodu podczas generowania projektu;
-- migracje wspólnej bazy są deterministyczne i testowane;
-- wybrana strategia aktualizacji została sprawdzona na więcej niż jednym projekcie;
-- dokumentacja jasno wskazuje, które elementy są obowiązkowym rdzeniem, a które opcjonalnymi modułami;
-- zmierzony czas potwierdza, że automatyzacja daje wartość większą niż jej koszt utrzymania.
+## Definition of Done V8.0
+
+- istnieją dwa sprawdzone warianty niezależnego projektu (`Minimal` i `Full`);
+- nowy query albo command można utworzyć z kanonicznego generatora;
+- wygenerowany skeleton zawiera request, handler, adapter HTTP, test jednostkowy,
+  test integracyjny i manifest;
+- guardrails wykrywają brak handlera, duplikat handlera, brak rejestracji
+  composition root, brak `ISender` w kontrolerze i zależność `Domain` od MediatR;
+- runtime enablement jest odróżnione od wyboru kodu podczas generowania projektu;
+- source-template, wersja i polityka `regenerate-and-review` są jawne;
+- proof obu consumerów przechodzi restore, Release build, testy backendu i
+  frontend build bez ręcznej korekty;
+- dokumentacja jasno wskazuje, co jest rdzeniem, co wariantem opcjonalnym, a co
+  decyzją biznesową konsumenta;
+- ograniczenia (brak wall-clock manualnego workflowu, brak pakietów NuGet i brak
+  automatycznych migracji) są zapisane jako świadome decyzje, a nie ukryte braki.
+
+## Następny krok po V8.0
+
+V8.1 powinien rozpocząć się dopiero po realnym użyciu template'u w co najmniej
+kilku nowych slice'ach. Wtedy warto zmierzyć wall-clock ręcznego workflowu,
+sprawdzić czy source-copy nadal wystarcza i dopiero na tej podstawie ocenić
+`dotnet new`, pakiety albo kontrolowane aktualizacje modułów. Nie należy dodawać
+ich tylko po to, aby sztucznie zwiększyć zakres wydania V8.0.
 
 ## Poza zakresem V8
 

@@ -37,8 +37,9 @@ Use a hybrid modular monolith:
 - the canonical manual workflow is documented in `doc/ADDING_FEATURES.md`;
 - a slice contains only the application, HTTP, persistence and test elements needed
   by that use case; structural symmetry is not a requirement;
-- manual registration through the module entry point remains explicit until measured
-  repetition justifies scaffolding;
+- manual registration through the module entry point remains explicit in production;
+  V8.0 scaffolding only creates the technical slice skeleton and does not replace
+  module-owned registration or domain decisions;
 - generator and `dotnet new` work remain V8 concerns and must not block current
   product slices.
 

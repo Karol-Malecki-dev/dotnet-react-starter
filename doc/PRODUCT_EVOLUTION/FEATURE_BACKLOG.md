@@ -129,7 +129,9 @@ rejestracji, przez co łatwo pominąć kontrakt, walidację albo test.
 porównania z dispatchingiem MediatR.
 
 **Granica pierwszej wersji:** dokumentowana ścieżka command/query, istniejące slice'y
-referencyjne, modułowa checklista oraz pomiar czasu i ręcznych kroków. Bez generatora.
+referencyjne, modułowa checklista oraz pomiar strukturalnego kosztu i ręcznych
+kroków. V8.0 dodaje cienki generator dopiero po potwierdzeniu tego baseline'u; nie
+jest on częścią automatyzacji domenowej.
 
 **Dowody akceptacji:** następny command i query powstają według instrukcji, przechodzą
 guardrails DI/route/dependency, a zebrany pomiar wskazuje realne źródła tarcia.
