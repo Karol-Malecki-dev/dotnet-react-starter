@@ -121,6 +121,21 @@ migracji „na zapas”. Aktualizacje consumerów są jawne i działają według
 projektu. Pełny proof V8 znajduje się w
 [`V8_RELEASE_GATE.md`](V8_RELEASE_GATE.md).
 
+## AI Instructions
+
+The repository and V8-generated consumers share a portable AI workflow baseline:
+
+- `.github/copilot-instructions.md` contains project-wide engineering rules;
+- `.github/instructions/backend.instructions.md` applies backend-specific rules
+  to `backend/**/*`;
+- generated consumers receive the same files from the V8 template;
+- these files must not contain personal profiles, model preferences, or other
+  user-specific history.
+
+Keep personal Copilot preferences in user-level tooling configuration rather than
+in the repository. If a project needs additional rules, add only technical rules
+that are specific to that project's codebase.
+
 ## Adding a New Frontend Feature
 
 Jeśli dodajesz nowy feature po stronie UI:

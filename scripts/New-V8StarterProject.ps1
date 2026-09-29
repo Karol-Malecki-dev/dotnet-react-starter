@@ -125,6 +125,7 @@ This project was generated from the repository's bounded V8 consumer template.
 The template demonstrates the supported project composition and MediatR slice
 boundary. It does not invent domain rules, persistence models, authorization
 policies, or migrations.
+It also includes the portable project and backend AI workflow under `.github`.
 
 Run the backend checks from `backend`:
 
