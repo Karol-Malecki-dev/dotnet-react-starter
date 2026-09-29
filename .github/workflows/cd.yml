@@ -101,7 +101,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=backend
 
       - name: Scan backend image
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
         with:
           image-ref: ${{ steps.meta.outputs.backend_image }}:${{ steps.meta.outputs.image_tag }}
           format: table
@@ -126,7 +126,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=frontend
 
       - name: Scan frontend image
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
         with:
           image-ref: ${{ steps.meta.outputs.frontend_image }}:${{ steps.meta.outputs.image_tag }}
           format: table
