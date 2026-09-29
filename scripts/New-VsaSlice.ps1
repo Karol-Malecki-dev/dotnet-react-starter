@@ -207,7 +207,7 @@ $manifestHistoryPath = Join-Path `
 
 if (-not $Force.IsPresent) {
     $outputPaths = @($files | ForEach-Object { Join-Path $resolvedRoot $_.Path }) `
-        + @($manifestPath, $manifestHistoryPath)
+        + @($manifestHistoryPath)
     $existingPaths = @($outputPaths | Where-Object { Test-Path -LiteralPath $_ })
 
     if ($existingPaths.Count -gt 0) {
@@ -235,10 +235,11 @@ $manifest = [ordered]@{
 }
 
 $manifestContent = $manifest | ConvertTo-Json -Depth 5
+# Keep the compatibility manifest as the latest slice; durable history is per-slice.
 Write-GeneratedFile `
     -Path $manifestPath `
     -Content $manifestContent `
-    -Overwrite $Force.IsPresent
+    -Overwrite $true
 
 Write-GeneratedFile `
     -Path $manifestHistoryPath `

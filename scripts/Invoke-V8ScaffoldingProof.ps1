@@ -71,6 +71,55 @@ foreach ($variant in @("Minimal", "Full")) {
         throw "Generated $variant variant leaked source template variants into its output."
     }
 
+    $instructionPaths = @(
+        ".github\copilot-instructions.md",
+        ".github\instructions\backend.instructions.md"
+    )
+    foreach ($instructionPath in $instructionPaths) {
+        $sourceInstructionPath = Join-Path $repositoryRoot $instructionPath
+        $generatedInstructionPath = Join-Path $variantPath $instructionPath
+
+        if (-not (Test-Path -LiteralPath $generatedInstructionPath -PathType Leaf)) {
+            throw "Generated $variant variant is missing '$instructionPath'."
+        }
+
+        $sourceInstruction = [System.IO.File]::ReadAllText($sourceInstructionPath)
+        $generatedInstruction = [System.IO.File]::ReadAllText($generatedInstructionPath)
+        if ($sourceInstruction -cne $generatedInstruction) {
+            throw "Generated $variant variant instruction '$instructionPath' differs from the repository baseline."
+        }
+    }
+
+    $instructionFiles = @(
+        (Join-Path $repositoryRoot ".github\copilot-instructions.md"),
+        (Join-Path $repositoryRoot ".github\instructions\backend.instructions.md"),
+        (Join-Path $variantPath ".github\copilot-instructions.md"),
+        (Join-Path $variantPath ".github\instructions\backend.instructions.md")
+    )
+    $privateInstructionPatterns = @(
+        "GPT-\d",
+        "(?i)user profile",
+        "(?i)model preference",
+        "(?i)learning history",
+        "(?i)profil użytkownika",
+        "(?i)preferencje modelu",
+        "(?i)użytkownik uczy"
+    )
+    foreach ($instructionFile in $instructionFiles) {
+        $instructionContent = [System.IO.File]::ReadAllText($instructionFile)
+        foreach ($privateInstructionPattern in $privateInstructionPatterns) {
+            if ($instructionContent -match $privateInstructionPattern) {
+                throw "Instruction file '$instructionFile' contains a private or user-specific pattern."
+            }
+        }
+    }
+
+    $backendInstructionContent = [System.IO.File]::ReadAllText(
+        (Join-Path $variantPath ".github\instructions\backend.instructions.md"))
+    if ($backendInstructionContent -notmatch '(?m)^applyTo:\s*"backend/\*\*/\*"\s*$') {
+        throw "Generated $variant variant backend instruction has an invalid applyTo value."
+    }
+
     Push-Location (Join-Path $variantPath "backend")
     try {
         dotnet restore backend.slnx
