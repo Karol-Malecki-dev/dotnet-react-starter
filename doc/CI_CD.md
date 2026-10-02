@@ -57,6 +57,11 @@ wyłącznie na loopback VPS i jest osiągany przez przypięty tunel SSH. Po wali
 z VPS i publikuje artefakt `v5-staging-evidence-<commit-sha>` z checksumowanym dowodem
 automatycznych kontroli. Produkcja nie jest wdrażana automatycznie.
 
+Przed publikacją każdy obraz jest skanowany przez przypięty obraz Trivy. Skanowanie obejmuje
+podatności `HIGH` i `CRITICAL`, pomija podatności bez dostępnej poprawki i kończy job błędem,
+jeżeli znajdzie podatność spełniającą te kryteria. Obraz aplikacji jest eksportowany do lokalnego
+archiwum Docker, więc skaner nie potrzebuje dostępu do gniazda Docker daemona.
+
 ## Bezpieczeństwo
 
 - `GITHUB_TOKEN` jest używany tylko do logowania do GHCR;

@@ -41,6 +41,7 @@ concurrency:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAMESPACE: ${{ github.repository_owner }}
+  TRIVY_IMAGE: aquasec/trivy@sha256:a22415a38938a56c379387a8163fcb0ce38b10ace73e593475d3658d578b2436 # v0.65.0
 
 jobs:
   publish:
@@ -67,6 +68,13 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare Trivy scanner
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/trivy-cache"
+          docker pull "$TRIVY_IMAGE"
 
       - name: Prepare immutable image metadata
         id: meta
@@ -101,13 +109,23 @@ jobs:
           cache-to: type=gha,mode=max,scope=backend
 
       - name: Scan backend image
-        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
-        with:
-          image-ref: ${{ steps.meta.outputs.backend_image }}:${{ steps.meta.outputs.image_tag }}
-          format: table
-          exit-code: 1
-          ignore-unfixed: true
-          severity: HIGH,CRITICAL
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="${{ steps.meta.outputs.backend_image }}:${{ steps.meta.outputs.image_tag }}"
+          archive="$RUNNER_TEMP/backend-image.tar"
+          trap 'rm -f "$archive"' EXIT
+
+          docker save --output "$archive" "$image"
+          docker run --rm \
+            --mount "type=bind,source=$archive,target=/image.tar,readonly" \
+            --mount "type=bind,source=$RUNNER_TEMP/trivy-cache,target=/root/.cache/trivy" \
+            "$TRIVY_IMAGE" \
+            image --input /image.tar \
+              --format table \
+              --exit-code 1 \
+              --ignore-unfixed \
+              --severity HIGH,CRITICAL
 
       - name: Build frontend image for scanning
         uses: docker/build-push-action@v6
@@ -126,13 +144,23 @@ jobs:
           cache-to: type=gha,mode=max,scope=frontend
 
       - name: Scan frontend image
-        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
-        with:
-          image-ref: ${{ steps.meta.outputs.frontend_image }}:${{ steps.meta.outputs.image_tag }}
-          format: table
-          exit-code: 1
-          ignore-unfixed: true
-          severity: HIGH,CRITICAL
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="${{ steps.meta.outputs.frontend_image }}:${{ steps.meta.outputs.image_tag }}"
+          archive="$RUNNER_TEMP/frontend-image.tar"
+          trap 'rm -f "$archive"' EXIT
+
+          docker save --output "$archive" "$image"
+          docker run --rm \
+            --mount "type=bind,source=$archive,target=/image.tar,readonly" \
+            --mount "type=bind,source=$RUNNER_TEMP/trivy-cache,target=/root/.cache/trivy" \
+            "$TRIVY_IMAGE" \
+            image --input /image.tar \
+              --format table \
+              --exit-code 1 \
+              --ignore-unfixed \
+              --severity HIGH,CRITICAL
 
       - name: Publish commit-tagged images
         shell: bash
