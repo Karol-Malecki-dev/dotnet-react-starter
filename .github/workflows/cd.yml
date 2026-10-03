@@ -96,7 +96,7 @@ jobs:
           echo "frontend_image=$frontend_image" >> "$GITHUB_OUTPUT"
 
       - name: Build backend image for scanning
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./backend
           file: ./backend/Dockerfile
@@ -128,7 +128,7 @@ jobs:
               --severity HIGH,CRITICAL
 
       - name: Build frontend image for scanning
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./frontend
           file: ./frontend/Dockerfile
