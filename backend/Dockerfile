@@ -1,5 +1,5 @@
 # Stage 1: Builder - Kompilacja aplikacji
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS builder
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS builder
 
 # Ustawiamy folder roboczy w kontenerze
 WORKDIR /app
