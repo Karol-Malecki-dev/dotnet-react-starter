@@ -1,5 +1,5 @@
 # Stage 1: Builder - Budowanie aplikacji React
-FROM node:22-alpine AS builder
+FROM node:26-alpine AS builder
 
 # Ustawiamy folder roboczy
 WORKDIR /app
