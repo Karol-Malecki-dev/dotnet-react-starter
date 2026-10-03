@@ -23,7 +23,7 @@ RUN npm run build
 
 
 # Stage 2: Runtime - Serwowanie aplikacji za pomocą Nginx
-FROM nginx:1.28-alpine
+FROM nginx:1.31-alpine
 
 # Kopiujemy konfigurację nginx (będzie w docker/nginx.conf)
 COPY docker/nginx.conf /etc/nginx/nginx.conf
