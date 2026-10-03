@@ -1,5 +1,5 @@
 using Application.DTOs.Auth;
-using Application.Features.Projects;
+using Application.Modules.Projects.Shared;
 using API.Contracts.Projects;
 using Domain.Entities;
 using Domain.Enums;

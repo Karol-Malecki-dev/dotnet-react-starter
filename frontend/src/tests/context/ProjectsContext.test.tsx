@@ -1,10 +1,10 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
-import { ProjectsProvider, useProjects } from '../../context/ProjectsContext';
-import { projectApi } from '../../services/api/ProjectApi';
+import { ProjectsProvider, useProjects } from '../../features/projects/context/ProjectsContext';
+import { projectApi } from '../../features/projects/api/ProjectApi';
 import { ProjectTaskPriority, ProjectTaskStatus } from '../../types';
 
-vi.mock('../../services/api/ProjectApi', () => ({
+vi.mock('../../features/projects/api/ProjectApi', () => ({
   projectApi: {
     getProjects: vi.fn(),
     getTasks: vi.fn(),

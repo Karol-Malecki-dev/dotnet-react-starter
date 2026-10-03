@@ -1,4 +1,4 @@
-using Application.Features.Projects;
+using Application.Modules.Projects.Shared;
 using Application.Modules.Projects.ListAvailableProjectMembers;
 using Infrastructure.Modules.Projects.ListAvailableProjectMembers;
 using Moq;

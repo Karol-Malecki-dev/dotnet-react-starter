@@ -1,6 +1,6 @@
-using Application.Features.ProjectManagement.Tasks;
+using Application.Modules.ProjectTasks.Shared;
 using MediatR;
-using Application.Features.Projects;
+using Application.Modules.Projects.Shared;
 
 namespace Application.Modules.ProjectTasks.DeleteProjectTask;
 

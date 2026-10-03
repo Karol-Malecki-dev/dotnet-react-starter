@@ -1,9 +1,9 @@
-using Application.Features.ProjectManagement.Tasks;
+using Application.Modules.ProjectTasks.Shared;
 using Domain.Entities;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
-namespace Infrastructure.ProjectManagement.Tasks;
+namespace Infrastructure.Modules.ProjectTasks.Commands;
 
 /// <summary>
 /// EF Core implementation of the persistence operations required by ProjectTask commands.

@@ -1,6 +1,6 @@
 using Application.DTOs.Notification;
-using Application.Features.ProjectManagement.Tasks;
-using Application.Features.Projects;
+using Application.Modules.ProjectTasks.Shared;
+using Application.Modules.Projects.Shared;
 using Application.Modules.Notifications.Commands;
 using Application.Modules.Notifications.GetEmailPreference;
 using Application.Modules.Notifications.GetUnreadCount;

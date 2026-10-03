@@ -36,15 +36,20 @@ Najważniejszy punkt startowy backendu:
 
 ## Frontend Structure
 
-Frontend jest zorganizowany według odpowiedzialności:
+Frontend jest zorganizowany według odpowiedzialności, a większe obszary biznesowe
+mają własne slice'y:
 
+- `src/features/<feature>/` - lokalny API client, context, typy, strony i komponenty feature'a
 - `src/components/` - reużywalne komponenty UI i shell aplikacji
 - `src/context/` - globalny stan, np. auth i runtime config
 - `src/hooks/` - hooki opakowujące logikę dostępu do contextu i feature flags
-- `src/pages/` - komponenty stron i ekranów
-- `src/services/` - warstwa komunikacji z backendem
-- `src/types/` - kontrakty TypeScript dla requestów, response i stanu
+- `src/services/` - współdzielona infrastruktura komunikacji z backendem
+- `src/types/` - kontrakty TypeScript współdzielone przez wiele feature'ów
 - `src/utils/` - walidacja i pomocnicza logika frontendu
+
+Przykładowo `src/features/projects/` zawiera API, context, strony,
+komponenty i typy projektów. Nowy kod feature'a powinien trafić do jego slice'a;
+do katalogów globalnych dodawaj tylko elementy rzeczywiście współdzielone.
 
 Najważniejszy punkt startowy frontendu:
 

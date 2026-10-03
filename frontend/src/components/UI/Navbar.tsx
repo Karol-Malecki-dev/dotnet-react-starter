@@ -3,7 +3,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useFeatureAvailability } from '../../hooks/useFeatureAvailability';
 import { QuickSearchBar, type QuickSearchItem } from './QuickSearchBar';
 import { NotificationBell } from './NotificationBell';
-import { projectApi } from '../../services/api/ProjectApi';
+import { projectApi } from '../../features/projects';
 
 export function Navbar() {
   const { isAuthenticated, user, logout } = useAuth();

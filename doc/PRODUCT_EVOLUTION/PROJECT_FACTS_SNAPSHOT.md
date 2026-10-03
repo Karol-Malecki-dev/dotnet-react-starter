@@ -56,7 +56,7 @@ produkcyjnej ani rekomendacją implementacji.
 - `frontend/src/App.tsx`
 - `frontend/src/components/AppRoutes.tsx`
 - `frontend/src/context/AuthContext.tsx`
-- `frontend/src/context/ProjectsContext.tsx`
+- `frontend/src/features/projects/context/ProjectsContext.tsx`
 - `frontend/src/context/NotificationsContext.tsx`
 
 ## 2. Model domeny
@@ -111,10 +111,10 @@ produkcyjnej ani rekomendacją implementacji.
 
 Źródła:
 
-- `backend/Domain/Entities/Project.cs`
-- `backend/Domain/Entities/ProjectTask.cs`
+- `backend/Domain/Entities/Projects/Project.cs`
+- `backend/Domain/Entities/ProjectTasks/ProjectTask.cs`
 - `backend/Domain/Entities/User.cs`
-- `backend/Domain/Entities/ProjectMember.cs`
+- `backend/Domain/Entities/Projects/ProjectMember.cs`
 
 ## 3. Tożsamość i autoryzacja
 
@@ -346,7 +346,7 @@ i `TaskOverdue`.
 
 - `backend/Domain/Entities/Notification.cs`
 - `backend/Domain/Entities/NotificationEmailOutboxMessage.cs`
-- `backend/Domain/Entities/ProjectActivity.cs`
+- `backend/Domain/Entities/Projects/ProjectActivity.cs`
 - `backend/Domain/Entities/AccountSecurityEvent.cs`
 - `backend/Infrastructure/Services/NotificationEmailOutboxWorker.cs`
 - `frontend/src/context/NotificationsContext.tsx`
@@ -380,8 +380,8 @@ Dla wybranych encji stempel jest konfigurowany jako `IsConcurrencyToken()`.
 
 Źródła:
 
-- `backend/Domain/Entities/Project.cs`
-- `backend/Domain/Entities/ProjectTask.cs`
+- `backend/Domain/Entities/Projects/Project.cs`
+- `backend/Domain/Entities/ProjectTasks/ProjectTask.cs`
 - `backend/Infrastructure/Data/Configurations/ProjectConfiguration.cs`
 - `backend/Infrastructure/Data/Configurations/ProjectTaskConfiguration.cs`
 - `backend/API/Contracts/Projects/ProjectRequests.cs`
@@ -438,10 +438,11 @@ Dla wybranych encji stempel jest konfigurowany jako `IsConcurrencyToken()`.
 - `/admin/users`
 - `/users` jako przekierowanie zależne od konfiguracji.
 
-### Widoki obecne w `frontend/src/pages`
+### Widoki obecne w `frontend/src/pages` i `frontend/src/features`
 
 - Home, Login, Register, ConfirmEmail, ForgotPassword, ResetPassword, VerifyTwoFactor;
-- Dashboard, Profile, Notifications, Projects, ProjectInvitation;
+- Dashboard, Profile, Notifications;
+- Projects i ProjectInvitation w `frontend/src/features/projects/pages/`;
 - AdminPanel, users/UserList, users/CreateUser, users/UpdateUser;
 - Forbidden i NotFound.
 

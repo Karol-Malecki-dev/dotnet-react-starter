@@ -10,14 +10,12 @@ import Login from '../pages/Login';
 import NotFound from '../pages/NotFound';
 import Notifications from '../pages/Notifications';
 import Profile from '../pages/Profile';
-import ProjectInvitation from '../pages/ProjectInvitation';
-import Projects from '../pages/Projects';
+import { ProjectInvitation, Projects, ProjectsProvider } from '../features/projects';
 import Register from '../pages/Register';
 import ResetPassword from '../pages/ResetPassword';
 import VerifyTwoFactor from '../pages/VerifyTwoFactor';
 import UserList from '../pages/users/UserList';
 import { ProtectedRoute } from './UI/ProtectedRoute';
-import { ProjectsProvider } from '../context/ProjectsContext';
 
 export function AppRoutes() {
   const { dashboardOverviewEnabled, projectsEnabled, adminNavigationEnabled, userManagementNavigationEnabled, emailTwoFactorEnabled } = useFeatureAvailability();

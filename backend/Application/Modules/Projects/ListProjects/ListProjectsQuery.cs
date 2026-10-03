@@ -1,4 +1,4 @@
-using Application.Features.Projects;
+using Application.Modules.Projects.Shared;
 using MediatR;
 
 namespace Application.Modules.Projects.ListProjects;

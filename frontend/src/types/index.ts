@@ -108,7 +108,7 @@ export {
   SortDirection,
   ProjectMemberRole,
   ProjectInvitationStatus,
-} from './project';
+} from '../features/projects/types';
 
 export type { WorkspaceSearchResponse, WorkspaceSearchPage, WorkspaceSearchResult } from './workspace';
 
@@ -148,7 +148,7 @@ export type {
   ProjectActivitiesResponse,
   ProjectDashboardDto,
   ProjectDashboardResponse,
-} from './project';
+} from '../features/projects/types';
 
 // Notification types
 export { NotificationType } from './notifications';
@@ -165,4 +165,3 @@ export type {
   GetNotificationEmailPreferenceResponse,
   UpdateNotificationEmailPreferenceResponse,
 } from './notifications';
-

@@ -1,7 +1,7 @@
 using Domain.Entities;
 using Domain.Enums;
 
-namespace Application.Features.ProjectManagement.Tasks;
+namespace Application.Modules.ProjectTasks.Shared;
 
 /// <summary>
 /// Provides the persistence-backed access checks required by ProjectTask use cases.

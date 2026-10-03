@@ -1,6 +1,6 @@
 using API.Contracts.Projects;
-using Application.Features.ProjectManagement.Tasks;
-using Application.Features.Projects;
+using Application.Modules.ProjectTasks.Shared;
+using Application.Modules.Projects.Shared;
 using Application.Modules.ProjectTasks.Attachments;
 using Application.Modules.ProjectTasks.Comments;
 using Microsoft.AspNetCore.Mvc;

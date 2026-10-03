@@ -1,5 +1,5 @@
 using API.Modules.Projects;
-using Application.Features.Projects;
+using Application.Modules.Projects.Shared;
 using Application.Modules.Projects.ArchiveProject;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
