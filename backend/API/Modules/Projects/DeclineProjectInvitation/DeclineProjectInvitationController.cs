@@ -1,5 +1,5 @@
 using API.Contracts.Projects;
-using Application.Features.Projects;
+using Application.Modules.Projects.Shared;
 using Application.Modules.Projects.DeclineProjectInvitation;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;

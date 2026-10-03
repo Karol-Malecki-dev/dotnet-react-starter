@@ -1,4 +1,4 @@
-using Application.Features.ProjectManagement.Tasks;
+using Application.Modules.ProjectTasks.Shared;
 
 namespace Application.Modules.ProjectTasks.Dashboard;
 

@@ -1,6 +1,6 @@
-using Application.Features.ProjectManagement.Tasks;
+using Application.Modules.ProjectTasks.Shared;
 using MediatR;
-using Application.Features.Projects;
+using Application.Modules.Projects.Shared;
 using Domain.Enums;
 
 namespace Application.Modules.ProjectTasks.UpdateProjectTaskStatus;

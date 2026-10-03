@@ -117,11 +117,14 @@ A generic message bus and cross-process broker remain separate decisions.
 ### Costs and limitations
 
 - Other business areas still use the older service style during migration.
-- Some shared task ports remain under the older `Application.Features` namespace.
+- The migrated project and task slices no longer use the legacy
+  `Application.Features` namespace; the architecture test prevents new types from
+  reintroducing it.
 - A central `DbContext` means EF configurations and migrations are not physically
   isolated yet.
-- The frontend remains organized by its current feature/service structure until the
-  backend slice contracts stabilize.
+- The projects workflow now has a feature slice under
+  `frontend/src/features/projects/`; other frontend areas can migrate incrementally
+  without changing the shared application shell.
 - Navigating one use case across technical assemblies has a learning cost.
 - DI registration is explicit and repetitive. The accepted MediatR adoption will
   centralize request dispatch while module entry points continue to own ports,

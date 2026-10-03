@@ -1,4 +1,4 @@
-using Application.Features.ProjectManagement.Tasks;
+using Application.Modules.ProjectTasks.Shared;
 using Application.Modules.ProjectTasks.ListProjectTasks;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;

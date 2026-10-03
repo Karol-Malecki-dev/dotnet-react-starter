@@ -1,4 +1,4 @@
-using Application.Features.Projects;
+using Application.Modules.Projects.Shared;
 using Application.Modules.Projects.ListProjectInvitations;
 using Infrastructure.Data;
 using Infrastructure.Modules.Projects.Invitations;

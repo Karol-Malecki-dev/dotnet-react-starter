@@ -1,6 +1,6 @@
 using Domain.Entities;
 
-namespace Application.Features.ProjectManagement.Tasks;
+namespace Application.Modules.ProjectTasks.Shared;
 
 /// <summary>
 /// Provides the persistence operations required by ProjectTask commands.

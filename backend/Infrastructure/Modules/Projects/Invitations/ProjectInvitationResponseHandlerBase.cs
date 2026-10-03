@@ -1,4 +1,4 @@
-using Application.Features.Projects;
+using Application.Modules.Projects.Shared;
 using Application.Modules.Projects.Invitations;
 using Domain.Entities;
 using Domain.Enums;

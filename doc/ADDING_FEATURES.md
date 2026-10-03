@@ -141,10 +141,13 @@ that are specific to that project's codebase.
 Jeśli dodajesz nowy feature po stronie UI:
 
 1. Ustal, czy to nowa strona, nowa sekcja istniejącej strony czy nowy komponent shella.
-2. Dodaj lub rozszerz typy w `frontend/src/types/`, jeśli zmienia się kontrakt z API.
-3. Dodaj lub rozszerz klienta API w `frontend/src/services/api/`.
-4. Dodaj schemat walidacji w `frontend/src/utils/`, jeśli feature ma formularz.
-5. Dodaj logikę do contextu lub hooka, jeśli stan ma być współdzielony.
+2. Utwórz `frontend/src/features/<feature>/` dla lokalnego API, typów, stanu,
+   stron i komponentów feature'a. `frontend/src/features/projects/` jest
+   przykładem takiego slice'a.
+3. Dodaj kontrakty do `frontend/src/features/<feature>/types.ts`; do
+   `frontend/src/types/` trafiają tylko typy współdzielone przez wiele feature'ów.
+4. Dodaj klienta API i stan do odpowiednio `api/` oraz `context/` wewnątrz slice'a.
+5. Dodaj schemat walidacji w `frontend/src/utils/`, jeśli feature ma formularz.
 6. Dodaj routing w `frontend/src/components/AppRoutes.tsx`, jeśli to nowy ekran.
 7. Dodaj testy komponentu, hooka lub routingu adekwatne do zmiany.
 
@@ -202,7 +205,8 @@ Kilka prostych reguł:
 
 Jeśli feature wymaga nowej tabeli:
 
-1. Dodaj encję w `backend/Domain/Entities/`.
+1. Dodaj encję w `backend/Domain/Entities/<BusinessArea>/`, np.
+   `backend/Domain/Entities/Projects/` albo `backend/Domain/Entities/ProjectTasks/`.
 2. Dodaj `DbSet` i konfigurację relacji w `ApplicationDbContext`.
 3. Wygeneruj migrację EF Core.
 4. Dodaj lub rozszerz serwis infrastrukturalny, który pracuje na tych danych.
@@ -221,8 +225,9 @@ Rekomendowany podział:
 1. Dla nowych slice'ów umieść kontrakty w
    `Application/Modules/<BusinessModule>/<UseCase>/`. Przykładowo
    `GetProjectDetails` należy do `Application/Modules/Projects/GetProjectDetails/`.
-   Istniejące, jeszcze nieprzeniesione przypadki mogą pozostać w
-   `Application/Features/<Feature>/`.
+   Kontrakty współdzielone przez kilka slice'ów trzymaj w
+   `Application/Modules/<BusinessModule>/Shared/`; nie twórz nowych globalnych
+   folderów `Features` ani dużych plików zawierających modele całego modułu.
 2. Reguły domenowe trzymaj w encji lub agregacie w `Domain/`.
 3. Zdefiniuj małe porty persistence opisujące konkretne potrzeby funkcji.
 4. Dla nowych slice'ów implementacje portów EF umieść w

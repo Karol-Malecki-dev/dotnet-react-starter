@@ -1,5 +1,5 @@
 using API.Contracts.Projects;
-using Application.Features.Projects;
+using Application.Modules.Projects.Shared;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Responses;
 using System.IdentityModel.Tokens.Jwt;

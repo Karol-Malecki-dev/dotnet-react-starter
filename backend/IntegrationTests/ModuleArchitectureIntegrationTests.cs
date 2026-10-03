@@ -92,6 +92,19 @@ public sealed class ModuleArchitectureIntegrationTests : IDisposable
         Assert.Empty(violations);
     }
 
+    [Fact]
+    public void Application_does_not_expose_legacy_features_namespace()
+    {
+        var applicationAssembly = typeof(GetProjectDashboardQuery).Assembly;
+        var legacyTypes = applicationAssembly.GetTypes()
+            .Where(type => type.Namespace?.StartsWith("Application.Features.", StringComparison.Ordinal) == true)
+            .Select(type => type.FullName!)
+            .OrderBy(value => value, StringComparer.Ordinal)
+            .ToList();
+
+        Assert.Empty(legacyTypes);
+    }
+
     public void Dispose()
     {
         _factory.Dispose();

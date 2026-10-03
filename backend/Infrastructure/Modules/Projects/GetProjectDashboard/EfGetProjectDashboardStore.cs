@@ -1,4 +1,4 @@
-using Application.Features.Projects;
+using Application.Modules.Projects.Shared;
 using Application.Modules.Projects.GetProjectDashboard;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;

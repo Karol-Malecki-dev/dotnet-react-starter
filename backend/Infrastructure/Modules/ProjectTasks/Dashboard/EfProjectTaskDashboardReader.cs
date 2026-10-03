@@ -1,4 +1,4 @@
-using Application.Features.ProjectManagement.Tasks;
+using Application.Modules.ProjectTasks.Shared;
 using Application.Modules.ProjectTasks.Dashboard;
 using Domain.Entities;
 using Domain.Enums;

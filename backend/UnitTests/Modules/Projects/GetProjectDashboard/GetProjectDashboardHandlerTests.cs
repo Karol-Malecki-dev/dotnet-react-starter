@@ -1,5 +1,5 @@
-using Application.Features.ProjectManagement.Tasks;
-using Application.Features.Projects;
+using Application.Modules.ProjectTasks.Shared;
+using Application.Modules.Projects.Shared;
 using Application.Modules.ProjectTasks.Dashboard;
 using Application.Modules.Projects.GetProjectDashboard;
 using Domain.Enums;

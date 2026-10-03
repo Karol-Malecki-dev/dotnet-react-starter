@@ -1,4 +1,4 @@
-using Application.Features.Projects;
+using Application.Modules.Projects.Shared;
 using Application.Modules.Projects.AcceptProjectInvitation;
 using Application.Modules.Projects.DeclineProjectInvitation;
 using Application.Modules.Projects.Invitations;

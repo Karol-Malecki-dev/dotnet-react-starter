@@ -7,7 +7,7 @@ This repository is a practical base for auth-heavy applications, admin dashboard
 ## Features
 
 - Clean Architecture backend split into `API`, `Application`, `Domain`, `Infrastructure`, and `Shared`
-- React + TypeScript frontend with protected routes, authenticated session handling, runtime feature gating, and a quick search shell
+- React + TypeScript frontend with protected routes, authenticated session handling, runtime feature gating, and feature-oriented UI slices
 - JWT access tokens with secure refresh-token rotation in HttpOnly cookies
 - Email confirmation and email-based 2FA during sign-in
 - Role-aware authorization for admin-only endpoints and views
@@ -16,6 +16,7 @@ This repository is a practical base for auth-heavy applications, admin dashboard
 - Dockerfiles for backend and frontend
 - Docker Compose setup with PostgreSQL, Mailpit for local email delivery, backend healthcheck, and frontend proxy-ready API routing
 - Unit, integration, and smoke/E2E test projects
+- Dependabot configuration for NuGet, npm, Docker images, and GitHub Actions
 - Swagger UI in development
 
 ## Current Stack
@@ -46,9 +47,14 @@ This repository is a practical base for auth-heavy applications, admin dashboard
 .
 ├── backend/
 │   ├── API/                  # Controllers, middleware, startup, auth configuration
-│   ├── Application/          # DTOs, services, validators, interfaces
-│   ├── Domain/               # Entities, enums, domain interfaces
-│   ├── Infrastructure/       # DbContext, repositories, infrastructure services
+│   ├── Application/          # Business modules, use cases, ports, and contracts
+│   │   └── Modules/          # Vertical slices grouped by business capability
+│   │       ├── Projects/     # Create, list, membership, invitations, and dashboard slices
+│   │       └── ProjectTasks/ # Task, comment, attachment, and reminder slices
+│   ├── Domain/               # Business areas, aggregates, entities, and value objects
+│   │   ├── Entities/Projects/
+│   │   └── Entities/ProjectTasks/
+│   ├── Infrastructure/       # DbContext, persistence adapters, infrastructure services
 │   ├── Shared/               # Shared responses, settings, helpers
 │   ├── UnitTests/            # Focused unit tests
 │   ├── IntegrationTests/     # Backend integration tests
@@ -56,13 +62,14 @@ This repository is a practical base for auth-heavy applications, admin dashboard
 ├── frontend/
 │   ├── public/
 │   └── src/
-│       ├── components/
-│       ├── context/
+│       ├── features/         # Feature slices: API, state, pages, components, and types
+│       │   └── projects/
+│       ├── components/        # Shared UI and application shell
+│       ├── context/           # Cross-feature state such as auth and runtime config
 │       ├── hooks/
-│       ├── pages/
-│       ├── services/
+│       ├── services/          # Shared infrastructure clients
 │       ├── tests/
-│       ├── types/
+│       ├── types/             # Cross-feature contracts
 │       └── utils/
 ├── docker/
 └── doc/
@@ -112,7 +119,8 @@ Use `RuntimeConfigProvider` and `useFeatureAvailability()` to read them from the
 
 ### Prerequisites
 
-- .NET 9 SDK
+- .NET 9 SDK (the repository uses `global.json`; local development can roll
+  forward to a newer installed SDK when .NET 9 is unavailable)
 - Node.js 20+
 - Docker Desktop with Compose support for containerized runs
 

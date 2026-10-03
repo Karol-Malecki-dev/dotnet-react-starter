@@ -1,14 +1,14 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import Projects from '../../pages/Projects';
-import { useProjects } from '../../context/ProjectsContext';
+import Projects from '../../features/projects/pages/Projects';
+import { useProjects } from '../../features/projects/context/ProjectsContext';
 import { useAuth } from '../../hooks/useAuth';
 import { useFeatureAvailability } from '../../hooks/useFeatureAvailability';
 import { ProjectMemberRole, ProjectTaskPriority, ProjectTaskStatus } from '../../types';
-import { projectApi } from '../../services/api';
+import { projectApi } from '../../features/projects/api/ProjectApi';
 
 import { vi } from 'vitest';
 
-vi.mock('../../context/ProjectsContext');
+vi.mock('../../features/projects/context/ProjectsContext');
 vi.mock('../../hooks/useAuth');
 vi.mock('../../hooks/useFeatureAvailability');
 
