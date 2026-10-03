@@ -20,7 +20,7 @@ RUN dotnet publish API/API.csproj -c Release -o /app/publish --no-restore
 
 
 # Stage 2: Runtime - Uruchomienie aplikacji
-FROM mcr.microsoft.com/dotnet/aspnet:9.0
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
 
 # Ustawiamy folder roboczy
 WORKDIR /app
