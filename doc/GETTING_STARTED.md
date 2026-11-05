@@ -10,7 +10,7 @@ Czytaj ten plik, gdy konfigurujesz środowisko lokalne, uruchamiasz projekt po r
 
 Do uruchomienia projektu lokalnie potrzebujesz:
 
-- .NET 9 SDK
+- .NET 10 SDK
 - Node.js 24 LTS+
 - Docker Desktop z Docker Compose, jeśli uruchamiasz pełny stack w kontenerach
 - PostgreSQL lokalnie albo PostgreSQL uruchomionego przez Docker Compose

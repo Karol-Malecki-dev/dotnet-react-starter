@@ -16,7 +16,7 @@ Uruchamia się dla:
 CI składa się z czterech jobów:
 
 1. **Backend build and tests**
-   - instaluje .NET 9;
+   - instaluje .NET 10;
    - przywraca paczki NuGet;
    - buduje `backend/backend.slnx` w konfiguracji Release;
    - uruchamia testy jednostkowe i integracyjne;
