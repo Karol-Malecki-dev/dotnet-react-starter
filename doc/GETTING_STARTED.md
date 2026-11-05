@@ -11,7 +11,7 @@ Czytaj ten plik, gdy konfigurujesz środowisko lokalne, uruchamiasz projekt po r
 Do uruchomienia projektu lokalnie potrzebujesz:
 
 - .NET 9 SDK
-- Node.js 20+
+- Node.js 22+
 - Docker Desktop z Docker Compose, jeśli uruchamiasz pełny stack w kontenerach
 - PostgreSQL lokalnie albo PostgreSQL uruchomionego przez Docker Compose
 
@@ -28,8 +28,11 @@ Frontend używa publicznych wartości build-time z prefiksem `VITE_`.
 Dla lokalnego uruchomienia frontendu względem API ustaw w `frontend/.env.development.local`:
 
 ```text
-VITE_API_URL=http://localhost:5000
+VITE_API_URL=http://localhost:5031
 ```
+
+Use `http://localhost:5000` when the API is running through the root Docker
+Compose stack instead of the standalone `dotnet run` profile.
 
 Dla frontendu za nginx reverse proxy użyj:
 
@@ -142,8 +145,10 @@ Gdy aplikacja nie startuje, sprawdź kolejno:
 
 1. czy Docker, PostgreSQL, .NET SDK i Node.js są dostępne
 2. czy backend ma poprawne sekrety i connection string
-3. czy API odpowiada pod `http://localhost:5000/health/live`
-4. czy baza jest gotowa pod `http://localhost:5000/health/ready`
+3. czy API odpowiada pod `http://localhost:5031/health/live` (standalone) albo
+   `http://localhost:5000/health/live` (Compose)
+4. czy baza jest gotowa pod `http://localhost:5031/health/ready` (standalone)
+   albo `http://localhost:5000/health/ready` (Compose)
 5. czy frontend używa właściwego `VITE_API_URL`
 6. logi kontenerów albo terminala procesu, który nie wystartował
 
