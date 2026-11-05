@@ -175,7 +175,8 @@ Najważniejsza zmienna:
 
 Przykłady:
 
-- local frontend do local backendu: `http://localhost:5000`
+- standalone frontend do standalone backendu: `http://localhost:5031`
+- frontend uruchomiony za rootowym Docker Compose: `http://localhost:5000`
 - Docker/nginx reverse proxy: `/api`
 
 Nigdy nie wkładaj sekretów do `VITE_*`.
