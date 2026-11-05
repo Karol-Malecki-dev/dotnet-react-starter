@@ -25,6 +25,9 @@ RUN npm run build
 # Stage 2: Runtime - Serwowanie aplikacji za pomocą Nginx
 FROM nginx:1.29-alpine
 
+# Keep the shipped Alpine packages at their patched repository versions.
+RUN apk upgrade --no-cache
+
 # Kopiujemy konfigurację nginx (będzie w docker/nginx.conf)
 COPY docker/nginx.conf /etc/nginx/nginx.conf
 
