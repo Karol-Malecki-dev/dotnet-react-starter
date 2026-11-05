@@ -1,5 +1,5 @@
 # Stage 1: Builder - Kompilacja aplikacji
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS builder
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS builder
 
 # Ustawiamy folder roboczy w kontenerze
 WORKDIR /app
@@ -20,7 +20,7 @@ RUN dotnet publish API/API.csproj -c Release -o /app/publish --no-restore
 
 
 # Stage 2: Runtime - Uruchomienie aplikacji
-FROM mcr.microsoft.com/dotnet/aspnet:9.0
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
 
 # Ustawiamy folder roboczy
 WORKDIR /app
@@ -28,6 +28,7 @@ WORKDIR /app
 # Docker Desktop can report a clock behind Debian metadata; keep expiry checks
 # enabled and ignore only the local clock check needed to install curl.
 RUN apt-get -o Acquire::Check-Date=false update \
+	&& apt-get upgrade -y --no-install-recommends \
 	&& apt-get install -y --no-install-recommends curl \
 	&& rm -rf /var/lib/apt/lists/*
 
