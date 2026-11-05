@@ -16,14 +16,14 @@ Uruchamia się dla:
 CI składa się z czterech jobów:
 
 1. **Backend build and tests**
-   - instaluje .NET 9;
+   - instaluje .NET 10;
    - przywraca paczki NuGet;
    - buduje `backend/backend.slnx` w konfiguracji Release;
    - uruchamia testy jednostkowe i integracyjne;
    - zapisuje pliki `.trx` jako artefakt.
 
 2. **Frontend build and tests**
-   - instaluje Node.js 22;
+   - instaluje Node.js 24;
    - wykonuje `npm ci`, czyli instalację dokładnie według lockfile;
    - uruchamia `npm run test:once`;
    - uruchamia `npm run build`.
