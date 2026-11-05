@@ -23,7 +23,7 @@ CI składa się z czterech jobów:
    - zapisuje pliki `.trx` jako artefakt.
 
 2. **Frontend build and tests**
-   - instaluje Node.js 22;
+   - instaluje Node.js 24;
    - wykonuje `npm ci`, czyli instalację dokładnie według lockfile;
    - uruchamia `npm run test:once`;
    - uruchamia `npm run build`.

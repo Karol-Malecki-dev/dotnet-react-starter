@@ -264,7 +264,7 @@ npm run build
 Set-Location ..
 ```
 
-Node.js 22 is the CI/container baseline. Avoid upgrading packages as a
+Node.js 24 is the CI/container baseline. Avoid upgrading packages as a
 diagnostic shortcut; first capture the actual TypeScript, Vite, or test error.
 
 ## Production and staging
