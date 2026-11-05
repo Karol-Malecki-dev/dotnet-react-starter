@@ -1,6 +1,24 @@
 @API_HostAddress = http://localhost:5031
+@access_token = replace-with-a-development-access-token
 
-GET {{API_HostAddress}}/weatherforecast/
+GET {{API_HostAddress}}/health
 Accept: application/json
+
+###
+
+GET {{API_HostAddress}}/health/live
+Accept: application/json
+
+###
+
+GET {{API_HostAddress}}/api/runtime-config
+Accept: application/json
+
+###
+
+# Uncomment and replace the token after a successful login.
+GET {{API_HostAddress}}/api/auth/me
+Accept: application/json
+Authorization: Bearer {{access_token}}
 
 ###
