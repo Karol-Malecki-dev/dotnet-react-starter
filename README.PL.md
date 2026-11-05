@@ -127,7 +127,7 @@ autoryzacji i dostępności feature'ów.
 | Testy | xUnit, Moq, Testcontainers dla PostgreSQL, smoke testy Playwright |
 
 Repozytorium przypina SDK .NET przez [global.json](global.json). CI i obrazy
-kontenerowe korzystają z Node.js 22.
+kontenerowe korzystają z Node.js 24 LTS.
 
 ## Struktura repozytorium
 
@@ -162,7 +162,7 @@ kontenerowe korzystają z Node.js 22.
 
 - Git;
 - .NET 9 SDK;
-- Node.js 22 lub nowszy;
+- Node.js 24 LTS lub nowszy;
 - Docker Desktop albo Docker Engine z pluginem Compose.
 
 ### Zalecane: uruchomienie pełnego lokalnego stacku

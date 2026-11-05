@@ -126,7 +126,7 @@ authorization and feature availability.
 | Testing | xUnit, Moq, Testcontainers for PostgreSQL, Playwright smoke tests |
 
 The repository pins the .NET SDK through
-[global.json](global.json). The CI and container builds use Node.js 22.
+[global.json](global.json). The CI and container builds use Node.js 24 LTS.
 
 ## Repository structure
 
@@ -161,7 +161,7 @@ The repository pins the .NET SDK through
 
 - Git;
 - .NET 9 SDK;
-- Node.js 22 or newer;
+- Node.js 24 LTS or newer;
 - Docker Desktop or Docker Engine with the Compose plugin.
 
 ### Recommended: run the complete local stack
